@@ -1,0 +1,8 @@
+# Inference configuration
+# Example YAML format:
+# model:
+#   checkpoint: "models/best_model.pt"
+# 
+# inference:
+#   batch_size: 16
+#   max_length: 512
