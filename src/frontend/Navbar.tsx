@@ -22,22 +22,36 @@ export default function Navbar() {
 
   return (
     <nav className="navbar" style={style}>
-      <span className="navbar-logo">📚 Sách Nói AI</span>
-      <ul className="navbar-links">
-        {LINKS.map((link) => (
-          <li key={link.to}>
-            <NavLink
-              to={link.to}
-              end={link.to === "/"}
-              className={({ isActive }) =>
-                isActive ? "nav-item active" : "nav-item"
-              }
-            >
-              {link.label}
-            </NavLink>
-          </li>
-        ))}
-      </ul>
+      <span className="navbar-logo">
+        <span className="logo-dot" aria-hidden="true" />
+        <span className="logo-main">Sách Nói</span>
+        <span className="logo-ai">AI</span>
+      </span>
+      <div className="navbar-center">
+        <div className="navbar-search-wrap">
+          <span className="navbar-search-icon">🔎</span>
+          <input
+            type="text"
+            className="navbar-search-input"
+            placeholder="Tìm nội dung sách nói, tin tức..."
+          />
+        </div>
+        <ul className="navbar-links">
+          {LINKS.map((link) => (
+            <li key={link.to}>
+              <NavLink
+                to={link.to}
+                end={link.to === "/"}
+                className={({ isActive }) =>
+                  isActive ? "nav-item active" : "nav-item"
+                }
+              >
+                {link.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </div>
     </nav>
   );
 }
