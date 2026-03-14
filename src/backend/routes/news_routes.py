@@ -1,12 +1,18 @@
 # News Routes/Controllers
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.orm import Session
 from typing import Optional
-import math
 
+from ..controllers.news_controller import NewsController
 from ..database import get_db
-from ..services.news_service import NewsService
-from ..schemas.news_schema import NewsCreate, NewsUpdate, NewsListResponse, LikeRequest
+from ..middleware.news_middleware import (
+    require_news_by_id,
+    require_news_by_slug,
+    validate_create_news_payload,
+    validate_update_news_payload,
+)
+from ..models.news import News
+from ..schemas.news_schema import NewsCreate, NewsUpdate, LikeRequest
 
 router = APIRouter(prefix="/news", tags=["News"])
 
@@ -22,32 +28,16 @@ def get_news_list(
     db: Session = Depends(get_db)
 ):
     """Get all news with pagination and filter options"""
-    try:
-        news_list, total = NewsService.get_all(
-            db=db,
-            page=page,
-            limit=limit,
-            status=status,
-            category_id=category_id,
-            is_featured=is_featured,
-            is_trending=is_trending,
-            search=search
-        )
-        
-        total_pages = math.ceil(total / limit)
-        
-        return {
-            "success": True,
-            "data": [news.to_dict(include_content=False) for news in news_list],
-            "pagination": {
-                "page": page,
-                "limit": limit,
-                "total": total,
-                "total_pages": total_pages
-            }
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return NewsController.get_news_list(
+        db=db,
+        page=page,
+        limit=limit,
+        status=status,
+        category_id=category_id,
+        is_featured=is_featured,
+        is_trending=is_trending,
+        search=search,
+    )
 
 @router.get("/featured", response_model=dict)
 def get_featured_news(
@@ -55,15 +45,7 @@ def get_featured_news(
     db: Session = Depends(get_db)
 ):
     """Get featured news for homepage"""
-    try:
-        news_list = NewsService.get_featured(db, limit=limit)
-        return {
-            "success": True,
-            "data": [news.to_dict(include_content=False) for news in news_list],
-            "count": len(news_list)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return NewsController.get_featured_news(db=db, limit=limit)
 
 @router.get("/trending", response_model=dict)
 def get_trending_news(
@@ -71,15 +53,7 @@ def get_trending_news(
     db: Session = Depends(get_db)
 ):
     """Get trending news"""
-    try:
-        news_list = NewsService.get_trending(db, limit=limit)
-        return {
-            "success": True,
-            "data": [news.to_dict(include_content=False) for news in news_list],
-            "count": len(news_list)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return NewsController.get_trending_news(db=db, limit=limit)
 
 @router.get("/latest", response_model=dict)
 def get_latest_news(
@@ -87,126 +61,56 @@ def get_latest_news(
     db: Session = Depends(get_db)
 ):
     """Get latest news"""
-    try:
-        news_list = NewsService.get_latest(db, limit=limit)
-        return {
-            "success": True,
-            "data": [news.to_dict(include_content=False) for news in news_list],
-            "count": len(news_list)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return NewsController.get_latest_news(db=db, limit=limit)
 
 @router.get("/{news_id}", response_model=dict)
-def get_news_detail(news_id: int, db: Session = Depends(get_db)):
+def get_news_detail(
+    news: News = Depends(require_news_by_id),
+    db: Session = Depends(get_db),
+):
     """Get news detail by ID (auto-increment view count)"""
-    news = NewsService.get_by_id(db, news_id)
-    if not news:
-        raise HTTPException(status_code=404, detail="News not found")
-    
-    # Increment view count
-    NewsService.increment_view(db, news_id)
-    
-    return {
-        "success": True,
-        "data": news.to_dict(include_content=True)
-    }
+    return NewsController.get_news_detail(db=db, news=news)
 
 @router.get("/slug/{slug}", response_model=dict)
-def get_news_by_slug(slug: str, db: Session = Depends(get_db)):
+def get_news_by_slug(
+    news: News = Depends(require_news_by_slug),
+    db: Session = Depends(get_db),
+):
     """Get news detail by slug (auto-increment view count)"""
-    news = NewsService.get_by_slug(db, slug)
-    if not news:
-        raise HTTPException(status_code=404, detail="News not found")
-    
-    # Increment view count
-    NewsService.increment_view(db, news.id)
-    
-    return {
-        "success": True,
-        "data": news.to_dict(include_content=True)
-    }
+    return NewsController.get_news_by_slug(db=db, news=news)
 
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
-def create_news(news_data: NewsCreate, db: Session = Depends(get_db)):
+def create_news(
+    news_data: NewsCreate = Depends(validate_create_news_payload),
+    db: Session = Depends(get_db),
+):
     """Create a new news article"""
-    # Check if slug already exists
-    if NewsService.exists_by_slug(db, news_data.slug):
-        raise HTTPException(status_code=400, detail="News with this slug already exists")
-    
-    try:
-        news = NewsService.create(db, news_data.dict())
-        return {
-            "success": True,
-            "message": "News created successfully",
-            "data": news.to_dict(include_content=True)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return NewsController.create_news(db=db, news_data=news_data)
 
 @router.put("/{news_id}", response_model=dict)
 def update_news(
     news_id: int,
-    news_data: NewsUpdate,
+    news_data: NewsUpdate = Depends(validate_update_news_payload),
     db: Session = Depends(get_db)
 ):
     """Update a news article"""
-    # Check if slug exists (excluding current news)
-    if news_data.slug and NewsService.exists_by_slug(db, news_data.slug, exclude_id=news_id):
-        raise HTTPException(status_code=400, detail="News with this slug already exists")
-    
-    try:
-        # Filter out None values
-        update_data = {k: v for k, v in news_data.dict().items() if v is not None}
-        
-        news = NewsService.update(db, news_id, update_data)
-        if not news:
-            raise HTTPException(status_code=404, detail="News not found")
-        
-        return {
-            "success": True,
-            "message": "News updated successfully",
-            "data": news.to_dict(include_content=True)
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return NewsController.update_news(db=db, news_id=news_id, news_data=news_data)
 
 @router.delete("/{news_id}", response_model=dict)
-def delete_news(news_id: int, db: Session = Depends(get_db)):
+def delete_news(
+    news_id: int,
+    _news: News = Depends(require_news_by_id),
+    db: Session = Depends(get_db),
+):
     """Delete a news article"""
-    try:
-        success = NewsService.delete(db, news_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="News not found")
-        
-        return {
-            "success": True,
-            "message": "News deleted successfully"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return NewsController.delete_news(db=db, news_id=news_id)
 
 @router.post("/{news_id}/like", response_model=dict)
 def toggle_like_news(
     news_id: int,
     like_data: LikeRequest,
+    _news: News = Depends(require_news_by_id),
     db: Session = Depends(get_db)
 ):
     """Like or unlike a news article"""
-    try:
-        success = NewsService.toggle_like(db, news_id, like_data.action)
-        if not success:
-            raise HTTPException(status_code=404, detail="News not found")
-        
-        return {
-            "success": True,
-            "message": f"{like_data.action.capitalize()} successful"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return NewsController.toggle_like_news(db=db, news_id=news_id, like_data=like_data)

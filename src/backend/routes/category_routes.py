@@ -1,14 +1,18 @@
 # Category Routes/Controllers
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 
+from ..controllers.category_controller import CategoryController
 from ..database import get_db
-from ..services.category_service import CategoryService
-from ..services.news_service import NewsService
-from ..schemas.category_schema import CategoryCreate, CategoryUpdate, CategoryResponse, CategoryListResponse
-from ..schemas.news_schema import NewsListResponse
-import math
+from ..middleware.category_middleware import (
+    require_category_by_id,
+    require_category_by_slug,
+    validate_create_category_slug,
+    validate_update_category_slug,
+)
+from ..models.category import Category
+from ..schemas.category_schema import CategoryCreate, CategoryUpdate, CategoryListResponse
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
@@ -18,39 +22,17 @@ def get_categories(
     db: Session = Depends(get_db)
 ):
     """Get all categories"""
-    try:
-        categories = CategoryService.get_all(db, is_active=is_active)
-        return {
-            "success": True,
-            "data": [cat.to_dict() for cat in categories],
-            "count": len(categories)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return CategoryController.get_categories(db=db, is_active=is_active)
 
 @router.get("/{category_id}", response_model=dict)
-def get_category(category_id: int, db: Session = Depends(get_db)):
+def get_category(category: Category = Depends(require_category_by_id)):
     """Get category by ID"""
-    category = CategoryService.get_by_id(db, category_id)
-    if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
-    
-    return {
-        "success": True,
-        "data": category.to_dict()
-    }
+    return CategoryController.get_category(category)
 
 @router.get("/slug/{slug}", response_model=dict)
-def get_category_by_slug(slug: str, db: Session = Depends(get_db)):
+def get_category_by_slug(category: Category = Depends(require_category_by_slug)):
     """Get category by slug"""
-    category = CategoryService.get_by_slug(db, slug)
-    if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
-    
-    return {
-        "success": True,
-        "data": category.to_dict()
-    }
+    return CategoryController.get_category_by_slug(category)
 
 @router.get("/{category_id}/news", response_model=dict)
 def get_category_news(
@@ -58,95 +40,49 @@ def get_category_news(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(10, ge=1, le=100, description="Items per page"),
     status: str = Query("published", description="Filter by status"),
+    _category: Category = Depends(require_category_by_id),
     db: Session = Depends(get_db)
 ):
     """Get news articles in a category"""
-    # Check if category exists
-    category = CategoryService.get_by_id(db, category_id)
-    if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
-    
-    try:
-        news_list, total = NewsService.get_by_category(db, category_id, page, limit, status)
-        
-        total_pages = math.ceil(total / limit)
-        
-        return {
-            "success": True,
-            "data": [news.to_dict(include_content=False) for news in news_list],
-            "pagination": {
-                "page": page,
-                "limit": limit,
-                "total": total,
-                "total_pages": total_pages
-            }
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return CategoryController.get_category_news(
+        db=db,
+        category_id=category_id,
+        page=page,
+        limit=limit,
+        status=status,
+    )
 
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
-def create_category(category_data: CategoryCreate, db: Session = Depends(get_db)):
+def create_category(
+    category_data: CategoryCreate = Depends(validate_create_category_slug),
+    db: Session = Depends(get_db),
+):
     """Create a new category"""
-    # Check if slug already exists
-    if CategoryService.exists_by_slug(db, category_data.slug):
-        raise HTTPException(status_code=400, detail="Category with this slug already exists")
-    
-    try:
-        category = CategoryService.create(db, category_data.dict())
-        return {
-            "success": True,
-            "message": "Category created successfully",
-            "data": category.to_dict()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return CategoryController.create_category(db=db, category_data=category_data)
 
 @router.put("/{category_id}", response_model=dict)
 def update_category(
     category_id: int,
-    category_data: CategoryUpdate,
+    category_data: CategoryUpdate = Depends(validate_update_category_slug),
     db: Session = Depends(get_db)
 ):
     """Update a category"""
-    # Check if slug exists (excluding current category)
-    if category_data.slug and CategoryService.exists_by_slug(db, category_data.slug, exclude_id=category_id):
-        raise HTTPException(status_code=400, detail="Category with this slug already exists")
-    
-    try:
-        # Filter out None values
-        update_data = {k: v for k, v in category_data.dict().items() if v is not None}
-        
-        category = CategoryService.update(db, category_id, update_data)
-        if not category:
-            raise HTTPException(status_code=404, detail="Category not found")
-        
-        return {
-            "success": True,
-            "message": "Category updated successfully",
-            "data": category.to_dict()
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return CategoryController.update_category(
+        db=db,
+        category_id=category_id,
+        category_data=category_data,
+    )
 
 @router.delete("/{category_id}", response_model=dict)
 def delete_category(
     category_id: int,
     hard_delete: bool = Query(False, description="Permanently delete (true) or soft delete (false)"),
+    _category: Category = Depends(require_category_by_id),
     db: Session = Depends(get_db)
 ):
     """Delete a category"""
-    try:
-        success = CategoryService.delete(db, category_id, soft_delete=not hard_delete)
-        if not success:
-            raise HTTPException(status_code=404, detail="Category not found")
-        
-        return {
-            "success": True,
-            "message": "Category deleted successfully"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return CategoryController.delete_category(
+        db=db,
+        category_id=category_id,
+        hard_delete=hard_delete,
+    )
