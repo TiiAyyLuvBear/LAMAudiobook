@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap');
+
+.news-page {
+  font-family: 'Sora', system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--surface-soft);
+  min-height: 100vh;
+  padding-bottom: 5rem;
+}
+
+/* ── HEADER ── */
+.news-header {
+  background: linear-gradient(135deg, #0f766e14 0%, #f59e0b0d 100%);
+  padding: 4rem 8vw 2.5rem;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.news-title {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 800;
+  margin: 0 0 0.6rem;
+  color: var(--ink);
+}
+
+.news-sub {
+  font-size: 1rem;
+  color: var(--muted);
+  margin: 0 0 2rem;
+  max-width: 580px;
+  line-height: 1.7;
+}
+
+/* ── FILTER CHIPS ── */
+.news-filters {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  background: var(--surface);
+  border: 1.5px solid var(--stroke);
+  color: var(--muted);
+  padding: 0.42rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s;
+}
+
+.filter-chip:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.filter-chip--active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff !important;
+}
+
+/* ── NEWS GRID ── */
+.news-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  padding: 3rem 8vw 0;
+}
+
+/* ── NEWS CARD ── */
+.news-card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 1.8rem;
+  border: 1px solid var(--stroke);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.news-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.1);
+}
+
+.news-cat-badge {
+  display: inline-block;
+  align-self: flex-start;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+.news-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.news-card-summary {
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 0;
+  flex: 1;
+}
+
+.news-card-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding-top: 0.3rem;
+  border-top: 1px solid var(--stroke);
+}
+
+.news-read-btn {
+  align-self: flex-start;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1.2rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  margin-top: 0.25rem;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.news-read-btn:hover {
+  background: var(--brand-dark);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+  .news-grid { grid-template-columns: 1fr; }
+}
