@@ -61,3 +61,6 @@ Thumbs.db
 .env
 credentials.json
 secrets.yaml
+
+# Node modules
+frontend/node_modules/
