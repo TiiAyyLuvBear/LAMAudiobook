@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE smil PUBLIC "-//NISO//DTD SMIL 1.0//EN" "http://www.daisy.org/z3986/2005/smil-2005-2.dtd">
+<smil xmlns="http://www.w3.org/2001/SMIL20/Language" xml:lang="vi">
+  <head>
+    <meta name="dtb:uid" content="01"/>
+    <meta name="dtb:totalElapsedTime" content="00:00:00.000"/>
+    <layout>
+      <region id="txtView"/>
+    </layout>
+  </head>
+  <body>
+    <seq id="seq_01">
+      <par id="par_1">
+        <text src="01.xml#s1" id="txt_1"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:00:01.263" clipEnd="00:00:22.154" id="aud_1"/>
+      </par>
+      <par id="par_2">
+        <text src="01.xml#s2" id="txt_2"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:00:22.154" clipEnd="00:00:39.653" id="aud_2"/>
+      </par>
+      <par id="par_3">
+        <text src="01.xml#s3" id="txt_3"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:00:43.163" clipEnd="00:01:06.704" id="aud_3"/>
+      </par>
+      <par id="par_4">
+        <text src="01.xml#s4" id="txt_4"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:01:06.704" clipEnd="00:01:19.158" id="aud_4"/>
+      </par>
+      <par id="par_5">
+        <text src="01.xml#s5" id="txt_5"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:01:21.014" clipEnd="00:01:46.799" id="aud_5"/>
+      </par>
+      <par id="par_6">
+        <text src="01.xml#s6" id="txt_6"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:01:46.799" clipEnd="00:01:59.607" id="aud_6"/>
+      </par>
+      <par id="par_7">
+        <text src="01.xml#s7" id="txt_7"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:02:01.025" clipEnd="00:02:29.071" id="aud_7"/>
+      </par>
+      <par id="par_8">
+        <text src="01.xml#s8" id="txt_8"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:02:30.556" clipEnd="00:02:55.835" id="aud_8"/>
+      </par>
+      <par id="par_9">
+        <text src="01.xml#s9" id="txt_9"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:02:56.122" clipEnd="00:03:08.896" id="aud_9"/>
+      </par>
+      <par id="par_10">
+        <text src="01.xml#s10" id="txt_10"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:03:10.567" clipEnd="00:03:40.553" id="aud_10"/>
+      </par>
+      <par id="par_11">
+        <text src="01.xml#s11" id="txt_11"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:03:40.553" clipEnd="00:04:05.461" id="aud_11"/>
+      </par>
+      <par id="par_12">
+        <text src="01.xml#s12" id="txt_12"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:04:07.182" clipEnd="00:04:25.627" id="aud_12"/>
+      </par>
+      <par id="par_13">
+        <text src="01.xml#s13" id="txt_13"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:04:25.627" clipEnd="00:04:46.822" id="aud_13"/>
+      </par>
+      <par id="par_14">
+        <text src="01.xml#s14" id="txt_14"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:04:47.176" clipEnd="00:05:02.667" id="aud_14"/>
+      </par>
+      <par id="par_15">
+        <text src="01.xml#s15" id="txt_15"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:05:02.667" clipEnd="00:05:24.149" id="aud_15"/>
+      </par>
+      <par id="par_16">
+        <text src="01.xml#s16" id="txt_16"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:05:24.368" clipEnd="00:05:37.160" id="aud_16"/>
+      </par>
+      <par id="par_17">
+        <text src="01.xml#s17" id="txt_17"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:05:38.003" clipEnd="00:05:54.963" id="aud_17"/>
+      </par>
+      <par id="par_18">
+        <text src="01.xml#s18" id="txt_18"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:05:54.963" clipEnd="00:06:08.902" id="aud_18"/>
+      </par>
+      <par id="par_19">
+        <text src="01.xml#s19" id="txt_19"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:06:10.471" clipEnd="00:06:25.102" id="aud_19"/>
+      </par>
+      <par id="par_20">
+        <text src="01.xml#s20" id="txt_20"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:06:26.772" clipEnd="00:06:51.967" id="aud_20"/>
+      </par>
+      <par id="par_21">
+        <text src="01.xml#s21" id="txt_21"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:06:55.190" clipEnd="00:07:18.663" id="aud_21"/>
+      </par>
+      <par id="par_22">
+        <text src="01.xml#s22" id="txt_22"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:07:19.388" clipEnd="00:07:36.635" id="aud_22"/>
+      </par>
+      <par id="par_23">
+        <text src="01.xml#s23" id="txt_23"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:07:38.238" clipEnd="00:07:56.210" id="aud_23"/>
+      </par>
+      <par id="par_24">
+        <text src="01.xml#s24" id="txt_24"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:07:57.256" clipEnd="00:08:14.435" id="aud_24"/>
+      </par>
+      <par id="par_25">
+        <text src="01.xml#s25" id="txt_25"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:08:15.110" clipEnd="00:08:38.768" id="aud_25"/>
+      </par>
+      <par id="par_26">
+        <text src="01.xml#s26" id="txt_26"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:08:40.540" clipEnd="00:09:04.486" id="aud_26"/>
+      </par>
+      <par id="par_27">
+        <text src="01.xml#s27" id="txt_27"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:09:04.486" clipEnd="00:09:33.241" id="aud_27"/>
+      </par>
+      <par id="par_28">
+        <text src="01.xml#s28" id="txt_28"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:09:34.355" clipEnd="00:10:03.312" id="aud_28"/>
+      </par>
+      <par id="par_29">
+        <text src="01.xml#s29" id="txt_29"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:10:04.055" clipEnd="00:10:31.679" id="aud_29"/>
+      </par>
+      <par id="par_30">
+        <text src="01.xml#s30" id="txt_30"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:10:32.253" clipEnd="00:11:00.907" id="aud_30"/>
+      </par>
+      <par id="par_31">
+        <text src="01.xml#s31" id="txt_31"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:11:01.615" clipEnd="00:11:21.022" id="aud_31"/>
+      </par>
+      <par id="par_32">
+        <text src="01.xml#s32" id="txt_32"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:11:21.022" clipEnd="00:11:46.317" id="aud_32"/>
+      </par>
+      <par id="par_33">
+        <text src="01.xml#s33" id="txt_33"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:11:46.570" clipEnd="00:12:13.773" id="aud_33"/>
+      </par>
+      <par id="par_34">
+        <text src="01.xml#s34" id="txt_34"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:12:15.072" clipEnd="00:12:41.465" id="aud_34"/>
+      </par>
+      <par id="par_35">
+        <text src="01.xml#s35" id="txt_35"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:12:43.996" clipEnd="00:13:10.253" id="aud_35"/>
+      </par>
+      <par id="par_36">
+        <text src="01.xml#s36" id="txt_36"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:13:14.945" clipEnd="00:13:39.160" id="aud_36"/>
+      </par>
+      <par id="par_37">
+        <text src="01.xml#s37" id="txt_37"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:13:40.375" clipEnd="00:14:09.282" id="aud_37"/>
+      </par>
+      <par id="par_38">
+        <text src="01.xml#s38" id="txt_38"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:14:10.733" clipEnd="00:14:34.055" id="aud_38"/>
+      </par>
+      <par id="par_39">
+        <text src="01.xml#s39" id="txt_39"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:14:34.055" clipEnd="00:14:50.727" id="aud_39"/>
+      </par>
+      <par id="par_40">
+        <text src="01.xml#s40" id="txt_40"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:14:50.727" clipEnd="00:15:05.375" id="aud_40"/>
+      </par>
+      <par id="par_41">
+        <text src="01.xml#s41" id="txt_41"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:15:06.944" clipEnd="00:15:33.708" id="aud_41"/>
+      </par>
+      <par id="par_42">
+        <text src="01.xml#s42" id="txt_42"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:15:35.092" clipEnd="00:15:58.008" id="aud_42"/>
+      </par>
+      <par id="par_43">
+        <text src="01.xml#s43" id="txt_43"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:15:58.008" clipEnd="00:16:17.954" id="aud_43"/>
+      </par>
+      <par id="par_44">
+        <text src="01.xml#s44" id="txt_44"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:16:17.954" clipEnd="00:16:31.471" id="aud_44"/>
+      </par>
+      <par id="par_45">
+        <text src="01.xml#s45" id="txt_45"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:16:33.023" clipEnd="00:16:48.025" id="aud_45"/>
+      </par>
+      <par id="par_46">
+        <text src="01.xml#s46" id="txt_46"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:16:48.025" clipEnd="00:17:14.873" id="aud_46"/>
+      </par>
+      <par id="par_47">
+        <text src="01.xml#s47" id="txt_47"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:17:15.717" clipEnd="00:17:37.942" id="aud_47"/>
+      </par>
+      <par id="par_48">
+        <text src="01.xml#s48" id="txt_48"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:17:38.617" clipEnd="00:18:03.473" id="aud_48"/>
+      </par>
+      <par id="par_49">
+        <text src="01.xml#s49" id="txt_49"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:18:05.026" clipEnd="00:18:20.332" id="aud_49"/>
+      </par>
+      <par id="par_50">
+        <text src="01.xml#s50" id="txt_50"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:18:20.332" clipEnd="00:18:47.888" id="aud_50"/>
+      </par>
+      <par id="par_51">
+        <text src="01.xml#s51" id="txt_51"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:18:48.412" clipEnd="00:19:08.071" id="aud_51"/>
+      </par>
+      <par id="par_52">
+        <text src="01.xml#s52" id="txt_52"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:19:09.539" clipEnd="00:19:28.810" id="aud_52"/>
+      </par>
+      <par id="par_53">
+        <text src="01.xml#s53" id="txt_53"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:19:28.810" clipEnd="00:19:57.886" id="aud_53"/>
+      </par>
+      <par id="par_54">
+        <text src="01.xml#s54" id="txt_54"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:19:59.540" clipEnd="00:20:14.626" id="aud_54"/>
+      </par>
+      <par id="par_55">
+        <text src="01.xml#s55" id="txt_55"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:20:14.626" clipEnd="00:20:44.039" id="aud_55"/>
+      </par>
+      <par id="par_56">
+        <text src="01.xml#s56" id="txt_56"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:20:45.490" clipEnd="00:20:54.687" id="aud_56"/>
+      </par>
+      <par id="par_57">
+        <text src="01.xml#s57" id="txt_57"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:20:54.890" clipEnd="00:21:19.139" id="aud_57"/>
+      </par>
+      <par id="par_58">
+        <text src="01.xml#s58" id="txt_58"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:21:19.139" clipEnd="00:21:49.008" id="aud_58"/>
+      </par>
+      <par id="par_59">
+        <text src="01.xml#s59" id="txt_59"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:21:49.008" clipEnd="00:22:07.368" id="aud_59"/>
+      </par>
+      <par id="par_60">
+        <text src="01.xml#s60" id="txt_60"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:22:09.562" clipEnd="00:22:36.207" id="aud_60"/>
+      </par>
+      <par id="par_61">
+        <text src="01.xml#s61" id="txt_61"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:22:36.207" clipEnd="00:23:04.912" id="aud_61"/>
+      </par>
+      <par id="par_62">
+        <text src="01.xml#s62" id="txt_62"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:23:09.164" clipEnd="00:23:33.818" id="aud_62"/>
+      </par>
+      <par id="par_63">
+        <text src="01.xml#s63" id="txt_63"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:23:34.915" clipEnd="00:24:04.312" id="aud_63"/>
+      </par>
+      <par id="par_64">
+        <text src="01.xml#s64" id="txt_64"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:24:05.695" clipEnd="00:24:23.903" id="aud_64"/>
+      </par>
+      <par id="par_65">
+        <text src="01.xml#s65" id="txt_65"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:24:23.903" clipEnd="00:24:53.131" id="aud_65"/>
+      </par>
+      <par id="par_66">
+        <text src="01.xml#s66" id="txt_66"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:24:53.131" clipEnd="00:25:20.789" id="aud_66"/>
+      </par>
+      <par id="par_67">
+        <text src="01.xml#s67" id="txt_67"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:25:22.325" clipEnd="00:25:41.073" id="aud_67"/>
+      </par>
+      <par id="par_68">
+        <text src="01.xml#s68" id="txt_68"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:25:42.406" clipEnd="00:26:05.491" id="aud_68"/>
+      </par>
+      <par id="par_69">
+        <text src="01.xml#s69" id="txt_69"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:26:05.491" clipEnd="00:26:24.745" id="aud_69"/>
+      </par>
+      <par id="par_70">
+        <text src="01.xml#s70" id="txt_70"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:26:26.180" clipEnd="00:26:41.384" id="aud_70"/>
+      </par>
+      <par id="par_71">
+        <text src="01.xml#s71" id="txt_71"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:26:41.384" clipEnd="00:27:02.107" id="aud_71"/>
+      </par>
+      <par id="par_72">
+        <text src="01.xml#s72" id="txt_72"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:27:02.107" clipEnd="00:27:11.860" id="aud_72"/>
+      </par>
+      <par id="par_73">
+        <text src="01.xml#s73" id="txt_73"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:27:13.582" clipEnd="00:27:33.562" id="aud_73"/>
+      </par>
+      <par id="par_74">
+        <text src="01.xml#s74" id="txt_74"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:27:33.562" clipEnd="00:27:54.082" id="aud_74"/>
+      </par>
+      <par id="par_75">
+        <text src="01.xml#s75" id="txt_75"/>
+        <audio src="cuudinhky_chuong1.mp3" clipBegin="00:28:00.224" clipEnd="00:28:14.652" id="aud_75"/>
+      </par>
+    </seq>
+  </body>
+</smil>
