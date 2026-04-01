@@ -1,6 +1,7 @@
 artifacts:
   - name: model.pth
     path: models/XTTSv2-Finetuning-for-New-Languages/model/model.pth
+    dvc_pointer: models/model.pth.dvc
     tracker: dvc
     remote: dagshub
     hash: md5
@@ -10,6 +11,7 @@ artifacts:
     registered_at: 2026-04-01
   - name: best_model_19740.pth
     path: models/XTTSv2-Finetuning-for-New-Languages/model/best_model_19740.pth
+    dvc_pointer: models/best_model_19740.pth.dvc
     tracker: dvc
     remote: dagshub
     hash: md5
