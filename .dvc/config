@@ -1,0 +1,5 @@
+[core]
+    remote = dagshub
+['remote "dagshub"']
+    url = s3://dvc
+    endpointurl = https://dagshub.com/TiiAyyLuvBear/CSC15012-Final-Project-Audiobook-Generation-System.s3

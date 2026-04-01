@@ -1,0 +1,23 @@
+artifacts:
+  - name: model.pth
+    path: models/XTTSv2-Finetuning-for-New-Languages/model/model.pth
+    tracker: dvc
+    remote: dagshub
+    hash: md5
+    md5: ac10bc5e02f825e8b3f09f857eeef196
+    size_bytes: 5675642481
+    source: XTTSv2-Finetuning-for-New-Languages training output
+    registered_at: 2026-04-01
+  - name: best_model_19740.pth
+    path: models/XTTSv2-Finetuning-for-New-Languages/model/best_model_19740.pth
+    tracker: dvc
+    remote: dagshub
+    hash: md5
+    md5: ac10bc5e02f825e8b3f09f857eeef196
+    size_bytes: 5675642481
+    source: XTTSv2-Finetuning-for-New-Languages training output
+    registered_at: 2026-04-01
+notes:
+  - Both checkpoints currently share the same MD5 and size.
+  - Push artifacts with: dvc push
+  - Set credentials via environment variables DAGSHUB_USER, DAGSHUB_TOKEN or DVC remote auth.
