@@ -1,0 +1,959 @@
+{
+  "segments": [
+    {
+      "text": " Hello xin chào các bạn. Chào mừng các bạn đến với kênh chuyện Cò Long Trông và vẫn là Cò đây. Thì tiếp theo cái series chuyện của Mạc Bảo Phi Bảo thì hôm nay Cò sẽ gửi đến các bạn một bộ chuyện mới của tác giả này. Bộ chuyện có tên 1cm Ánh Dương. Người dịch là Minh Lê.",
+      "start": 0.031,
+      "end": 19.792,
+      "avg_logprob": -0.18546874523162843
+    },
+    {
+      "text": " Chuyện thuộc thể loại quân nhân hiện đại ngọt nào có một chút xíu ngược tâm và happy ending các bạn nhé. Nhân vật chính của bộ chuyện là kỷ ức và quý thành Dương. Bộ chuyện gồm 27 chương cả ngoại chuyện. Nếu mà các bạn đã đọc và yêu thích bộ chuyện cây ô liu màu trắng thì có thể là sẽ rất là hợp và thích bộ chuyện này nhé. Còn bây giờ thì chúng mình hãy đến với một chút review của bộ chuyện.",
+      "start": 19.792,
+      "end": 48.192,
+      "avg_logprob": -0.107448632280304
+    },
+    {
+      "text": " Câu chuyện kể về kỷ ức, một cô gái lớn lên không có tình thương của ông nội, sự chăm sóc của cha mẹ cũng giống như nhà trong khái niệm của cô kể từ khi còn rất nhỏ, có nghĩa là",
+      "start": 51.01,
+      "end": 62.08,
+      "avg_logprob": -0.08891091195505056
+    },
+    {
+      "text": " nhà của bố mẹ, nhà của ông nội chứ chưa bao giờ có khái niệm nhà mình. Nhưng vào năm 10 tuổi, lần đầu tiên cô gặp chú Út Quý, Quý Thành Dương. Kỷ ức cũng không biết rằng kể từ giây phút cô gặp anh thì đã có một sợi dây vô hình âm thẩm kết nối hai người lại. Nếu có thể dùng một câu để miêu tả về anh, thì Kỷ ức cảm thấy chú Út rất cao lớn và còn đẹp trai hơn cả Iri Naoki trong nụ hôn tinh nghịch.",
+      "start": 62.333,
+      "end": 92.219,
+      "avg_logprob": -0.10251524099489538
+    },
+    {
+      "text": " Chưa có ai nói với cô rằng, em còn chuyện gì muốn làm mà trước giờ không có ai làm cùng em không? Từ khi cô có nhận thức, chưa từng có ai dành thời gian cùng cô thực hiện mọi mong muốn của cô. Vì thế, anh là người đầu tiên, cũng là người cuối cùng cho cô hơi ấm ấy. Những lần ở bên anh, từng cây nắm tay, những lần trò chuyện, kể cả những cái ôm của anh, khiến trái tim cô đập thình thịch.",
+      "start": 93.046,
+      "end": 120.097,
+      "avg_logprob": -0.0838815802918341
+    },
+    {
+      "text": " nhưng cô không dám có bất cứ suy nghĩ nào vượt khuôn khổ cho phép. Không chỉ vì hai người họ quen nhau quá sớm, mà quan trọng hơn hết, anh còn là trưởng mối của cô. Kỷ ức luôn cố kiềm nén thứ tình cảm đang muốn vượt khỏi lòng mình, nhưng mọi cố gắng của cô đều bị phá vỡ. Chính là khi môi anh và môi cô chạm vào nhau, cô không tìm được bất kỳ một ý nghĩa, một lý do gì để giải thích cho hành động đó của anh.",
+      "start": 120.097,
+      "end": 149.206,
+      "avg_logprob": -0.06971536567256709
+    },
+    {
+      "text": " Liệu có phải giống như anh nói, chỉ vì kích động hôn lên cô nên mới nói rằng sẽ chịu trách nhiệm? Hay anh cũng thích em? Đâu mới là ý nghĩa thật sự của anh?",
+      "start": 149.206,
+      "end": 160.867,
+      "avg_logprob": -0.0997199258714352
+    },
+    {
+      "text": " Năm 2004, Quý Thanh Dương một lần nữa rời khỏi Trung Quốc, nhưng không giống như những lần rời đi trước kia. Trong suốt thời gian ấy, cô không thể nào liên lạc đối với anh. Cô cứ ngỡ vì công việc quá bận rộn. Nhưng đến khi nhận được email của anh, cô mới biết không phải là như vậy. Thì ra anh đang né tránh cô.",
+      "start": 162.267,
+      "end": 182.905,
+      "avg_logprob": -0.07510318086957032
+    },
+    {
+      "text": " Lại nói lần đầu tiên quý thành Dương gặp Kỷ ức không phải là năm 10 tuổi như Kỷ ức vẫn tưởng, mà là vào lúc cô bé bỏ nhà ra đi với mong muốn ba mẹ sẽ ở lại lâu hơn. Nhưng khi ấy chẳng có ai phát hiện ra để đi tìm.",
+      "start": 182.905,
+      "end": 197.823,
+      "avg_logprob": -0.08469668837154613
+    },
+    {
+      "text": " Đây chính là lý do sau này gặp lại anh muốn đối tốt với cô bé hơn một chút nhưng lại chẳng có kinh nghiệm nào về chăm sóc trẻ con. Anh luôn tự hào về chỉ số IQ và EQ của mình nhưng cứ gặp phải kỷ ức là dường như lúc nào 2 chỉ số ấy cũng đi lạc.",
+      "start": 198.363,
+      "end": 216.014,
+      "avg_logprob": -0.08098958060145378
+    },
+    {
+      "text": " Trong ấn tượng của anh, Kỳ ức là một cô bé ngoan ngoãn, hiểu chuyện, đến nỗi không muốn làm phiền người khác. Điều đó khiến anh không khỏi cảm thấy đau lòng. Từ khi gặp Kỳ ức, cuộc sống của anh trở thành những ẩn số mà không thể nào lường trước được. Anh trao cho cô hy vọng, trao cho cô tình yêu của mình. Vì anh đã dùng 10 phần trái tim của mình để yêu em, nên sẽ yêu đến cùng.",
+      "start": 216.672,
+      "end": 242.002,
+      "avg_logprob": -0.07381663548157495
+    },
+    {
+      "text": " Anh không rõ mình rung động với cô bé ấy từ bao giờ, có lẽ vào một đông năm 2000 khi giật mình tỉnh lại sau cơn ác mộng. Anh nhìn thấy kỉ ức ngồi bên bàn cặn cụi vá lại vết sách trên túi áo của anh. Hay là còn sớm hơn thế nữa là lúc cô không còn gọi anh là chú út quý mà gọi thẳng tên anh.",
+      "start": 243.233,
+      "end": 264.007,
+      "avg_logprob": -0.11886161013639399
+    },
+    {
+      "text": " Tình yêu của cô và lý tưởng của anh quý thành Dương lựa chọn lý tưởng, cho nên khi nghe cô muốn thi vào khoa tiểu ngữ, anh chủ động vạch sẵn kế hoạch để cô có cuộc sống tương lai tốt hơn. Nhưng lại không nói với cô rằng sắp tới anh sẽ rời khỏi Trung Quốc đến Afghanistan, vùng đất đang xảy ra chiến sự.",
+      "start": 264.007,
+      "end": 284.56,
+      "avg_logprob": -0.0793323862959038
+    },
+    {
+      "text": " Cho đến khi cận kỳ cái chết, không tìm thấy tì hy vọng sống soát nào, anh chỉ nghĩ đến cô, hy vọng sẽ có người thay anh đem hạnh phúc đến cho cô. Nhưng chỉ cần nghĩ đến, người đó không phải là mình, thì trái tim anh không khỏi đau nhái. Suy nghĩ ấy còn khiến anh tuyệt vọng hơn cả cái chết.",
+      "start": 285.387,
+      "end": 304.507,
+      "avg_logprob": -0.11013349688168868
+    },
+    {
+      "text": " Nếu lúc ấy được gặp lại cô, nếu anh có thể sống trở về, anh chỉ muốn nói với người con gái đó rằng, xin hãy tha thứ cho sự ích kỷ của anh. Vì với anh, trên đời này, hai thứ quan trọng nhất, một là cô bé của anh, một là tổ quốc của anh.",
+      "start": 305.823,
+      "end": 323.086,
+      "avg_logprob": -0.0691315388783466
+    },
+    {
+      "text": " Giữa tình yêu và lý tưởng liệu có thể vẹn toàn cả hay? Quý thành Dương có thể trở về không? Kỷ ức sẽ trở đời và tha thứ cho anh trước. Mọi thứ sẽ trở đời các bạn ở những dòng cuối cùng của câu chuyện.",
+      "start": 323.086,
+      "end": 336.974,
+      "avg_logprob": -0.12666666467984516
+    },
+    {
+      "text": " Nữ chính Kỷ ÚC là một cô bé đơn độc, trưởng thành sớm, bên ngoài mạnh mẽ nhưng nội tâm yếu đuối, luôn muốn được yêu thương nhưng lại sợ phiền thoái những người xung quanh. Khi nhận định một người cô sẽ yêu hết mình dù tình cảm ấy không được đáp trả chọn vẹn nhưng cô vẫn nguyện ý đứng đó chờ đợi. Nam chính quý thành Dương, thờ ơ, lạnh lùng, có hoài bão và lý tưởng. Anh không biết nói lời lãng mạn nhưng sẽ dùng hành động để nói với người anh yêu.",
+      "start": 337.615,
+      "end": 365.898,
+      "avg_logprob": -0.11325757882811806
+    },
+    {
+      "text": " Nếu các bạn đang tìm kiếm một bộ chuyện quân nhân ngọt ngào và có một chút xíu ngược thì câu chuyện này khá là thích hợp cho các bạn. Còn bây giờ thì chúng mình hãy đến với phần đầu tiên của bộ chuyện luôn nhé. Chương 1 lời dẫn",
+      "start": 367.838,
+      "end": 385.203,
+      "avg_logprob": -0.12027616114463917
+    },
+    {
+      "text": " Hôm ấy, Kỷ ức đang ở trong phòng làm việc của ông nội. Sáng nay ngủ dậy, cô bé đã thấy cổ họng đau rát, đầu óc tróng vắng. Vù nó quen với việc ban ngày thường không có ai ở nhà, đặc biệt là trong những dịp nghỉ hè nghỉ đông. Nên Kỷ ức càng phải tự lực cánh sinh giải quyết mọi vấn đề. Nhưng vấn đề bây giờ là Kỷ ức cảm thấy mình đã bị ốm, cần phải uống thuốc.",
+      "start": 386.198,
+      "end": 410.245,
+      "avg_logprob": -0.10256545280886663
+    },
+    {
+      "text": " Vậy nhưng lâu lắm rồi cô không ốm nên cô đã quên mất hòm thuốc cất ở đâu rồi. Sau khi lục tung 7-8 canh ngăn kéo, cuối cùng kỉ ức cũng tìm thấy nó. 2 viên giảm sốt, 2 viên giảm cúm, con nên thêm 1 viên ngưu hoàng giảm nhiệt nữa không đây? Hình như năm ngoái khi suất cao, mẹ đã cho mình uống loại thuốc này thì phải. Thế thì thêm 1 viên nữa vậy.",
+      "start": 410.245,
+      "end": 433.718,
+      "avg_logprob": -0.11094874229362543
+    },
+    {
+      "text": " Kỷ ức ngỡ từng viên thuốc ra khỏi vỉ, vừa giót nước, thì chốt nghe thấy tiếng chuông cửa. Kỷ ức đặt thuốc lên trên tờ khăn giấy, rồi lại chạy ra cửa, nhắn chân, nhìn qua lỗ mắt mèo. Ánh nắng giữa mùa hạ xuyên qua khung cửa kính, buông xuống hành lang, chiếu dọi từng ngốc ngách, không để giót bất kỳ góc tối nào. Trong ánh nắng trói trang ấy, Kỷ ức nhìn thấy quý thành Dương. Sau này anh mới nói với Kỷ ức rằng, thực ra đó là lần thứ hai họ gặp nhau.",
+      "start": 434.377,
+      "end": 463.756,
+      "avg_logprob": -0.11103219426039493
+    },
+    {
+      "text": " Nhưng vào thời điểm ấy, đối với Kỷ ức, anh chỉ là một người xa lạ chưa từng gặp mặt. Kỷ ức nhìn qua lỗ mắt mèo, trông thấy một thanh niên cao gầy, trẻ tuổi đang cúi xuống hút thuốc. Trông anh không giống với các học sinh mặc quân phục của ông nội. Anh chỉ mặc một trái quần sóc thể thao dài đến đầu gối và áo phông ngắn tay màu trắng. Vì anh cúi đầu nên những sợi tóc ngắn xòa xuống trước chán, che mất đôi mắt.",
+      "start": 463.756,
+      "end": 490.553,
+      "avg_logprob": -0.08385724710994924
+    },
+    {
+      "text": " Kỷ ức không lên tiếng mà cứ lặng lẽ nhìn anh, xem anh như một bộ phim quay chậm. Thấy anh chống buộc tay lên bức tường trắng toát, rụi điều thuốc lên trên nắp thùng giác bằng kim loại đặt ngoài hành lang. Thú vị nhất là sau khi sập anh còn dùng đầu lọc thuốc trong tay, lầu thật sạch cách chấm màu ghi nhỏ xíu ấy rồi mới ném vào bên trong thùng giác.",
+      "start": 490.807,
+      "end": 512.626,
+      "avg_logprob": -0.1027688433361404
+    },
+    {
+      "text": " Sau đó anh ngở đầu lên, hướng đôi mắt đen và sáng nhìn về phía cửa. Chắc vì không nghe thấy tiếng động nào phát ra từ bên trong nên anh hơi nhú mày. Rồi anh lại bấm chuông thêm lần nữa. Đến lúc này cô bé mới nhớ ra chuyện mình vốn định mở cửa nên hỏi vọng ra ngoài. Xin hỏi, ai đấy ạ?",
+      "start": 513.588,
+      "end": 534.783,
+      "avg_logprob": -0.09271294142292665
+    },
+    {
+      "text": " Khu căn hộ này nằm trong một đại viện lớn, muốn vào được đến đây ít nhất phải qua hai cổng có vị tinh cánh gác. Cả tòa nhà còn được lắp đặt hệ thống mặt mã, nên người ngoài thì không thể tuy tiện vào được. Toàn khu đều là những tòa nhà 4 tầng, mỗi tầng 1 hộ gia đình, mọi người đều quá quen thuộc với nhau. Nhưng người này rất xa lạ, có lẽ là anh trai lớn của gia đình nào đó thường đi học ở xa chăng. Kỷ ức",
+      "start": 535.559,
+      "end": 564.297,
+      "avg_logprob": -0.09331327787837627
+    },
+    {
+      "text": " Anh là Quý Thành Dương. Giọng nói nhàn nhạt nhưng rất dịu dàng. Người đó cho kỷ ức biết thân phận của mình. Quý Thành Dương. À, kỷ ức nhớ ra đó là chú Út Quý, nhà ông nội Quý, người đã nói sẽ đưa cô bé đi diễn kịch. Chú Út của Quý Noãn Noãn. Đó là một cái tên có tần xuất xuất hiện rất cao.",
+      "start": 564.787,
+      "end": 588.277,
+      "avg_logprob": -0.12768554512877017
+    },
+    {
+      "text": " Quý Thành Dương, 6 tuổi, bắt đầu học đàn piano. Tuy muộn hơn các bạn cùng trang lứa, nhưng 8 tuổi đã được lên sân cấu biểu diễn. Thời cấp 1 được nhảy lớp 2 lần nên chỉ học trong 4 năm. 16 tuổi đã tới học đại học Pennsylvania. Đây là những lời mà bạn thân từ nhỏ của ký ức là Quý Nõ Nõn thường nói về anh.",
+      "start": 589.103,
+      "end": 615.293,
+      "avg_logprob": -0.10781250233235566
+    },
+    {
+      "text": " Chú Ún Quý qua Mỹ học, ông nội Kỷ Úc cũng thường nói đến chủ nghĩa đế quốc gì đó của đất nước này. Kỷ Úc nhớ, khi còn nhỏ, có lần đi một đôi giày xa bầu đỏ, ông nội liền đùa rằng, giày xa rầm rập cỡ, chủ nghĩa tư bản thối.",
+      "start": 616.559,
+      "end": 633.063,
+      "avg_logprob": -0.12142856972558158
+    },
+    {
+      "text": " Chú Út nhà họ quý đi học đại học ở đất nước chủ ghét tư bản này cũng thường được ông nội nhắc đến kiểu như trong nước bao nhiêu trường đại học tốt sao không ngoan hoát ở nhà cúng hiến cho tổ quốc mà lại phải đi du học nước ngoài. Nhưng hình như bây giờ khá hơn rồi ông không còn nói nhiều về chuyện đó nữa.",
+      "start": 633.451,
+      "end": 652.908,
+      "avg_logprob": -0.11688410396714813
+    },
+    {
+      "text": " Kỷ ức mở cửa ngước lên nhìn người một giây trước vẫn còn rất bực bội này Cô bé trả một tiếng Chú út quý Rồi mở tủ giày lấy cho anh một đuôi dép đi trong nhà Khách chưa kịp vào Kỷ ức đã chạy xuống bếp rửa tay Quý Thành Dương thay dép đi vào nhà Liên trong tới Kỷ ức đang bê bỉnh nước lạnh trong suốt Màu xanh ngọc bích lên, dọn vào cốc thủy tinh Sau đó trao mày, nuốt một hơi, nắm viên thuốc Đáng quá",
+      "start": 654.157,
+      "end": 682.962,
+      "avg_logprob": -0.19005681095701277
+    },
+    {
+      "text": " Kỷ ức nuốt mấy ngụm nước mới chôi được viên nghiêu hoàng giảm nhiệt, nhưng vị đắng ngậm tuốc quá lâu nên miệng toàn vị đắng. Cô bé muốn nói chuyện nhưng miệng đắng khiến mặt mũi nhanh tít lạnh. Kỷ ức uống thêm mấy ngụm nữa, sau đó nhận ra chú út quý đi tới trước mặt mình và ngồi sổn xuống. Anh để tầm nhìn của họ ngăn bằng nhau, cố gắng xịu dàng nói, Đang uống gì thế? Thuốc. Kỷ ức khẽ đáp, sau đó sở chán mình.",
+      "start": 683.84,
+      "end": 711.295,
+      "avg_logprob": -0.14271997323249305
+    },
+    {
+      "text": " Cháu xốt rồi, họng cũng đau. Kỷ ức thử luôn nước miếng, đau quá. Đôi mắt nen của anh thoáng qua nét kinh ngạc. Sao lại uống nhiều thế? Uống ít, không có tác dụng. Kỷ ức lý luận rất điều luyện và bảo Cháu hay bị xốt, trước kia chỉ cần uống nửa viên là khỏe, sau đó là một viên, bây giờ phải hai viên mới được. Anh nhú mày, đưa tay đặt lên trán cồn é. Đã đo nhiệt độ chưa?",
+      "start": 711.751,
+      "end": 741.012,
+      "avg_logprob": -0.14092357143474993
+    },
+    {
+      "text": " Bàn tay anh vẫn còn vô mùi thuốc nhẹ nhẹ, lòng bàn tay cũng hơi lạnh Kỷ ức ngoan ngoan đứng yên, to mò, không hiểu vì sao giữa mùa hè mà nhiệt độ cơ thể của chú Út lại thấp đến thế Không có nhiệt kế Lần trước ốm, Kỷ ức đã làm vỡ nhiệt kế rồi nhưng không dám nói với ông nội Lúc ấy, Kỷ ức ngốc lắm, dùng tay chần nhặt những viên bi màu bạc đó Không nắm chặt được nên lấy một xấp khăn giấy, lau sạch sẽ",
+      "start": 741.67,
+      "end": 771.539,
+      "avg_logprob": -0.12181885924167976
+    },
+    {
+      "text": " Hôm sau đi học, Kỷ ức kể cho triệu tiểu dĩnh cùng bà nghe. Cô bé còn dọa Kỷ ức rằng những thứ ấy trong nhiệt kế có độc. Cũng may sau khi lau sạch xẽ xong, Kỷ ức không ăn uống hay. Trong khi Kỷ ức đang bừng thẩm về chuyện mình không bị trúng độc do làm vũ nhiệt kế, thì quý thành Dương đã đứng dậy, nói là sẽ về nhà lấy nhiệt kế và dặn cô bé đừng uống thêm thuốc nữa.",
+      "start": 772.214,
+      "end": 797.729,
+      "avg_logprob": -0.10477941176470588
+    },
+    {
+      "text": " Chờ đầy 3 phút, chú Út nhà họ quý đã cầm một cái nhiệt kế quay lại. Anh bảo Kỷ ÚC ngồi lên cái sofa và đưa chiếc nhiệt kế lên môi Kỷ ÚC. Nào, há miệng ra. Kỷ ÚC ngậm lấy nhiệt kế, rồi trượt nhớ tới một chuyện, lên nhỏ rộng lẩm bẩm. Chẳng phải ở bệnh viện, lúc nào người ta cũng sẽ dùng cồn để lau sảch trước. Kỷ ÚC chưa dứt lời, nhiệt kế đang ngậm trong miệng liền bị rút ra. Cô bé sật mình nhìn lên.",
+      "start": 798.083,
+      "end": 826.889,
+      "avg_logprob": -0.12828947344892902
+    },
+    {
+      "text": " Trên gương mặt trắng trẻo của Quý Thành Dương rõ ràng có vẻ vẫn bực bội. Anh dùng khăn giấy, lau sạch nhiệt kế rồi đưa lại cho Kỷ ức. Kẹp dưới nách vậy. Kỷ ức ưởng một tiếng. Từ nhỏ, cô bé đã biết quan sát sắp mặt của người khác nên dù lập tức nhận ra chú Út Quý có vẻ đã thật sự phạm sai lầm. Nhưng thôi, Kỷ ức chẳng nên nói ra làm gì.",
+      "start": 827.176,
+      "end": 851.29,
+      "avg_logprob": -0.14011102199162306
+    },
+    {
+      "text": " Chỉ có điều vừa nãy ngậm trước nhật kế, bệnh tình mình liệu có trở nên nặng hơn không nhỉ? Kỷ ưng kẹp trước nhật kế vào nách, rồi cầm điều khiển lên mở TV ra xem Giờ này đang chiếu slam dunk, nhưng cô bé lén lén liếp nhìn chú quý Thành Dương. Để khách ngồi xem phim hoạt hình cùng có phải là rất không tốt không?",
+      "start": 851.864,
+      "end": 874.443,
+      "avg_logprob": -0.16322314739227295
+    },
+    {
+      "text": " Thế là, kỷ ức nghiêm chỉnh chuyển kênh cực kỳ bối rối đắn đo khi dừng lại ở kênh thời sự. Nhưng trong đầu óc thì đang mãi mê chạy theo Rukawa Hana Michi. Rõ ràng, quý thành Dương không hề muốn xem TV. Lúc nãy, khi anh về nhà lấy nhiệt kế, con cắm thêm một cuốn sách nên giờ đang mở ra đọc. Chồng có vẻ rất nhẫn nại khi ở cùng một đứa trẻ như kỷ ức.",
+      "start": 875.101,
+      "end": 900.751,
+      "avg_logprob": -0.12938783695436504
+    },
+    {
+      "text": " Kỷ ức suy nghĩ một hồi rồi lại len lén chuyển kênh về Slam Dunk. Tối hôm ấy, anh lái xe đưa Kỷ ức đi ăn McDonald ở phương Phủ Tình. Đây là nhà hàng McDonald đầu tiên tại Bắc Kinh, vừa khai trương chưa lâu, rất nhiều bạn học của cô bé đã tới đó. Hầu hết đều bảo mùi vị chẳng ra sao. Kỷ ức nhớ, quý non non từng uán tháng dần chẳng ngon như khi ăn ở nước ngoài.",
+      "start": 902.067,
+      "end": 928.46,
+      "avg_logprob": -0.1215034981707593
+    },
+    {
+      "text": " Chỉ riêng kỷ ức là không thể chia sẻ kinh nghiệm ăn ngon hay là không ngon được vì chẳng ai dành dỗi để đưa kỷ ức đến đó dù chỉ một lần. Lúc đầu kỷ ức rất trông đợi nhưng càng về sau càng chẳng còn quan tâm.",
+      "start": 928.46,
+      "end": 942.652,
+      "avg_logprob": -0.07657138139686802
+    },
+    {
+      "text": " Nào ngờ mấy năm sau, vào buổi tối nay, cô bé lại được quý thành Dương dẫn đến đó lần đầu tiên. Nhưng vì lúc ở nhà đã uống thuốc và đau nhiệt độ mất khá nhiều thời gian, quý thành Dương chỉ mua khoai tây chiên và hamburger mang lên xe, rồi sau đó vừa lái xe, vừa nhìn cô bé ăn hết.",
+      "start": 943.985,
+      "end": 963.509,
+      "avg_logprob": -0.07672178643999748
+    },
+    {
+      "text": " Thực ra hôm đó chính là một hội xuyễn của đoàn văn công. Tiết mục của nhóm thiếu nhi mà kỷ ức tham gia chỉ nhằm mục đích góp vui. Hoặc có thể nói rằng chỉ để các vị quân nhân cao tuổi có nhiều huân chương công trạng ngồi dưới khán đài kia trông thấy con cháu mình mà thấy vui vẻ hơn.",
+      "start": 963.509,
+      "end": 983.303,
+      "avg_logprob": -0.12798295549371025
+    },
+    {
+      "text": " Bởi vì mọi người trong nhà họ kỷ đều quá bận rộn nên mới nhờ con trai của người bạn già là Quý Thành Dương hiện đang rất rảnh rỗi chuẩn bị ra nước ngoài tiếp tục học tập đến để đưa kỷ ức đi biểu diễn. Đừng căng thẳng, Quý Thành Dương ngồi xuống nhỏ rộng bảo, dứt lời anh lần vỗ nhẹ lên lưng kỷ ức.",
+      "start": 983.303,
+      "end": 1004.448,
+      "avg_logprob": -0.1310763939742058
+    },
+    {
+      "text": " Một thanh niên 20 tuổi như anh chẳng có kinh nghiệm dạy số trẻ con mấy. Đây không phải là lần đầu tiên kỷ ức lên sân gấu biểu diễn, nhưng lại là lần đầu tiên có người nhà đi cùng. Cô bé vốn dĩ rất bình thản, nhưng sau khi nghe xong ba chữ anh nói, liền bắt đầu thấy căng thẳng. Thậm chí khi đứng sau cánh gà màu đỏ xâm, tim kỷ ức bắt đầu đập liên hồi. Lẽ dĩ nhiên, cô bé đã phạm lỗi.",
+      "start": 1005.258,
+      "end": 1032.73,
+      "avg_logprob": -0.10445601635693032
+    },
+    {
+      "text": " Kỷ ức và một cậu bé khác cùng biểu diễn điểm nhảy của dân tộc tạng Đang xốt nên đầu óc Kỷ ức rất không tỉnh táo khi ngả người ra phía sau trang sức trên tóc liền rơi xuống sàn diễn gây ra một tiếng động rất lớn đó là chuyện chưa từng xảy ra nên nhất thời đầu óc trống rỗng Kỷ ức vô tức cúi xuống nhạt đồ trang sức sau đó ngẩn đầu lên Trong dây lát Kỷ ức hoàn toàn sững sờ",
+      "start": 1033.895,
+      "end": 1059.359,
+      "avg_logprob": -0.11382515737904778
+    },
+    {
+      "text": " Sản diễn tập trung rất nhiều ánh đèn, còn bên dưới khán đài chẳng thể nhìn rõ được ai. Trong bóng tối chỉ có thể trông thấy có rất nhiều người. Kỷ ức thật sự sợ hãi, chỉ cảm thấy chân mình buồn rụn, trong đầu hiện lên một suy nghĩ rằng sẽ không bao giờ nhảy nữa. Cuối cùng, kỷ ức quả thật liền quay người chạy xuống khỏi khán đài, không hoàn thành được tiết mục chỉ kéo dài có mười mấy giây, mà kệ cậu bé kia đứng ngơ ngác một mình trên sân cấu.",
+      "start": 1060.287,
+      "end": 1089.413,
+      "avg_logprob": -0.0964133513414047
+    },
+    {
+      "text": " Rất lâu về sau, mỗi khi người ta nhắc đến cô bé nhà họ kỉ là họ lại nói về chuyện này. Hầu hết họ đều chỉ cười, không có ý gì. Cũng chỉ nói rằng cô bé này rất dễ xấu hổ, chắc hôm ấy sợ quá.",
+      "start": 1090.679,
+      "end": 1105.512,
+      "avg_logprob": -0.07519531612181002
+    },
+    {
+      "text": " Tối hôm đó, Quý Thanh Dương cũng cho rằng Kỳ ức đã quá căng thẳng. Anh chẳng nghĩ ra cách nào để ăn uỷ nên lại lái xe đưa cô bé đến trước cửa hàng McDonald sắp đóng cửa. Anh xuống xe mua cho Kỳ ức một cốc kem tươi vị dâu. Lùng quay lại, anh đưa cho cô bé cốc kem nhuộng đột bọc kín bằng giấy ăn. Không sao đâu, lần sau là có kinh nghiệm rồi. Kỳ ức nhận lấy chiếc cốc và bắt đầu ăn kem. Ngon thật đấy.",
+      "start": 1106.66,
+      "end": 1133.744,
+      "avg_logprob": -0.10392442215667215
+    },
+    {
+      "text": " Cô bé bỗng cảm thấy chú út quý không thích cười không thích nói chuyện này thực ra cũng rất ân cần Cháu nghĩ sẽ không có lần sau đâu ạ Kĩ ức ăn được mấy miếng kem định bảo không muốn nhảy nữa nhưng lại chẳng dám nói ra nên chỉ tiếp tục ăn",
+      "start": 1134.841,
+      "end": 1151.716,
+      "avg_logprob": -0.10519622110350188
+    },
+    {
+      "text": " Cháu nhảy rất tốt, lúc nãy chú đung dưới khán đài, nghe thấy rất nhiều người khen cháu. Kỷ ức ngậm chương thìa nhựa màu trắng, chơm chớt mắt, hàng lông mi khẽ dung, rồi hỏi nhỏ quý giành dương. Chú út. Anh cắn thuốc trong miệng mà chưa kịp châm, chỉ ập ừ. Còn muốn ăn gì nữa không?",
+      "start": 1152.56,
+      "end": 1172.59,
+      "avg_logprob": -0.18999999618530272
+    },
+    {
+      "text": " Kỷ ức lắc đầu, cô bé cười tiếp mắt, tiếp tục ăn kem. Dựa chừng, Trần nghĩ ra một câu chuyện. Kỷ ức ngớt ngớt miếng, cảm thấy học đã đau đến mức, cứ như không còn là của mình nữa vậy. Có phải cháu ốm thì không được ăn kem không? Anh nhìn cóc kem trong tay kỷ ức một lát, rồi hơi nhét môi, mỉm cười đầy bắt đắc dĩ. Chỉ trong một ngày mà anh đã phạm phải hai lỗi cơ bản, đúng là bất ngờ.",
+      "start": 1173.097,
+      "end": 1200.198,
+      "avg_logprob": -0.1268439411376574
+    },
+    {
+      "text": " Từ chiều đến tối, cuối cùng anh đã thể hiện được vài phần dịu dàng trong nụ cười ấy. Sau đó, quý thành Dương nhanh chóng xuống xe để mua cho cô bé một cốc sữa nóng. Đèn đường nối tiếp nhau, vuông xuống một màu vàng ấm áp. Đã muộn, hai cánh cửa phụ cho ô tô đi qua đều đã đóng, anh chỉ có thể lái xe đi vào từ cửa chính. Khi vệ bình ôm súng nhảy xuống vào chạm cát đến kiểm tra giấy thông hành, anh mới phát hiện cô bé đã ngủ thiếp đi.",
+      "start": 1201.717,
+      "end": 1229.813,
+      "avg_logprob": -0.09480337304680535
+    },
+    {
+      "text": " Ôm trong tay cốc sữa chua chưa uống hết nhưng miệng túi ni lông đã đổ buộc chặt lại. Có lẽ là để tránh sữa không bị đổ ra ngoài. Đúng là một cô bé chù đáo. Vậy mình làm lễ chào rồi cho họ đi qua. Anh đưa tay sờ lên chán kỷ ức. Đúng là đã sốt cao rồi. Vậy là lần đầu tiên đưa kỷ ức ra ngoài mà anh đã làm cho cô bé bị ốm rồi sao?",
+      "start": 1230.016,
+      "end": 1256.071,
+      "avg_logprob": -0.11949573541906747
+    },
+    {
+      "text": " Chương 1. Kỷ ức mơ hổ Khi quý thành Dương bế kỷ ức lúc này đang xuất mê man vào nhà mình, cũng là lúc chị dâu thứ đi xa khỏi bếp, nhìn thấy liền bật cười. Với tính cách của anh đến cháu ruột của mình, con chẳng bao giờ chịu bé. Cảnh này thực sự khiến người khác cảm thấy hiếm có. Cô bé đang sốt, em định đưa đến bệnh viện, nhưng cô bé nhất định không chịu. Thấy nhà không có ai nên em cứ bế về nhà mình trước đã.",
+      "start": 1260.205,
+      "end": 1288.673,
+      "avg_logprob": -0.13182357953319065
+    },
+    {
+      "text": " Quý Thành Dương bế ký ức vào phòng mình, đặt nhẹ nhàng cô mẹ xuống giường, rồi anh dùng 2 ngón tay để to nhiệt độ của ký ức",
+      "start": 1289.348,
+      "end": 1297.752,
+      "avg_logprob": -0.18578125268220902
+    },
+    {
+      "text": " Nhà Tây Tây không có ai là chuyện bình thường Chị Dâu Thứ chẳng mấy bận tâm Họ nuôi trẻ con hoàn toàn bằng chính sách áp lực tinh thần nhưng sinh hoạt thả rông Chị Dâu Thứ vừa nói vừa lấy thuốc Chị Dâu Thứ là hiệu trưởng trường tiểu học trong viện Hai nhà lại là hàng xóm tầng trên tầng dưới nên cực kỳ thân thiết Kỷ ức sợ bóng tối thỉnh toàn nhà không có người sẽ lên lầu ngủ cùng với quý nọn nọn cũng là chuyện bình thường",
+      "start": 1298.798,
+      "end": 1328.077,
+      "avg_logprob": -0.07726698235280252
+    },
+    {
+      "text": " Áp lực tinh thần nuôi thả dông. Dăm 3 câu không nói rõ hết được, để chị lấy phí dụ nhé. Áp lực ở đây là cực kỳ xem chọn việc dạy số cô bé. Tây Tây 4 tuổi giưỡi đã vào lớp 1 nên dù học cùng lớp nhưng lại nhỏ hơn nọn nọn 2 tuổi. Ban đầu thành tích của kỷ ức không tốt, toán chỉ được hơn 50 điểm.",
+      "start": 1328.887,
+      "end": 1350.723,
+      "avg_logprob": -0.14675000047683714
+    },
+    {
+      "text": " Về sau lại dần theo kịp và nhanh chóng xếp nhất lớp. Duy chỉ đến tận bây giờ. Dinh điểm này nọn nọn không thể sánh được với cô bé. 4 tuổi giữa ư quả là hơi sớm. Nhưng về cuộc sống của trẻ con thì họ lại không quan tâm bấy. Chị dấu thứ mang nước ấm và thuốc đưa vào cho quý thành Dương. Anh thử cho kỷ ức uống thuốc. Tuy cô bé đang mê man nhưng rất dễ chăm sóc. Cho gì uống đấy.",
+      "start": 1351.043,
+      "end": 1381.013,
+      "avg_logprob": -0.1477649077674411
+    },
+    {
+      "text": " Ví dụ như đi du xuân theo trường, trên con nhà khác, ít nhất cũng được chuẩn bị nước và hoa quả đúng không. Còn nhà họ thì trực tiếp để lại cho cô bé 50 tệ trên bàn, chẳng hiểu họ nghĩ cái gì nữa. Cậu bảo ngồi ô tô mất 2 tiếng đồng hồ, con bé chẳng ăn uống được gì, mang tiền cũng có tác dụng gì. May mà hôm ấy tôi cũng có mặt nên mới chia bớt đồ ăn của Noãn Noãn cho kỷ ức.",
+      "start": 1381.823,
+      "end": 1406.495,
+      "avg_logprob": -0.08850599345687317
+    },
+    {
+      "text": " Anh nghe đến đó, chuột như đến bộ giạc uống thuốc của cô bé lúc ban chiều. Anh nghĩ đến cháu gái của mình. Coi vẻ hai đứa là bạn tốt của nhau. Lần nào quý noạn noạn nhắc đến kỷ ức với anh qua điện thoại, cũng đều nói bằng giọng rất dùng báy. Kỷ ức bạn cháu, 4 tuổi xưa đã học lớp 1, nhỏ hơn cháu 2 tuổi cơ, nhưng lúc nào cũng đứng nhất lớp. Chú Út biết không, dù là khiêu phủ, thư pháp hay là quốc học, bạn ấy cũng rất giỏi.",
+      "start": 1407.187,
+      "end": 1436.043,
+      "avg_logprob": -0.13101652341670003
+    },
+    {
+      "text": " Sao cháu lại ngốc thế? Chú Út chú Út, chú chơi đàn giỏi lắm có phải không? Kỷ ức đã hứa với cháu, sẽ không học đàn, cháu chỉ có thể thắng bạn ấy chuyện này thôi. Đây là điển hình của việc giáo dục thành công ưu hay là thất bại. Có điều hình như chẳng quan hệ gì đến anh cả.",
+      "start": 1436.245,
+      "end": 1456.208,
+      "avg_logprob": -0.10609653878158756
+    },
+    {
+      "text": " Anh nhường phòng mình cho cô bé và trải chăn ngủ trong phòng đọc sách. Đến tối, rõ ràng anh đã quên mất sự tồn tại của ký ức. Khi ra ngoài rót nước uống, mới trông thấy cô bé đã tỉnh và đang ngơ ngác mở cửa nhìn nó xung quanh.",
+      "start": 1456.478,
+      "end": 1471.261,
+      "avg_logprob": -0.08950407535809538
+    },
+    {
+      "text": " Kỷ ức không nhớ rõ, mình đã lên đây như thế nào, mãi cho tới khi trông thấy anh. Dưới ánh đèn bếp, Quý Thành Dương đeo một chiếc kính gộng vàng, trông rất nhã nhận và lịch sự. Anh đang khuấy cốc cà phê đặc vừa pha, khi trông thấy Kỷ ức cũng thoáng sững sờ. Kỷ ức chậm chạp bước tới, nhỏ rộng nói, Cháu về nhà đây, tạm biệt chú Út Quý nhé.",
+      "start": 1471.497,
+      "end": 1494.751,
+      "avg_logprob": -0.14215686819911783
+    },
+    {
+      "text": " Anh cúi xuống cũng dùng giọng nói thật nhỏ để trả lời, ngủ một mình có sợ tối không? Kỷ ức ngơ ngát, sao Chủ Úy Quý lại biết mình sợ tối chứ? Kỳ siệu thật! Kỷ ức lắc đầu, bắn hết đèn lên dù sợ cũng sẽ ngủ được thôi.",
+      "start": 1495.342,
+      "end": 1511.879,
+      "avg_logprob": -0.15165915440038308
+    },
+    {
+      "text": " Ngủ lại đây có được không? Anh cố gắng tỏ ra như đang dỗ trẻ nhỏ. Kỳ ức tiếp tục lắc đầu. Sáng mai mẹ cháu về, sớm lắm, chỉ với một lát là lại đi ngay. Cháu phải về nhà đợi mẹ. Có vẻ rất kiến quyết thì phải. Anh không nói gì mà chỉ vuốt nhẹ cánh tay của Kỳ ức. Cũng hạ sốt rồi. Kỳ ức bỗng hiếu kỳ chỉ thứ anh đang cầm trong tay. Đây là cái gì ạ?",
+      "start": 1512.79,
+      "end": 1541.157,
+      "avg_logprob": -0.11235119108440114
+    },
+    {
+      "text": " Cà phê anh Đát",
+      "start": 1541.866,
+      "end": 1543.655,
+      "avg_logprob": -0.418701171875
+    },
+    {
+      "text": " Trong nước rất ít người uống thứ này, đặc biệt là những gia đình cách mạng, chỉ uống trà và nước trắng là đủ, nên cô bé quả tực không biết đến cà phê. Kỷ ức khẽ vâng rồi lướt nhìn thứ chất lòng trong cốc. Anh bìm cười đưa cốc cho kỷ ức ra hiệu bảo cô bé thử một ngụm. Thế nên đây là lần đầu tiên kỷ ức được nếm thử mùi vị của cà phê. Không có đường nhưng lại có mùi sữa thơm nồng. Nói chung, vị rất lạ.",
+      "start": 1544.347,
+      "end": 1573.793,
+      "avg_logprob": -0.10018382396768122
+    },
+    {
+      "text": " Kỷ ức uống xong, vẻ mặt cực kỳ quái xị. Quý thành Dương bỗng nghĩ ra một vấn đề rất nghiêm trọng. Cô bé uống cà phê lần đầu, liệu có mất ngủ không? Anh đúng là không hợp dỗ trẻ con mà.",
+      "start": 1573.793,
+      "end": 1586.855,
+      "avg_logprob": -0.1786764663808486
+    },
+    {
+      "text": " Quả nhiên kỷ ức thức tráng đêm đến tận khi trôi sáng, cô bé ngồi dậy sửa phạm chuẩn bị đoán bố mẹ về nhà. Nào ngờ đội đến tận trưa cũng chẳng thấy ai, chỉ nhận được một cuộc điện thoại rất ngắn còn. Họ nói rằng, khoảng 4 ngày nữa mới về thăm kỷ ức được. Kỷ ức rất thất vọng, quanh đi quần lại trong nhà, cũng chẳng có việc gì làm, nên lại lối hết sách vợ ở phòng làm việc của ông nội da, chuẩn bị đọc lại.",
+      "start": 1587.395,
+      "end": 1613.264,
+      "avg_logprob": -0.08654932121196425
+    },
+    {
+      "text": " Tất cả đều là sách cổ, đặc biệt quyền tám quốc siễn nghĩa và chuyện cổ Grimm. Kỷ ức yếu thích đều là chữ phồn thể được in đọc, vừa hay có thể đọc cho qua thời gian. Buổi trưa của 4 ngày sau, đúng vào lúc ánh nắng đang gay gắt nhất thì Quý Nõn Nõn đi du lịch trở về trước dự định. Cô bé chạy từ tầng 4 xuống tầng 1, gõ cửa nhà kỷ ức cật lực, dùng phương thức làm nũng quen thuộc để lôi kỷ ức đến bể mơi ngoài trời.",
+      "start": 1614.428,
+      "end": 1642.812,
+      "avg_logprob": -0.12398098113582186
+    },
+    {
+      "text": " Đợi đến khi triệu tiểu sĩ xuất hiện thì kỷ ức đã bị cháy nắng rồi. Quý noạn noạn không biết bơi nên chỉ ôm phao nổi lành bành trên mặt nước nói chuyện với kỷ ức. Sau khi bị cháy nắng chỉ biết thề lưỡi bảo hôm nay mặt trời gắt quá.",
+      "start": 1643.538,
+      "end": 1661.797,
+      "avg_logprob": -0.1513980225512856
+    },
+    {
+      "text": " Kỷ ức ấm ứ đát rồi hít vào một hơi thật tài, sau đó lặn xuống nước khoảng hơn một phút. Kỷ ức nổi lên ở một góc khác của bể bơi, thở ra thật mạnh, cuối cùng đã dễ chịu hơn nhiều rồi. Khi kỷ ức bơi trở lại chỗ của quý nãn nãn, cô bạn đột nhiên nhắc đến chú út của mình. Kỷ ức, cậu nhìn thấy chú út của nhà tớ rồi phải không? Ừ.",
+      "start": 1662.083,
+      "end": 1687.143,
+      "avg_logprob": -0.12285959205194695
+    },
+    {
+      "text": " Kỷ ức giữ chiếc vào của Noãn Noãn kéo cô bé bơi nhanh hơn một chút. Có phải chồng chú út của tớ rất giống với Iri Naoki trong nụ hôn định mệnh mà bọn mình xem mấy hôm trước không? Takashi gì đó ấy. Có giống đâu. Tuy kỷ ức biết chú út quý và Iri Naoki đều là thần tựa của Noãn Noãn. Đều rất đẹp trai. Nhưng cảm giác họ mang lại thực sự khác xa nhau.",
+      "start": 1687.565,
+      "end": 1714.565,
+      "avg_logprob": -0.11573276108708874
+    },
+    {
+      "text": " Kỷ ức tiếp tục sửa tư thế bơi của Noãn Noãn, tận tâm sẽ cô bé tập bơi. Bởi vì giờ này nắng quá gắt nên trong bể bơi hầu như chỉ có trẻ con đang chơi đùa, người lớn thì đều đứng trên bờ. Mãi đến gần 2 giờ, khi bể bơi chuẩn bị đóng cửa làm vệ sinh thì chịu tiểu dĩnh mới xuất hiện với đôi mắt đỏ hoe.",
+      "start": 1715.02,
+      "end": 1735.726,
+      "avg_logprob": -0.0979246147943817
+    },
+    {
+      "text": " Kỷ ức và nọt nọt lấy làng lạ, gặn hỏi mãi cũng chẳng biết được nguyên to. Nhưng khi nhìn thấy xa xa có một đám con trai thì họ liền hiểu ra. Thằng nhóc ngồng ngây nhất trong số đó là Vương Hành Vũ, em trai cùng cha khác mẹ của Trượng Tiểu Sĩnh.",
+      "start": 1735.726,
+      "end": 1751.74,
+      "avg_logprob": -0.15058211368672988
+    },
+    {
+      "text": " Chiệu tiểu dĩnh vừa sinh ra thì bố mẹ đã ly hôn rồi bởi vì bố cô bé không muốn có con gái nhưng quân nhân bắt buộc phải tuân thủ chính sách mỗi gia đình chỉ có một con nếu muốn sinh thêm thì chỉ còn cách ly hôn rồi cưới người khác Sau khi ly hôn, chịu tiểu dĩnh theo họ mẹ còn mẹ cô từ gia đình quân nhân bỗng trở thành tạp vụ Cũng may bà đang dạy tiểu học nên mới được phép ở lại trong viện Em trai cậu lại bắt nạt cậu à",
+      "start": 1753.04,
+      "end": 1782.925,
+      "avg_logprob": -0.08805031390310084
+    },
+    {
+      "text": " Nó không phải là em trai của tớ, triệu tiểu sinh lại bắt đầu khóc, để tớ giúp cậu hả giận. Quý nọn noán ôm trước vào bơi nỗ lực đạp nước muốn lên bờ, nhưng tốc độ chấm nên quả là đã tức đến đỏ mặt.",
+      "start": 1783.887,
+      "end": 1798.433,
+      "avg_logprob": -0.1727834300592888
+    },
+    {
+      "text": " Ngốc thật! Kỷ ức bỗng dữ lấy phao của nặn nặn, lặng lẽ nói bên tai cô bé. Để tớ! Rứt lời, cô lần bơi đến ven bể bơi và nhảy lên bờ. Cô bé dựa theo chi nhớ, tìm thấy một sợi dây thừng trong phòng quản lý, tiện tay thép nốt lại.",
+      "start": 1799.125,
+      "end": 1816.27,
+      "avg_logprob": -0.2177465558052063
+    },
+    {
+      "text": " Một lá sau, kỷ ức nhẹ uống số nước Lặn vốn là sở trường của cô bé Đặc biệt hôm nay, bể bơi mới thay nước nên không cần kính cũng có thể nhìn được sưới nước trong khoảng cách ngắn Kỷ ức lặn đến chân của Vương Hành Vũ Vòng sợi dây từng cuốn quanh đôi chân cậu ta rồi buộc chặt Sau đó, bơi đi không quay đầu lại",
+      "start": 1816.27,
+      "end": 1837.482,
+      "avg_logprob": -0.127540653556343
+    },
+    {
+      "text": " Đến khi kỉ ức trồi trên mặt nước thì đã thấy phía xa xa kia Vương Hành Vũ vốn quen ngang ngược đang gào thét ẩm ĩ nói rằng có thủy quái Nhưng cậu ta đang ôm chặt lấy phao không bơi được mà cũng chẳng thể nào thoát khỏi sợi dây thừng chật vật đến suốt bắt khóc Cuối cùng chịu tiểu diễn cũng phì cười",
+      "start": 1838.731,
+      "end": 1859.723,
+      "avg_logprob": -0.12615266991931884
+    },
+    {
+      "text": " Kỷ ức hít một hôi tẩn sâu để bổ sung không khí Thấy chịu tiểu diễn nguyện mẹ cười trong nước mắt Kỷ ức cũng tiết mắt cười theo",
+      "start": 1860.635,
+      "end": 1868.819,
+      "avg_logprob": -0.23800223932734557
+    },
+    {
+      "text": " Thầy chịu tiểu dĩnh báo thủ xong, các cô bé lên đi tắm rượt sạch sẽ và mặc quần áo mới. Họ men theo con đường bỏng nắng, xách sang đàn trong tay vui cười hớn hở nhẹ nhót đi về phía khu nhà. Nhưng vừa đi ngang qua thao trường luyện tập 800m, họ lên bị đám vương hạnh phúc cỡi xe đạp lao đến chất đường. Ký ức nhìn sang hai cô bé bên cạnh. Thôi xong, lần này nên đuổi rồi.",
+      "start": 1869.697,
+      "end": 1896.022,
+      "avg_logprob": -0.14510350887942466
+    },
+    {
+      "text": " Họ chỉ là ba cô bé, thật sự chẳng có cách nào đối đầu được với 5-6 đứa con trai. Noạn noạn dùng ánh mắt ra hiệu bỏ chạy, nhưng cả ba đều đang đi chân trần thì làm sao mà chạy nhanh hơn xe đạp được đây? Kỷ ức lắc đầu, nhất thời cũng chẳng nghĩ ra được cách gì. Kỷ ức là mày phải không hả?",
+      "start": 1896.022,
+      "end": 1917.453,
+      "avg_logprob": -0.11292016706546816
+    },
+    {
+      "text": " Em trai của Triệu Tiểu Sĩnh nhìn thẳng vào kỷ ức, trong bọn mày chỉ có mày là biết bơi thôi. Kỷ ức không đáp, tiếp tục nghĩ cách. Nhưng chỉ nháy mắt, chiếc túi đụng đờ bơi, quần áo, khăn tắm trên tay Triệu Tiểu Sĩnh đã bị một thằng nhóc hắc ràng mất. Vương hành vũ cười rất đắc ý.",
+      "start": 1918.145,
+      "end": 1937.483,
+      "avg_logprob": -0.13403925028714267
+    },
+    {
+      "text": " Chịu Tiểu Dĩnh, mẹ mày thì keo kiệt nhất rồi, nếu giờ tao ném hết đồ bơi khăn tắm với xếp của mày đi thì thế nào mày cũng sẽ bị bà ấy mắng chết, thậm chí cả đời này mày cũng không được đi bơi nữa ấy chứ. Mặt chịu Tiểu Dĩnh lập tức đỏ hoe, mãi cô bè mày mắng được một cầu, đủ khốn.",
+      "start": 1937.483,
+      "end": 1957.328,
+      "avg_logprob": -0.17051630382952482
+    },
+    {
+      "text": " Những điều Vương Hành Vũ nói đều là sự thật, nếu quả thật bị phát hiện thì triệu Tiểu Dĩnh nhất định sẽ bị mẹ đánh. Sau này cũng chẳng dám nghĩ đến việc đi bơi nữa. Cuối cùng Kỷ ức mở miệng nói, là tôi treo cậu đấy, cậu muốn làm gì cũng được nhưng phải trả đồ lại cho chúng tôi. Kỷ ức chỉ muốn tránh cho triệu Tiểu Dĩnh khỏi bị ăn đòn, nhưng sau khi dứt lời cô vẫn chưa hiểu hết được ý nghĩa của câu nói này.",
+      "start": 1958.122,
+      "end": 1984.717,
+      "avg_logprob": -0.10856854742573153
+    },
+    {
+      "text": " mãi cho tới khi Vương Hành Vũ lôi họ vào trong sân huấn luyện vượt chứa ngại vật 800m, ký ức mới thấy sợ. Chẳng biết các thằng nhóc trông như su cô nhí này sẽ làm gì đây. Dù sao cũng là khu vực huấn luyện cho học viên quân đội. Trên đường chạy 800m còn có lưới sắt, có tường cao, có bậc thang. Nói chung là đủ các loại chứa ngại vật mà những đứa trẻ như chúng không thể nào vượt qua nối.",
+      "start": 1984.717,
+      "end": 2010.637,
+      "avg_logprob": -0.08081054580397903
+    },
+    {
+      "text": " Cuối cùng, Vương Hành Vũ dừng lại trước một hố cát hình vuông, chỉ tay nói, Tao có thể trả lại đồ cho chúng mày, nhưng kỷ ức mày phải nhảy xuống đây. Nhảy xuống ư và một cái hố cát dâu 3m.",
+      "start": 2010.637,
+      "end": 2025.588,
+      "avg_logprob": -0.19706002877731071
+    },
+    {
+      "text": " Kỷ ức đứng bên miệng hố, nhìn chịu tiểu dĩnh đang khóc nước nở và quý nãn nãn lây hoay chẳng có kế sách gì, rồi lại nhìn xuống cái hố cắt sâu 3m. Ngoài quân nhân đã được rèn nguyện, thì dù là một người lớn bình thường có nhảy xuống, cũng khó lỏng mà leo lên nổi. Cậu đảm bảo sẽ trả đồ lại cho chúng tôi chứ? Kỷ ức nhìn Vương Hành Vũ nói, nhiều lời, tao đã đồng ý với mày trước bao nhiêu anh em ở đây rồi.",
+      "start": 2026.128,
+      "end": 2052.672,
+      "avg_logprob": -0.12834176679567105
+    },
+    {
+      "text": " Kỷ ức liều mình quyết tâm và quả thực cư thế nhảy xuống. Đầu cô bé bị chấn động đến mức xoay mỏng mỏng. Cũng may còn có rất nhiều cát làm đẹp đỡ, nhưng đầu gối vẫn bị sướp. Can không mịn phủ đầy đôi sang đan cọ vào chân đau nhái. Kỷ ức thực sự cảm thấy có chút chóng mặt nên chầm chậm dựa vào thành hố phụ đầy cát để ngồi xuống. Ngỉ một lúc lâu mới nghe thấy có người đang gọi mình.",
+      "start": 2053.28,
+      "end": 2079.52,
+      "avg_logprob": -0.12258873760332296
+    },
+    {
+      "text": " Nọa nọa và chịu tiểu dĩnh đang khóc bò trên miệng hố nhô đầu ra nhìn, hỏi Kỷ ức có sao không? Kỷ ức xua tay, chẳng còn sức để nói nữa. Bấy giờ mới thấy chân mềm nhũn, mới biết sợ. Cái hố này sâu quá, một cô bé con chẳng đời nào có thể chéo lên nỗi. Kỷ ức, đội tố đi gọn người đến kéo cậu lên. Nọa nọa lòng nước mắt. Cả đời này, tôi quyết không đội trời chung với Vương Hành Vũ.",
+      "start": 2079.976,
+      "end": 2108.545,
+      "avg_logprob": -0.12865497790581998
+    },
+    {
+      "text": " Cô bé mới nói được mấy câu, nước mắt lại rơi lạ chã. Kỷ ức, tớ xin lỗi, lần nào tớ cũng chẳng giúp được gì cho cậu. Hai đứa mình là bạn chí cốt. Còn nhớ hôm liên hoan chẳng có ai chịu diễn chuyển thuyết bạch xà với tớ cả. Chỉ có cậu chịu trở thành tiểu thanh của tớ thôi.",
+      "start": 2108.967,
+      "end": 2127.547,
+      "avg_logprob": -0.15027946791028587
+    },
+    {
+      "text": " Kỷ ức bị đoạn đoạn chọc cười. Trời ạ, những chuyện như thế, đừng có nhắc lại chứ. Rất lời, cả hai cô bé liền chạy đi tìm người đến cứu Kỷ ức lên. Kỷ ức nghỉ ngơi một lúc lâu rồi mới trượt nhớ ra hôm nay là ngày ba mẹ sẽ về. Cô bé ngơ ngát đứng bật tay, bắt đầu nghĩ đủ cách để treo lên.",
+      "start": 2128.458,
+      "end": 2149.231,
+      "avg_logprob": -0.12934027564904046
+    },
+    {
+      "text": " Bà mẹ lần nào cũng trở về sát vội vàng rồi lại nhanh chóng ra đi. Họ căn bản sẽ chẳng đợi kỷ ức đâu. Tất cả mọi súng khí ban nãy đã tan biến hết. Kỷ ức nghỉ mãi, rồi hòa khóc, nước mắt lạ cha rơi xuống.",
+      "start": 2149.872,
+      "end": 2164.469,
+      "avg_logprob": -0.19791666961585483
+    },
+    {
+      "text": " đã hai tháng không được gặp ba mẹ rồi. Nhưng vách bề tông xung quanh chẳng có lấy một kẽ nứt hoàn toàn không có cách nào leo lên được. Kỷ ức cố gắng rất lâu, cuối cùng hoàng khóc, ngủy phịch xuống. Nếu ba mẹ nổi giận không quay lại thăm mình nữa thì phải làm sao?",
+      "start": 2165.043,
+      "end": 2182.542,
+      "avg_logprob": -0.12124398952493301
+    },
+    {
+      "text": " Thời gian trôi đi, kỷ ức càng nghĩ càng cảm thấy tuổi thân. Cô bé vùi đầu vào sự hai đầu cối, lánh vào trong góc quất ánh mặt trời, chỉ biết khóc. Đây không phải là lần đầu tiên kỷ ức khóc vì nhớ ba mẹ, nhưng lại là lần đầu tiên khóc ở một nơi không phải là nhà. Cảm giác này thật bất lực quá. Cô bé chỉ thấy lúc này thật sự rất tuổi thân, cảm giác ức chế đã lâu khiến kỷ ức tuổi thân vô cùng.",
+      "start": 2184.23,
+      "end": 2211.297,
+      "avg_logprob": -0.07847112285185463
+    },
+    {
+      "text": " Đến khi có người nhảy vào hố cát, cô bé cũng chẳng hề phát hiện ra Tận tới khi có một ngón tay nhẹ nhàng phủi đi những hạt cát bẩn xung quanh đầu gối của ký ức do vết thương bị chạm đến Ký ức mới ngởn đầu lên với đôi mắt noà đi về nước mắt để nhìn người đối diện",
+      "start": 2211.618,
+      "end": 2229.944,
+      "avg_logprob": -0.11562499829701015
+    },
+    {
+      "text": " Nhiều năm về sau, Kỷ ức không nhớ nổi lần đầu tiên gặp mặt, không nhớ nổi ly kem khi gặp lần thứ hai, nhưng vẫn nhớ mãi khung cảnh lúc này. Chú út quý, với đôi mắt tối sầm, rất đáng sợ, đang ở trước mặt Kỷ ức, quay lưng lại mặt trời. Một lá sau mới chầm chậm, thật chậm rãi, xua tan đi cơn giận dữ, đôi môi đang miếm chặt, cũng dần dần nở thành nụ cười. Nụ cười đẹp cực kỳ.",
+      "start": 2231.648,
+      "end": 2257.838,
+      "avg_logprob": -0.10437500212873731
+    },
+    {
+      "text": " Quý Thành Dương vốn định mắng kỷ ức, hồ cát sâu thế này mà cũng dám nhảy xuống nhỡ xảy ra chuyện gì thì phải làm sao. Nhưng khi anh nhìn tới đôi mắt xưng hút vì khóc của kỷ ức thì bỗng nhiên cảm thấy mềm lòng. Tây tây, đau quá nên khóc à. Anh học chị dâu thứ biệt xanh của cô bé và dịu dàng coi. Kỷ ức lắc đầu vẫn không ngừng thốt tít, nói chẳng nên lời.",
+      "start": 2259.205,
+      "end": 2284.366,
+      "avg_logprob": -0.13843750109275182
+    },
+    {
+      "text": " Tối hôm hội diễn, chạy khỏi sân khấu trước mấy nghìn người, cô bé cũng chẳng hề khóc, chỉ cần ăn một cốc kem là lại bình thường. Thế nhưng bây giờ, sao tự nhiên lại khóc dữ thế? Quý Thành Dương không hiểu rõ lắm tâm lý của các bé gái. Anh bảo nọa nọa ở phía trên nắm chặt với cánh tay kỷ ức, rồi đặt cô bé đứng lên vai mình để nâng lên khỏi hố. Đến khi anh nhảy lên được miệng hố mới phát hiện ra, kỷ ức vừa khóc, vừa gắng sức chạy về khu nhà ở.",
+      "start": 2285.362,
+      "end": 2313.931,
+      "avg_logprob": -0.10297540012509265
+    },
+    {
+      "text": " Chú Út! Chú Út! Chú tuyệt đối đừng nói cho ai biết nhé! Phải giữ bí mật đấy! Nếu không, mẹ cháu đánh chết! Loan loan đi bên cạnh dặn giò cẩn thận. Ờ, anh đồng ý, rồi đứng thẳng dậy, vụi xạch cá trên tay.",
+      "start": 2315.062,
+      "end": 2330.806,
+      "avg_logprob": -0.19281249806284906
+    },
+    {
+      "text": " Chú Út, chú Út, chú cũng không được nói với ông nội của kỷ ức nhé. Ông bạn ấy quản nghiêm lắm, lần nào cháu gặp ông cũng chẳng dám hé sang một lời. Ừ. Chú Út, chú Út, cháu với kỷ ức là bạch trí khót đấy. Hồi lớp cháu tổ chức Lên Hoan, ai cũng chê cháu ngốc ngách, chẳng ai chịu ngồi cùng cháu, sương ô diễn truyền thuyết bạch già. Chỉ có mỗi kỷ ức là cuối cùng chịu làm tiểu thanh của cháu thôi.",
+      "start": 2331.11,
+      "end": 2357.384,
+      "avg_logprob": -0.13146841157508152
+    },
+    {
+      "text": " Nạn nạn nói một mạch rồi nhìn sang chịu Tiểu Sĩnh với gương mặt trắng trèo. Nãy giờ chẳng nói lời nào vẫn ở bên cạnh. À đúng rồi, cả Tiểu Sĩnh nữa, bạn ấy là hứa tiên của cháu. Đoạn này, quý thành Dương thật sự nghe không hiểu. Lông trở về nhà vẫn hoàn toàn yên ánh, kỷ ức thở phào an tâm.",
+      "start": 2358.329,
+      "end": 2379.743,
+      "avg_logprob": -0.13948170731707318
+    },
+    {
+      "text": " Chắc bà mẹ cô vẫn chưa về đâu nhỉ, nhưng khi nhìn thấy một hộp xô-cô-la và vài đồ ăn vặt là trên bàn thì cô bé vẫn cảm thấy bầu trời như sụp xuống. Bà mẹ đã đi rồi ư. Hai tháng không gặp, vậy mà bà mẹ đã đi rồi ư. Kỷ ức bước tới nhìn những gói đồ ăn vặt họ để lại, nhưng chẳng hề thấy có bất kỳ màu giấy nào. Bầu trời thật sự đã đổ sụp xuống.",
+      "start": 2380.807,
+      "end": 2406.777,
+      "avg_logprob": -0.12646811480490153
+    },
+    {
+      "text": " Kỷ ức đi vài phòng định tìm hộp thuốc để bối thuốc đỏ hoặc là thuốc tím nên vết thương nhưng tìm mãi chẳng thấy nên lại ôm hộp thuốc khóc một trận thật đã. Cuối cùng mãi cho tới khi noát noát đưa chú út quý đến nhân tiện trông luôn thuốc đỏ từ nhà thì Kỷ ức mới chịu đến.",
+      "start": 2407.553,
+      "end": 2426.065,
+      "avg_logprob": -0.10011062157892547
+    },
+    {
+      "text": " Trước mặt bạn bè, Kỷ ÚC không bao giờ khóc. Cô bé khoanh chân, ngồi trên cây sofa. Quý thành Dương cực kỳ nhẫn nại, cuối đầu xuống, dùng bông vào cồn, rửa sạch sẽ phết thương. Kỷ ÚC khẽ co người lại vì đau.",
+      "start": 2426.065,
+      "end": 2439.937,
+      "avg_logprob": -0.17935505905684004
+    },
+    {
+      "text": " nhưng lập tức thấy đầu gối mát dưới. Nọn Nọn đang thổi phết thương của kỷ ức rồi nghiêm túc bảo quý thành dương. Chú Út, chú cứ thổi thế này là bạn ấy sẽ không đau nữa đâu. Nói xong, Nọn Nọn liền thuần thuộc với lợi chức điều khiển và chuyển sang kênh truyền hình vệ tinh, cư như đã bản giao xong trách nhiệm cho anh vậy.",
+      "start": 2440.105,
+      "end": 2461.148,
+      "avg_logprob": -0.13619402796030045
+    },
+    {
+      "text": " Ông nội kỷ vì muốn xem thời sự Hồng Kông nên đã cho người đến lắp anten tư nhân trong nhà. Nhờ vậy mà TV có thể bắt được các kênh của Đài Loan và Hồng Kông.",
+      "start": 2462.009,
+      "end": 2472.59,
+      "avg_logprob": -0.12191611632966158
+    },
+    {
+      "text": " Noạn noạn chẳng hướng thú xì với tiến thức thời sự hỏng công cả, nhưng cô bé cực kỳ yêu thích các chương trình giải trí, nhất là tiết mục chuyên giúp vụ nỗi bắt quả tan chồng bồ bịch. Còn quý thành Dương sau khi được bàn giao nhiệm vụ thì hơi ngần ngờ, nhưng cuối cùng anh vẫn hơi cúi xuống nhẹ nhàng thổi phá vết hương trên đầu gối ký ức.",
+      "start": 2473.079,
+      "end": 2494.156,
+      "avg_logprob": -0.15681612923525381
+    },
+    {
+      "text": " Anh không thổi một cách tùy tiện như nọn nọn. Nếu đã làm thì phải làm cho thật tốt, thật tử tế. Thế nên anh thổi cực kỳ dịu dàng. Chú út quý, kỷ ưng khẽ gọi, quý thành dương nhướn mắt. Còn chú vừa xa cho cháu đang bốc hơi nên đã mát lắm rồi. Thực ra không cần phải thổi thêm nữa.",
+      "start": 2494.156,
+      "end": 2517.494,
+      "avg_logprob": -0.1425304841704485
+    },
+    {
+      "text": " rứt lời, kỷ ức liền kéo kéo chỉnh lại gấu váy, tránh để lộ quần lót bên trong. Ở độ tuổi này, cô bé đã mơ hồ có ý thức kiên rè rồi. Quý thành Dương không nhận được liền bật cười, không rõ là ngại ngùng hay là tự diễu. Nói chung, anh nhận ra mình lúc nào cũng phạm phải những sai lầm cực kỳ cơ bản trên phương diện số dành trẻ con.",
+      "start": 2517.983,
+      "end": 2539.803,
+      "avg_logprob": -0.13537946524364608
+    },
+    {
+      "text": " Lại còn hoàn toàn lệch chuẩn nữa Anh vối thuốc đỏ rồi cắt một miếng bông rung băng xinh xán cố định lên vết thương Nếu trong nhà có ai hỏi thì cứ bảo là cháu bất cần bị ngã khi đang chạy nhé Kỷ ức cởi Mọi người chẳng chú ý đâu, không sao mà",
+      "start": 2539.803,
+      "end": 2558.095,
+      "avg_logprob": -0.1480468788743019
+    },
+    {
+      "text": " Vì mới khóc xong, nên giờ đôi mắt to của cô bé xưng hút trông cực kỳ đáng thương. Quý thành Dương vẫn cảm thấy rất kỳ lạ. Cô bé này mấy hôm trước trông có vẻ cực kỳ kiên cường mà sao hôm nay lại khóc dữ thế. Noạn noạn tiện tay vừa lấy hộp xô cô la trên bàn, bóc ra và ăn một miếng.",
+      "start": 2558.348,
+      "end": 2577.282,
+      "avg_logprob": -0.14382684145305977
+    },
+    {
+      "text": " Kỷ ức vốn định ngăn lại nhưng không kịp nên chỉ mỉm cười Cô bé nhảy xuống đất vào bếp rửa sạch tay sau đó rót cho quý thành Dương và Nãn Nãn mỗi người một cốc nước mát",
+      "start": 2577.282,
+      "end": 2588.774,
+      "avg_logprob": -0.1338975675817993
+    },
+    {
+      "text": " có ánh nắng xuyên qua chiếc góc, rơi xuống lớp thủy tinh. Quý thành Dương thấy vẻ mặt cô đơn của kỉ ức, men đột nhiên thay đổi góc độ của chiếc góc và tạo thành một chiếc cầu vòng nhỏ. Cực kỳ nhỏ, chỉ mình kỉ ức trong thấy, cô bé cuối cùng cũng mỉm cười. Nhưng lúc ấy, nọn nọn, phá ra cười lớn hơn, cô bé cầm điều khiển chỉ vào người đàn ông ngoại tình đang bị đánh trong TV, cười lăn lộn, liên tục khen hay.",
+      "start": 2589.23,
+      "end": 2616.652,
+      "avg_logprob": -0.1268168655765611
+    },
+    {
+      "text": " Tối hôm ấy, lần đầu tiên Quý Thành Sương đề nghị đi đến giả chiếu phim của viện, bố con nặn nặn cực kỳ bất ngờ, con cô bé lập tức nhảy lên hoan hô vạn tuế.",
+      "start": 2617.63,
+      "end": 2627.705,
+      "avg_logprob": -0.16480152369351
+    },
+    {
+      "text": " Dạp chiếu phim trong viện, thư sáu nào cũng chiếu hai rút phim. Chỉ có trời mới biết cô bé muốn đi xem đến mức nào. Nhưng nếu không có thể giáo viên, thể học viên, hoặc là chứng nhận gia quyến thì bọn nhóc con như noãn noãn còn lâu mới được phép vào. Thế nên đã đa số thời gian, noãn noãn và kỷ ức toàn phải sở chiếu năn nỉ văn lên hoặc trốn sau lưng các học viên khác để được chui vào trong.",
+      "start": 2627.857,
+      "end": 2653.051,
+      "avg_logprob": -0.14314177692336524
+    },
+    {
+      "text": " Tuy mấy vệ binh phụ trách bán vé đều quan biết họ nhưng vẫn xấu hổ lắm. Cho Cindy, chú Út muốn đến đó ư. Thế chẳng phải là muốn xem phim gì họ sẽ chiếu phim đó ư. Thế là, ký ức và chịu tiểu dĩnh cũng được hưởng phúc.",
+      "start": 2654.317,
+      "end": 2670.567,
+      "avg_logprob": -0.12083333399560717
+    },
+    {
+      "text": " Cô bé ăn cơm vừa xong, vừa rửa sạch sẽ bát đũ của mình, liền được quý nọt nọt gọi ra ngoài. Ba cô bé theo Quý Thành Dương đến giảm chiếu phim, vừa kiếm lụng xuất chiếu thứ nhất kết thúc. Có rất nhiều học viên quân đội xếp hàng đi ra ngoài. Quý Thành Dương đứng nhét hai tay vào túi quần, trông có vẻ không được tự nhiên vì đứng trước cọng với ba bé con. Đợi họ về hết, anh mới dẫn các cô bé vào trong. Sau khi vào, mới phát hiện ra bên trong chẳng có người.",
+      "start": 2671.85,
+      "end": 2701.364,
+      "avg_logprob": -0.09687499863406022
+    },
+    {
+      "text": " Kỷ ức kinh ngạc nhìn đại sảnh rộng rãi vắng vẻ thấp rộng hỏi Noãn Noãn. Chẳng lẽ hôm nay chỉ chiếu một xuất thôi à? Không phải. Noãn Noãn kể nói. Ông nội tứ đã nói. Ông nói trước với người của giạc chiếu phim rồi. Xuất này chỉ chiếu riêng cho chúng ta xem thôi. Thật không? Kỷ ức mở tròn mắt. Ừ. Ông nội tứ đối tốt với chú ấy út nhất đấy. Nên đương nhiên nói thế nào sẽ đúng là thế ấy.",
+      "start": 2702.157,
+      "end": 2731.452,
+      "avg_logprob": -0.12921032470143484
+    },
+    {
+      "text": " Trời ơi, hả hê quá, cuối cùng cũng không cần phải mặt dày bán đôi người khác để đột báo xem phim rồi. Bà cô bé đứng đợi quý thành dương chọn phim, tiếc là ngoài những bộ phim quen thuộc cứ cách một tháng lại chiếu một lần thì chẳng có gì hay cả.",
+      "start": 2732.093,
+      "end": 2749.07,
+      "avg_logprob": -0.13238790939035622
+    },
+    {
+      "text": " Hay là phim này? Người phụ trách đưa cho cậu con trai út nhỏ Quý một chiếc đĩa Chẳng mới khi có được một bộ không phải là chủ đề cách mạng Quý Thành Dương cúi xuống nhìn tên phim Tân Tây Xu Ký Trông có vẻ là Tây Xu Ký, anh không hiểu rõ lắm về những bộ phim trong nước Chỉ đoán rằng chắc trẻ con sẽ thích Thế là anh đồng ý rồi đưa đám kỷ ức vào trong",
+      "start": 2749.289,
+      "end": 2774.838,
+      "avg_logprob": -0.11597711241371195
+    },
+    {
+      "text": " Dạp túi thui, hơn một nghìn ghế chống không, chẳng có lấy một người. Cảm giác này thật tình quá phấn khích. Đến chợ tiểu dĩnh cũng không kìm được mà ôm gương mặt hương phấn đỏ hồng. Noãn noãn, càng nganh ngang cô bé cứ kêu ẩm ẩm. Đã quá, nôn lệ cuối cùng cũng vẫn lên làm chủ rồi. Xong lại chạy từ cửa này sang cửa kia tung tăng hương phấn tột độ.",
+      "start": 2774.838,
+      "end": 2798.497,
+      "avg_logprob": -0.15289430130248102
+    },
+    {
+      "text": " Quý Thành Dương chọn một vị trí có góc nhìn đẹp rồi ngồi xuống. Kỷ ức cũng ngồi bên cạnh anh. Một luồng ánh sáng màu trắng chiếu qua đầu họ từ phía sau, thẳng vào màn hình lớn. Kỷ ức cũng hưng phấn đến mức tim đập rộn dàng.",
+      "start": 2799.627,
+      "end": 2814.697,
+      "avg_logprob": -0.09895833480792741
+    },
+    {
+      "text": " Một giặt chiếu phim vắng vẻ với noạn noạn đang nhảy nhót tá loạn và chịu tiểu xĩnh cuối cùng cũng bỏ qua bên lẽn để thoải mái vui đùa. Tất cả những điều này đã thành công lôi kỷ ức ra khỏi tâm trạng u ám ủ dột khiến cô bé tạm thời quên đi chuyện ba mẹ bỏ đi không một lời từ biệt. Kỷ ức nghiêng đầu.",
+      "start": 2814.697,
+      "end": 2834.305,
+      "avg_logprob": -0.14399999570846558
+    },
+    {
+      "text": " Lén lút nhìn chú út quý bên cạnh. Chú khác với các học sinh của ông nồi, họ toàn mặc áo sơ mi màu xanh lục. Còn chú lại mặc một chiếc áo sơ mi màu xanh ra trời nhạt. Rất khác. Đột nhiên kỷ ức cảm thấy chú út rất cao lớn và còn đẹp trai hơn cả Iri Naoki trong nụ hôn định mệnh. Chính là như vậy.",
+      "start": 2834.66,
+      "end": 2856.108,
+      "avg_logprob": -0.10759104682704596
+    },
+    {
+      "text": " Mùa hè năm 1997, cuối cùng Kỳ ức đã được xem phần 1 của Tân Tây Du Ký. Đây là một bộ phim không liên quan đến cách mạng duy nhất mà Kỳ ức được xem tại dịp chiếu phim của Viện nên ấn tượng cực kỳ sâu sắc. Kịch bản kỳ quá lời phải khó hiểu, ấn tượng ban đầu của Kỳ ức đối với Tân Tây Du Ký là như vậy.",
+      "start": 2857.492,
+      "end": 2879.986,
+      "avg_logprob": -0.09957836970450386
+    },
+    {
+      "text": " Kỷ ức hồi ấy, thực sự không hiểu được những bộ phim tình cảm thế này. Cuối cùng, chỉ cảm thấy Mạc Văn Úy rất đẹp, còn non non lại thích một nữ diễn viên khác là Chu Nhân. Chiều tiểu xĩnh vẫn như mọi khi, không phát hiểu ý kiến, nhưng cô bé cũng bày tỏ rằng mình xem không hiểu.",
+      "start": 2880.256,
+      "end": 2898.278,
+      "avg_logprob": -0.16947115012086356
+    },
+    {
+      "text": " Vài năm sau, khi nhìn tới những hình ảnh quen thuộc trên TV, kỷ ức mới nhận ra bộ phim này đã rất nổi tiếng ở đại lục rồi. Hơn nữa, vào thời điểm đó, cô bé cuối cùng cũng đã xem phần 2 của phim này. Hóa ra, tất cả mọi tinh hoa của bộ phim đều nằm hết ở phần 2. Trong phần bột, chỉ có các loại yêu tinh xuất hiện trên cãi nhau, những câu thoại để xúc động như, yêu anh một ngàn năm cũng chỉ có ở đoạn kết.",
+      "start": 2899.392,
+      "end": 2928.299,
+      "avg_logprob": -0.0960245251278334
+    },
+    {
+      "text": " Hóa ra Mạc Văn Úy mà kỷ ức thích chỉ là một nhân vật phụ. Nhưng trong câu chuyện này, Mạc Văn Úy mới là người bị hại chủ yếu. Dù cô yêu hay bỏ đi, Châu Tinh Trì cũng chưa từng để ý. Người mà Tề Thiên Đại thánh quan tâm chỉ có Tử Hà Tiên Tử.",
+      "start": 2928.299,
+      "end": 2946.659,
+      "avg_logprob": -0.135044645127796
+    },
+    {
+      "text": " Lại qua rất nhiều năm về sau khi xem những tin tức giải trí Kỷ ức mới biết rằng Mạc Văn Úy ở ngoài đời chính là người chiến thắng thực sự Cô đã đánh bại chú nhân và giành được châu tinh trì Cuộc sống quả là giống một củ hành tây cứ bóc hết lớp này lại thấy lớp khác Dù nước mắt đã đầm đìa thì vẫn còn có lớp tiếp theo chờ đợi ta Sau khi hết phim họ đi về phía khu căn hộ",
+      "start": 2947.469,
+      "end": 2973.642,
+      "avg_logprob": -0.12016636969374238
+    },
+    {
+      "text": " Giạp chiếu phim nằm ở gần cổng trí cua phiện, sau khi tắt đèn lúc 10 giờ chỉ có mỗi con đường chính này là đèn đường còn sáng. Tất cả các bóng đèn khác đều tắt, trong bóng tối chỉ còn lại ánh trăng. Bình thường nếu đám kỷ ức đi chơi về muộn hơn 10 giờ sẽ vừa chạy về nhà vừa hát, hùng dũng toai vệ khí thế bừng bừng vượt qua áp lục.",
+      "start": 2974.925,
+      "end": 2997.976,
+      "avg_logprob": -0.10348811588236984
+    },
+    {
+      "text": " Bóng tối có lẽ là thứ đáng sợ nhất đối với tất cả các cô bé Nhưng tối nay có chú út quý",
+      "start": 2998.364,
+      "end": 3006.194,
+      "avg_logprob": -0.09675887065964776
+    },
+    {
+      "text": " chẳng hiểu sao nọn nọn và tiểu dĩnh cứ đuổi nhau mãi không chịu xừng. Kỷ ức đi bên cạnh Quý Thành Dương, mẫu nhiên cảm giác tàn bộ trong buổi đêm có cảm thấy thật kỳ diệu. Quý Thành Dương có vẻ cũng không vội rằng, anh ruốt tuốc lá trong túi áo ra, bật lửa, tách một cái, rồi chậm dãi châm thuốc bằng ngọn lửa nhỏ xíu, đang nhẹ nhót ấy, khẽ xít một hơi. Sau đó, anh nhả ra một làn khói mỏng,",
+      "start": 3006.667,
+      "end": 3035.05,
+      "avg_logprob": -0.1567919082035219
+    },
+    {
+      "text": " Kỷ ức nhìn anh từ đầu đến cuối, anh mỉm cười, cái này không cho cháu thử được. Kỷ ức nhìn hai cô bạn thân ở phía xa, nghĩ một lát rồi khẽ khàng nói, cháu biết nó có vị như thế nào, ông nội cháu cũng hốt thuốc nên cháu đã từng thử vì hiếu kỳ.",
+      "start": 3036.198,
+      "end": 3053.478,
+      "avg_logprob": -0.10765625305473804
+    },
+    {
+      "text": " Quý Thành Dương hơi nhớn mắt. Thật đấy! Kỷ ức nhỏ rộng khẳng bình, trông đầy vẻ, ta đầy không thèm thử. Quý Thành Dương dùng hai ngón tay kẹp mũi cô bé, rồi đưa tay trái về phía kỷ ức. Kỷ ức nhìn anh đầy kinh ngạc, phải mất một lúc sau mới đặt tay mình vào lòng bàn tay anh. Hai cô bé đi đằng trước, vẫn đang đùa sỡn, mãi mê với vở diễn đại chiến giữa bạch cốt tinh và nhiệt tinh. Còn kỷ ức được Quý Thành Dương rắt tay.",
+      "start": 3054.136,
+      "end": 3083.701,
+      "avg_logprob": -0.11283827596104022
+    },
+    {
+      "text": " chậm chậm đi qua bóng tối trở về nhà. Thực ra chú út quý không quen với việc rắt trẻ con nên nắm khá chặt. Tuy có hơi khó chịu nhưng từ đầu đến cuối kỷ ức không dám cử động. Bởi vì kỷ ức sợ nếu mình cử động anh sẽ cho rằng kỷ ức phiền phức và không muốn rắt nữa. Kỷ ức nghe thấy tiếng tít tít tít vang lên trên người anh, cô bé nhận ra âm thanh này đó là máy BB, máy nhắn tin.",
+      "start": 3083.701,
+      "end": 3112.388,
+      "avg_logprob": -0.10635080654774942
+    },
+    {
+      "text": " Quả nhiên, Quý Thanh Dương đưa thuốc lên miệng cắn, dùng tay phải, lôi một chiếc máy nhắn tin trong túi quần ra. Anh xem qua bằng ánh sáng màu xanh tỏa ra từ màn hình, rồi lại ném vào trong túi, tiếp tục vừa hút, vừa sắt kỷ ức. Chẳng bảy bay để tâm đến nội dung tên nhắn vừa được gửi tới. Có lẽ vì bộ phim này, nên khi kỷ ức và nọn nọn trò chuyện, hai cô bé đều cầu mong, Chú Út Quý đừng có rời đi vội. Có vậy, hai cô bé mới được đến những nơi bình thường chẳng được phép tới.",
+      "start": 3112.388,
+      "end": 3142.358,
+      "avg_logprob": -0.11014093458652496
+    },
+    {
+      "text": " Ngoài khu ca nộ ra, tất cả những nơi khác trong viện như doanh cháy, bãi tập bắn, sân tập luyện, thậm chí đến cả bãi chăn gôi bò sữa để cung cấp sữa cho viện, hai cô bé cũng muốn được tới chơi. Vào năm học mới, Kỳ ức sẽ lên lớp 7. Đã là người lớn rồi, Kỳ ức",
+      "start": 3143.05,
+      "end": 3162.777,
+      "avg_logprob": -0.14518805309734514
+    },
+    {
+      "text": " Thế giới của kỷ ức được bao bọc trong những bức tường rất an toàn Hằng ngày đi ra đi vào đều gặp người quen Lời cô bé thường xuyên đến cũng là những địa điểm quen thuộc Trong thế giới này, tất cả trẻ con đều chẳng hề có tiền bạc gia sản Nếu đói nếu khát thì cứ quay về nhà ăn một miếng, uống một ngụm rồi lại tiếp tục chạy đi chơi",
+      "start": 3164.178,
+      "end": 3188.309,
+      "avg_logprob": -0.08902616279069768
+    },
+    {
+      "text": " Đeo cặp sách, đi bộ 5 phút là đã tới trường tiểu học và mẫu giáo mà kỷ ức đã chinh phục xong. Bên phải là trường cấp 2 mà cô bé đang trong quá trình chinh phục. Cuộc sống, cư thế trôi đi, bình yên, giản dị.",
+      "start": 3189.423,
+      "end": 3203.598,
+      "avg_logprob": -0.08491655049676244
+    },
+    {
+      "text": " Một tuần sau khi phải năm học mới, thầy giáo chuẩn bị đưa cả lớp đi du xuân nên bố trí bài tập gấp diều cho học sinh. Các bạn nam trong lớp đi tìm thanh chúc còn các bạn nữ phụ trách kiếm giấy lớn để làm diều. Từ nhỏ kỷ ức đã học thư pháp, trong nhà có hàng tập hàng tập giấy, nhiều không đếm nổi.",
+      "start": 3204.948,
+      "end": 3224.455,
+      "avg_logprob": -0.0827473987514774
+    },
+    {
+      "text": " Cô bé lén lút ôm một chồng tới chia cho các bạn còn đặc biệt dành riêng cho chịu tiểu dĩnh 20 mấy trang để sau này nếu thích có thể tự bỏ ra chơi. Buổi trưa về nhà, cô bé chưa phát hiện ra ông bà nội không ra ngoài mà đều đang ngủ trưa.",
+      "start": 3224.455,
+      "end": 3242.444,
+      "avg_logprob": -0.10729166318972906
+    },
+    {
+      "text": " Kỷ ức rất hương phấn, len len bê một chiếc kế nhỏ vào nặt cạnh bên giường ngủ của ông bà nội, rồi yên tĩnh trải giấy báo ra và dùng con dao gọn bút chỉ để vót thành trúc. Khi ông nội ngủ thường phát ra tình ngái khe khẽ khiến kỷ ức cảm thấy rất ấm áp, rất hạnh phúc. Cô bé mím môi, mới một tháng không tập trung mà đường dao đã lệch rồi.",
+      "start": 3242.663,
+      "end": 3266.12,
+      "avg_logprob": -0.1390845003262372
+    },
+    {
+      "text": " Vốn dĩ kỷ ưng phải dùng lực rất mạnh mới vót được thanh chúc, lưỡi da trượt đi khiến một miếng thịt và móng tay trên ngón cái cũng bị cắt đứt Ngay lúc ấy, kỷ Đức chẳng cảm thấy đau nhưng máu chảy rất nhiều Cô bé bị chặt ngón tay lại và chạy ra ngoài đi tìm bông để đè lên vết thương Nhưng không những không cầm được máu mà cảm giác đau thấu tim đã bắt đầu ập tới",
+      "start": 3267.335,
+      "end": 3291.955,
+      "avg_logprob": -0.12478448769141888
+    },
+    {
+      "text": " Kỷ ức đau đến mức nghiến sang nghiến lội, nhưng vì sợ làm ông bà thức giấc nên cô bé cứ giữ chặt phết thương, nhanh nhẹn dọn dẹp chiến trường rồi chạy ra khỏi nhà. Cô bé chạy tới nhà để xe bên cạnh. Giữa trưa nên ở đây chẳng có một ai, cuối cùng cũng đau đến mức không chịu đổi nữa, cứ liên tục hất mạnh tay. Đau chết mất, đau chết mất.",
+      "start": 3292.36,
+      "end": 3317.183,
+      "avg_logprob": -0.14129464754036494
+    },
+    {
+      "text": " Phát tiết xong cô bé liền quay người lại Bỗng nhiên nhìn thấy có một điều thuốc rơi xuống trước mặt Kỷ ức ngước lên thấy Quý Thành Dương đang tựa vào lan cam tầng bốn ra hiệu ss với mình Tùy họ cách nhau khá xa nhưng vẫn nhìn thấy rất rõ Cô bé ngơ ngát đứng nhìn chú Út Quý biến mất Rồi lát sau đi ra từ cửa chính của khu nhà Hôm nay chú Út Quý mặc áo sơ mì trắng Ờ",
+      "start": 3317.588,
+      "end": 3346.107,
+      "avg_logprob": -0.13249577058328166
+    },
+    {
+      "text": " Kỷ ức vô thức ghi nhớ những bộ trang phục khác nhau mà anh mặc. Sao thế? Quý thành Dương dường như đã quen với việc hỏi thăm xem cô bé con này lại gặp phải chuyện gì.",
+      "start": 3346.681,
+      "end": 3358.561,
+      "avg_logprob": -0.10455321986228228
+    },
+    {
+      "text": " Kỷ ức do dự đưa ngón tay cuốn kiến bông của mình lên. Máu đã cầm được rồi, nhưng miếng bông đỏ thẫm trông cực kỳ đáng sợ. Bản thân Kỷ ức chẳng buồn để tâm, nhưng quý thành Dương thì vô cùng hoàng hốt. Anh dùng 2 tay để xử lấy lòng bàn tay cô bé, không dám tùy tiện gỡ bỏ lớp bông băng. Sao lại bị thế này, dùng cách gì mà cứ đứt tay, nhà lại không có ai à?",
+      "start": 3358.915,
+      "end": 3384.025,
+      "avg_logprob": -0.12970752679766753
+    },
+    {
+      "text": " Lông cháu làm khung diều, bị dao cứa đứt mất một miếng thịt. Kỷ ức vẫn thấy rất đau. Ông bà nội đang ngủ, cháu sợ làm ông bà tỉnh giấc nên mới chạy ra ngoài.",
+      "start": 3384.785,
+      "end": 3396.344,
+      "avg_logprob": -0.15121298891149068
+    },
+    {
+      "text": " Quý Thành Dương vốn na cao nên giờ khi đứng nhìn xuống cương mặt đáng ước lên của Kỷ ức anh càng thấy Kỷ ức nhỏ bé yếu ớt hơn. Vốn sĩ anh né một điếu thuốc xuống là muốn biết cô bé này có chuyện gì. Kết quả lại là anh cúi xuống nói Chú đưa cháu đến bệnh viện có được không? Kỷ ức lắc đầu Cháu không đi bệnh viện đâu. Cô bé thật sự có chứng sợ bệnh viện ư?",
+      "start": 3397.103,
+      "end": 3424.947,
+      "avg_logprob": -0.1315456095176774
+    },
+    {
+      "text": " Đôi mắt quý thành Dương hơi ngước lên nhìn kỷ ức Thế thì đến phòng y tế của phiện có được không? Có vẻ như việc hạ số 1 cấp đã khiến cho tâm lý kháng cự của kỷ ức giảm đi rất nhiều Anh bé kỷ ức đi thẳng tới đó Cũng may những gì cần có đều đầy đủ cả Y tá lại làm mệ một bạn nào đó của cô bé nên đối xử với kỷ ức cực kỳ dịu dàng",
+      "start": 3425.2,
+      "end": 3450.293,
+      "avg_logprob": -0.11565896793120149
+    },
+    {
+      "text": " Kỷ ức được tiêm và băng bó vết thương rất cẩn thận. Xong xui, Quý Thành Dương liền đưa cô bé về nhà. Về đến nơi, trong nhà lại chẳng có ai. Quý Thành Dương không nhẫn tâm bỏ kỷ ức lại một mình nên quyết định ở lại rồi lôi hết đống nguyên liệu ra làm diều. Hai người ngồi ngoài ban công bắt đầu làm diều.",
+      "start": 3450.918,
+      "end": 3471.286,
+      "avg_logprob": -0.0882161465783914
+    },
+    {
+      "text": " Anh ngồi trên một chiếc kế to hơn một chút, cách cầm sao vô cùng đẹp. Anh vót trúc rất nhanh và điều liên, những bành vụ nhỏ xíu rời hết xuống. Kỷ ức ngồi trên chiếc kế nhỏ đối xuyên với anh, chống tay lên cằm nghiêm túc nhìn anh vót trúc.",
+      "start": 3472.518,
+      "end": 3488.06,
+      "avg_logprob": -0.14101175388487258
+    },
+    {
+      "text": " Gương mặt anh rất trắng, mái tóc có vẻ hơi mềm mãi, nên mỗi lần anh cúi đầu, tóc dễ xòa xuống, chê mất đôi mắt anh. Khi đôi mắt anh nhìn chăm chú vào tánh trúc trong tay thì chẳng còn về xa cách khó gần chút nào của thường ngày, thậm chí lúc này còn đặc biệt ôn hòa. Đây là người mà noãn noãn sùng bái nhất.",
+      "start": 3488.397,
+      "end": 3510.655,
+      "avg_logprob": -0.12112311940444143
+    },
+    {
+      "text": " Chú Út biết rất nhiều thứ. Từ nhỏ, thành thích đã ưu tú. Ngày xưa cũng tự mình quyết định chuyện xu học nước này. Sau đó nói là đi luôn. Hơn nữa, chú Út chơi đàn giỏi tới mức các cô gái đều điên cuồng. Chỉ có điều chú chẳng mấy thích trẻ con, lạnh lùng lắm. Tất cả là những thứ bình thường, noãn noãn hay nhắc tới.",
+      "start": 3511.06,
+      "end": 3534.787,
+      "avg_logprob": -0.10469980291494234
+    },
+    {
+      "text": " Anh cắt giấy sáng rất nhanh và hoàn thành con rượu Kỷ ức nắm con rượu trong tay vui mừng cực độ vội váng mang bút mực dùng để vẽ, tranh chữ ra định tôm màu cho rượu Thấy vậy quý thành dương liền mỉm cười rượu màu đen trắng không đẹp đâu Kỷ ức ra sự cầm con rượu đắn đo mãi Để chú mang lên nhà rồi Mai đưa xuống cho cháu có được không? Anh cuối xuống rượu sáng hỏi kỷ ức",
+      "start": 3536.153,
+      "end": 3564.318,
+      "avg_logprob": -0.13568037899234628
+    },
+    {
+      "text": " Cô bé Đác Vân rồi đưa con rìa cho anh. Ngày hôm sau khi lấy được rìa về, Kỳ ức thấy nó đã trở thành một con bướm đầy màu sắc rất đẹp. Kỳ ức không biết anh dùng cái gì để vẽ, Quý Thành Dương bảo đó là màu nước. Kỳ ức kỳ nhớ rồi lại lặng lẽ thêm vào một điều trong sự súng bái, rằng chú Út Quý vẽ tranh cũng rất giỏi.",
+      "start": 3564.773,
+      "end": 3590.727,
+      "avg_logprob": -0.13579962610760155
+    },
+    {
+      "text": " Vì con rượu vẽ đẹp quá nên cô bé không nỡ mang đến trường Cuối cùng, Kỷ ức và chịu tiểu xĩnh hợp tác là một con mới",
+      "start": 3591.048,
+      "end": 3599.975,
+      "avg_logprob": -0.2321874988079071
+    }
+  ],
+  "language": "vi"
+}

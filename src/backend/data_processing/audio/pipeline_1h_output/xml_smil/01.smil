@@ -1,0 +1,651 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE smil PUBLIC "-//NISO//DTD SMIL 1.0//EN" "http://www.daisy.org/z3986/2005/smil-2005-2.dtd">
+<smil xmlns="http://www.w3.org/2001/SMIL20/Language" xml:lang="vi">
+  <head>
+    <meta name="dtb:uid" content="01"/>
+    <meta name="dtb:totalElapsedTime" content="00:00:00.000"/>
+    <layout>
+      <region id="txtView"/>
+    </layout>
+  </head>
+  <body>
+    <seq id="seq_01">
+      <par id="par_1">
+        <text src="01.xml#s1" id="txt_1"/>
+        <audio src="test_1h.mp3" clipBegin="00:00:00.031" clipEnd="00:00:19.792" id="aud_1"/>
+      </par>
+      <par id="par_2">
+        <text src="01.xml#s2" id="txt_2"/>
+        <audio src="test_1h.mp3" clipBegin="00:00:19.792" clipEnd="00:00:48.192" id="aud_2"/>
+      </par>
+      <par id="par_3">
+        <text src="01.xml#s3" id="txt_3"/>
+        <audio src="test_1h.mp3" clipBegin="00:00:51.010" clipEnd="00:01:02.080" id="aud_3"/>
+      </par>
+      <par id="par_4">
+        <text src="01.xml#s4" id="txt_4"/>
+        <audio src="test_1h.mp3" clipBegin="00:01:02.333" clipEnd="00:01:32.219" id="aud_4"/>
+      </par>
+      <par id="par_5">
+        <text src="01.xml#s5" id="txt_5"/>
+        <audio src="test_1h.mp3" clipBegin="00:01:33.046" clipEnd="00:02:00.097" id="aud_5"/>
+      </par>
+      <par id="par_6">
+        <text src="01.xml#s6" id="txt_6"/>
+        <audio src="test_1h.mp3" clipBegin="00:02:00.097" clipEnd="00:02:29.206" id="aud_6"/>
+      </par>
+      <par id="par_7">
+        <text src="01.xml#s7" id="txt_7"/>
+        <audio src="test_1h.mp3" clipBegin="00:02:29.206" clipEnd="00:02:40.867" id="aud_7"/>
+      </par>
+      <par id="par_8">
+        <text src="01.xml#s8" id="txt_8"/>
+        <audio src="test_1h.mp3" clipBegin="00:02:42.267" clipEnd="00:03:02.905" id="aud_8"/>
+      </par>
+      <par id="par_9">
+        <text src="01.xml#s9" id="txt_9"/>
+        <audio src="test_1h.mp3" clipBegin="00:03:02.905" clipEnd="00:03:17.823" id="aud_9"/>
+      </par>
+      <par id="par_10">
+        <text src="01.xml#s10" id="txt_10"/>
+        <audio src="test_1h.mp3" clipBegin="00:03:18.363" clipEnd="00:03:36.014" id="aud_10"/>
+      </par>
+      <par id="par_11">
+        <text src="01.xml#s11" id="txt_11"/>
+        <audio src="test_1h.mp3" clipBegin="00:03:36.672" clipEnd="00:04:02.002" id="aud_11"/>
+      </par>
+      <par id="par_12">
+        <text src="01.xml#s12" id="txt_12"/>
+        <audio src="test_1h.mp3" clipBegin="00:04:03.233" clipEnd="00:04:24.007" id="aud_12"/>
+      </par>
+      <par id="par_13">
+        <text src="01.xml#s13" id="txt_13"/>
+        <audio src="test_1h.mp3" clipBegin="00:04:24.007" clipEnd="00:04:44.560" id="aud_13"/>
+      </par>
+      <par id="par_14">
+        <text src="01.xml#s14" id="txt_14"/>
+        <audio src="test_1h.mp3" clipBegin="00:04:45.387" clipEnd="00:05:04.507" id="aud_14"/>
+      </par>
+      <par id="par_15">
+        <text src="01.xml#s15" id="txt_15"/>
+        <audio src="test_1h.mp3" clipBegin="00:05:05.823" clipEnd="00:05:23.086" id="aud_15"/>
+      </par>
+      <par id="par_16">
+        <text src="01.xml#s16" id="txt_16"/>
+        <audio src="test_1h.mp3" clipBegin="00:05:23.086" clipEnd="00:05:36.974" id="aud_16"/>
+      </par>
+      <par id="par_17">
+        <text src="01.xml#s17" id="txt_17"/>
+        <audio src="test_1h.mp3" clipBegin="00:05:37.615" clipEnd="00:06:05.898" id="aud_17"/>
+      </par>
+      <par id="par_18">
+        <text src="01.xml#s18" id="txt_18"/>
+        <audio src="test_1h.mp3" clipBegin="00:06:07.838" clipEnd="00:06:25.203" id="aud_18"/>
+      </par>
+      <par id="par_19">
+        <text src="01.xml#s19" id="txt_19"/>
+        <audio src="test_1h.mp3" clipBegin="00:06:26.198" clipEnd="00:06:50.245" id="aud_19"/>
+      </par>
+      <par id="par_20">
+        <text src="01.xml#s20" id="txt_20"/>
+        <audio src="test_1h.mp3" clipBegin="00:06:50.245" clipEnd="00:07:13.718" id="aud_20"/>
+      </par>
+      <par id="par_21">
+        <text src="01.xml#s21" id="txt_21"/>
+        <audio src="test_1h.mp3" clipBegin="00:07:14.377" clipEnd="00:07:43.756" id="aud_21"/>
+      </par>
+      <par id="par_22">
+        <text src="01.xml#s22" id="txt_22"/>
+        <audio src="test_1h.mp3" clipBegin="00:07:43.756" clipEnd="00:08:10.553" id="aud_22"/>
+      </par>
+      <par id="par_23">
+        <text src="01.xml#s23" id="txt_23"/>
+        <audio src="test_1h.mp3" clipBegin="00:08:10.807" clipEnd="00:08:32.626" id="aud_23"/>
+      </par>
+      <par id="par_24">
+        <text src="01.xml#s24" id="txt_24"/>
+        <audio src="test_1h.mp3" clipBegin="00:08:33.588" clipEnd="00:08:54.783" id="aud_24"/>
+      </par>
+      <par id="par_25">
+        <text src="01.xml#s25" id="txt_25"/>
+        <audio src="test_1h.mp3" clipBegin="00:08:55.559" clipEnd="00:09:24.297" id="aud_25"/>
+      </par>
+      <par id="par_26">
+        <text src="01.xml#s26" id="txt_26"/>
+        <audio src="test_1h.mp3" clipBegin="00:09:24.787" clipEnd="00:09:48.277" id="aud_26"/>
+      </par>
+      <par id="par_27">
+        <text src="01.xml#s27" id="txt_27"/>
+        <audio src="test_1h.mp3" clipBegin="00:09:49.103" clipEnd="00:10:15.293" id="aud_27"/>
+      </par>
+      <par id="par_28">
+        <text src="01.xml#s28" id="txt_28"/>
+        <audio src="test_1h.mp3" clipBegin="00:10:16.559" clipEnd="00:10:33.063" id="aud_28"/>
+      </par>
+      <par id="par_29">
+        <text src="01.xml#s29" id="txt_29"/>
+        <audio src="test_1h.mp3" clipBegin="00:10:33.451" clipEnd="00:10:52.908" id="aud_29"/>
+      </par>
+      <par id="par_30">
+        <text src="01.xml#s30" id="txt_30"/>
+        <audio src="test_1h.mp3" clipBegin="00:10:54.157" clipEnd="00:11:22.962" id="aud_30"/>
+      </par>
+      <par id="par_31">
+        <text src="01.xml#s31" id="txt_31"/>
+        <audio src="test_1h.mp3" clipBegin="00:11:23.840" clipEnd="00:11:51.295" id="aud_31"/>
+      </par>
+      <par id="par_32">
+        <text src="01.xml#s32" id="txt_32"/>
+        <audio src="test_1h.mp3" clipBegin="00:11:51.751" clipEnd="00:12:21.012" id="aud_32"/>
+      </par>
+      <par id="par_33">
+        <text src="01.xml#s33" id="txt_33"/>
+        <audio src="test_1h.mp3" clipBegin="00:12:21.670" clipEnd="00:12:51.539" id="aud_33"/>
+      </par>
+      <par id="par_34">
+        <text src="01.xml#s34" id="txt_34"/>
+        <audio src="test_1h.mp3" clipBegin="00:12:52.214" clipEnd="00:13:17.729" id="aud_34"/>
+      </par>
+      <par id="par_35">
+        <text src="01.xml#s35" id="txt_35"/>
+        <audio src="test_1h.mp3" clipBegin="00:13:18.083" clipEnd="00:13:46.889" id="aud_35"/>
+      </par>
+      <par id="par_36">
+        <text src="01.xml#s36" id="txt_36"/>
+        <audio src="test_1h.mp3" clipBegin="00:13:47.176" clipEnd="00:14:11.290" id="aud_36"/>
+      </par>
+      <par id="par_37">
+        <text src="01.xml#s37" id="txt_37"/>
+        <audio src="test_1h.mp3" clipBegin="00:14:11.864" clipEnd="00:14:34.443" id="aud_37"/>
+      </par>
+      <par id="par_38">
+        <text src="01.xml#s38" id="txt_38"/>
+        <audio src="test_1h.mp3" clipBegin="00:14:35.101" clipEnd="00:15:00.751" id="aud_38"/>
+      </par>
+      <par id="par_39">
+        <text src="01.xml#s39" id="txt_39"/>
+        <audio src="test_1h.mp3" clipBegin="00:15:02.067" clipEnd="00:15:28.460" id="aud_39"/>
+      </par>
+      <par id="par_40">
+        <text src="01.xml#s40" id="txt_40"/>
+        <audio src="test_1h.mp3" clipBegin="00:15:28.460" clipEnd="00:15:42.652" id="aud_40"/>
+      </par>
+      <par id="par_41">
+        <text src="01.xml#s41" id="txt_41"/>
+        <audio src="test_1h.mp3" clipBegin="00:15:43.985" clipEnd="00:16:03.509" id="aud_41"/>
+      </par>
+      <par id="par_42">
+        <text src="01.xml#s42" id="txt_42"/>
+        <audio src="test_1h.mp3" clipBegin="00:16:03.509" clipEnd="00:16:23.303" id="aud_42"/>
+      </par>
+      <par id="par_43">
+        <text src="01.xml#s43" id="txt_43"/>
+        <audio src="test_1h.mp3" clipBegin="00:16:23.303" clipEnd="00:16:44.448" id="aud_43"/>
+      </par>
+      <par id="par_44">
+        <text src="01.xml#s44" id="txt_44"/>
+        <audio src="test_1h.mp3" clipBegin="00:16:45.258" clipEnd="00:17:12.730" id="aud_44"/>
+      </par>
+      <par id="par_45">
+        <text src="01.xml#s45" id="txt_45"/>
+        <audio src="test_1h.mp3" clipBegin="00:17:13.895" clipEnd="00:17:39.359" id="aud_45"/>
+      </par>
+      <par id="par_46">
+        <text src="01.xml#s46" id="txt_46"/>
+        <audio src="test_1h.mp3" clipBegin="00:17:40.287" clipEnd="00:18:09.413" id="aud_46"/>
+      </par>
+      <par id="par_47">
+        <text src="01.xml#s47" id="txt_47"/>
+        <audio src="test_1h.mp3" clipBegin="00:18:10.679" clipEnd="00:18:25.512" id="aud_47"/>
+      </par>
+      <par id="par_48">
+        <text src="01.xml#s48" id="txt_48"/>
+        <audio src="test_1h.mp3" clipBegin="00:18:26.660" clipEnd="00:18:53.744" id="aud_48"/>
+      </par>
+      <par id="par_49">
+        <text src="01.xml#s49" id="txt_49"/>
+        <audio src="test_1h.mp3" clipBegin="00:18:54.841" clipEnd="00:19:11.716" id="aud_49"/>
+      </par>
+      <par id="par_50">
+        <text src="01.xml#s50" id="txt_50"/>
+        <audio src="test_1h.mp3" clipBegin="00:19:12.560" clipEnd="00:19:32.590" id="aud_50"/>
+      </par>
+      <par id="par_51">
+        <text src="01.xml#s51" id="txt_51"/>
+        <audio src="test_1h.mp3" clipBegin="00:19:33.097" clipEnd="00:20:00.198" id="aud_51"/>
+      </par>
+      <par id="par_52">
+        <text src="01.xml#s52" id="txt_52"/>
+        <audio src="test_1h.mp3" clipBegin="00:20:01.717" clipEnd="00:20:29.813" id="aud_52"/>
+      </par>
+      <par id="par_53">
+        <text src="01.xml#s53" id="txt_53"/>
+        <audio src="test_1h.mp3" clipBegin="00:20:30.016" clipEnd="00:20:56.071" id="aud_53"/>
+      </par>
+      <par id="par_54">
+        <text src="01.xml#s54" id="txt_54"/>
+        <audio src="test_1h.mp3" clipBegin="00:21:00.205" clipEnd="00:21:28.673" id="aud_54"/>
+      </par>
+      <par id="par_55">
+        <text src="01.xml#s55" id="txt_55"/>
+        <audio src="test_1h.mp3" clipBegin="00:21:29.348" clipEnd="00:21:37.752" id="aud_55"/>
+      </par>
+      <par id="par_56">
+        <text src="01.xml#s56" id="txt_56"/>
+        <audio src="test_1h.mp3" clipBegin="00:21:38.798" clipEnd="00:22:08.077" id="aud_56"/>
+      </par>
+      <par id="par_57">
+        <text src="01.xml#s57" id="txt_57"/>
+        <audio src="test_1h.mp3" clipBegin="00:22:08.887" clipEnd="00:22:30.723" id="aud_57"/>
+      </par>
+      <par id="par_58">
+        <text src="01.xml#s58" id="txt_58"/>
+        <audio src="test_1h.mp3" clipBegin="00:22:31.043" clipEnd="00:23:01.013" id="aud_58"/>
+      </par>
+      <par id="par_59">
+        <text src="01.xml#s59" id="txt_59"/>
+        <audio src="test_1h.mp3" clipBegin="00:23:01.823" clipEnd="00:23:26.495" id="aud_59"/>
+      </par>
+      <par id="par_60">
+        <text src="01.xml#s60" id="txt_60"/>
+        <audio src="test_1h.mp3" clipBegin="00:23:27.187" clipEnd="00:23:56.043" id="aud_60"/>
+      </par>
+      <par id="par_61">
+        <text src="01.xml#s61" id="txt_61"/>
+        <audio src="test_1h.mp3" clipBegin="00:23:56.245" clipEnd="00:24:16.208" id="aud_61"/>
+      </par>
+      <par id="par_62">
+        <text src="01.xml#s62" id="txt_62"/>
+        <audio src="test_1h.mp3" clipBegin="00:24:16.478" clipEnd="00:24:31.261" id="aud_62"/>
+      </par>
+      <par id="par_63">
+        <text src="01.xml#s63" id="txt_63"/>
+        <audio src="test_1h.mp3" clipBegin="00:24:31.497" clipEnd="00:24:54.751" id="aud_63"/>
+      </par>
+      <par id="par_64">
+        <text src="01.xml#s64" id="txt_64"/>
+        <audio src="test_1h.mp3" clipBegin="00:24:55.342" clipEnd="00:25:11.879" id="aud_64"/>
+      </par>
+      <par id="par_65">
+        <text src="01.xml#s65" id="txt_65"/>
+        <audio src="test_1h.mp3" clipBegin="00:25:12.790" clipEnd="00:25:41.157" id="aud_65"/>
+      </par>
+      <par id="par_66">
+        <text src="01.xml#s66" id="txt_66"/>
+        <audio src="test_1h.mp3" clipBegin="00:25:41.866" clipEnd="00:25:43.655" id="aud_66"/>
+      </par>
+      <par id="par_67">
+        <text src="01.xml#s67" id="txt_67"/>
+        <audio src="test_1h.mp3" clipBegin="00:25:44.347" clipEnd="00:26:13.793" id="aud_67"/>
+      </par>
+      <par id="par_68">
+        <text src="01.xml#s68" id="txt_68"/>
+        <audio src="test_1h.mp3" clipBegin="00:26:13.793" clipEnd="00:26:26.855" id="aud_68"/>
+      </par>
+      <par id="par_69">
+        <text src="01.xml#s69" id="txt_69"/>
+        <audio src="test_1h.mp3" clipBegin="00:26:27.395" clipEnd="00:26:53.264" id="aud_69"/>
+      </par>
+      <par id="par_70">
+        <text src="01.xml#s70" id="txt_70"/>
+        <audio src="test_1h.mp3" clipBegin="00:26:54.428" clipEnd="00:27:22.812" id="aud_70"/>
+      </par>
+      <par id="par_71">
+        <text src="01.xml#s71" id="txt_71"/>
+        <audio src="test_1h.mp3" clipBegin="00:27:23.538" clipEnd="00:27:41.797" id="aud_71"/>
+      </par>
+      <par id="par_72">
+        <text src="01.xml#s72" id="txt_72"/>
+        <audio src="test_1h.mp3" clipBegin="00:27:42.083" clipEnd="00:28:07.143" id="aud_72"/>
+      </par>
+      <par id="par_73">
+        <text src="01.xml#s73" id="txt_73"/>
+        <audio src="test_1h.mp3" clipBegin="00:28:07.565" clipEnd="00:28:34.565" id="aud_73"/>
+      </par>
+      <par id="par_74">
+        <text src="01.xml#s74" id="txt_74"/>
+        <audio src="test_1h.mp3" clipBegin="00:28:35.020" clipEnd="00:28:55.726" id="aud_74"/>
+      </par>
+      <par id="par_75">
+        <text src="01.xml#s75" id="txt_75"/>
+        <audio src="test_1h.mp3" clipBegin="00:28:55.726" clipEnd="00:29:11.740" id="aud_75"/>
+      </par>
+      <par id="par_76">
+        <text src="01.xml#s76" id="txt_76"/>
+        <audio src="test_1h.mp3" clipBegin="00:29:13.040" clipEnd="00:29:42.925" id="aud_76"/>
+      </par>
+      <par id="par_77">
+        <text src="01.xml#s77" id="txt_77"/>
+        <audio src="test_1h.mp3" clipBegin="00:29:43.887" clipEnd="00:29:58.433" id="aud_77"/>
+      </par>
+      <par id="par_78">
+        <text src="01.xml#s78" id="txt_78"/>
+        <audio src="test_1h.mp3" clipBegin="00:29:59.125" clipEnd="00:30:16.270" id="aud_78"/>
+      </par>
+      <par id="par_79">
+        <text src="01.xml#s79" id="txt_79"/>
+        <audio src="test_1h.mp3" clipBegin="00:30:16.270" clipEnd="00:30:37.482" id="aud_79"/>
+      </par>
+      <par id="par_80">
+        <text src="01.xml#s80" id="txt_80"/>
+        <audio src="test_1h.mp3" clipBegin="00:30:38.731" clipEnd="00:30:59.723" id="aud_80"/>
+      </par>
+      <par id="par_81">
+        <text src="01.xml#s81" id="txt_81"/>
+        <audio src="test_1h.mp3" clipBegin="00:31:00.635" clipEnd="00:31:08.819" id="aud_81"/>
+      </par>
+      <par id="par_82">
+        <text src="01.xml#s82" id="txt_82"/>
+        <audio src="test_1h.mp3" clipBegin="00:31:09.697" clipEnd="00:31:36.022" id="aud_82"/>
+      </par>
+      <par id="par_83">
+        <text src="01.xml#s83" id="txt_83"/>
+        <audio src="test_1h.mp3" clipBegin="00:31:36.022" clipEnd="00:31:57.453" id="aud_83"/>
+      </par>
+      <par id="par_84">
+        <text src="01.xml#s84" id="txt_84"/>
+        <audio src="test_1h.mp3" clipBegin="00:31:58.145" clipEnd="00:32:17.483" id="aud_84"/>
+      </par>
+      <par id="par_85">
+        <text src="01.xml#s85" id="txt_85"/>
+        <audio src="test_1h.mp3" clipBegin="00:32:17.483" clipEnd="00:32:37.328" id="aud_85"/>
+      </par>
+      <par id="par_86">
+        <text src="01.xml#s86" id="txt_86"/>
+        <audio src="test_1h.mp3" clipBegin="00:32:38.122" clipEnd="00:33:04.717" id="aud_86"/>
+      </par>
+      <par id="par_87">
+        <text src="01.xml#s87" id="txt_87"/>
+        <audio src="test_1h.mp3" clipBegin="00:33:04.717" clipEnd="00:33:30.637" id="aud_87"/>
+      </par>
+      <par id="par_88">
+        <text src="01.xml#s88" id="txt_88"/>
+        <audio src="test_1h.mp3" clipBegin="00:33:30.637" clipEnd="00:33:45.588" id="aud_88"/>
+      </par>
+      <par id="par_89">
+        <text src="01.xml#s89" id="txt_89"/>
+        <audio src="test_1h.mp3" clipBegin="00:33:46.128" clipEnd="00:34:12.672" id="aud_89"/>
+      </par>
+      <par id="par_90">
+        <text src="01.xml#s90" id="txt_90"/>
+        <audio src="test_1h.mp3" clipBegin="00:34:13.280" clipEnd="00:34:39.520" id="aud_90"/>
+      </par>
+      <par id="par_91">
+        <text src="01.xml#s91" id="txt_91"/>
+        <audio src="test_1h.mp3" clipBegin="00:34:39.976" clipEnd="00:35:08.545" id="aud_91"/>
+      </par>
+      <par id="par_92">
+        <text src="01.xml#s92" id="txt_92"/>
+        <audio src="test_1h.mp3" clipBegin="00:35:08.967" clipEnd="00:35:27.547" id="aud_92"/>
+      </par>
+      <par id="par_93">
+        <text src="01.xml#s93" id="txt_93"/>
+        <audio src="test_1h.mp3" clipBegin="00:35:28.458" clipEnd="00:35:49.231" id="aud_93"/>
+      </par>
+      <par id="par_94">
+        <text src="01.xml#s94" id="txt_94"/>
+        <audio src="test_1h.mp3" clipBegin="00:35:49.872" clipEnd="00:36:04.469" id="aud_94"/>
+      </par>
+      <par id="par_95">
+        <text src="01.xml#s95" id="txt_95"/>
+        <audio src="test_1h.mp3" clipBegin="00:36:05.043" clipEnd="00:36:22.542" id="aud_95"/>
+      </par>
+      <par id="par_96">
+        <text src="01.xml#s96" id="txt_96"/>
+        <audio src="test_1h.mp3" clipBegin="00:36:24.230" clipEnd="00:36:51.297" id="aud_96"/>
+      </par>
+      <par id="par_97">
+        <text src="01.xml#s97" id="txt_97"/>
+        <audio src="test_1h.mp3" clipBegin="00:36:51.618" clipEnd="00:37:09.944" id="aud_97"/>
+      </par>
+      <par id="par_98">
+        <text src="01.xml#s98" id="txt_98"/>
+        <audio src="test_1h.mp3" clipBegin="00:37:11.648" clipEnd="00:37:37.838" id="aud_98"/>
+      </par>
+      <par id="par_99">
+        <text src="01.xml#s99" id="txt_99"/>
+        <audio src="test_1h.mp3" clipBegin="00:37:39.205" clipEnd="00:38:04.366" id="aud_99"/>
+      </par>
+      <par id="par_100">
+        <text src="01.xml#s100" id="txt_100"/>
+        <audio src="test_1h.mp3" clipBegin="00:38:05.362" clipEnd="00:38:33.931" id="aud_100"/>
+      </par>
+      <par id="par_101">
+        <text src="01.xml#s101" id="txt_101"/>
+        <audio src="test_1h.mp3" clipBegin="00:38:35.062" clipEnd="00:38:50.806" id="aud_101"/>
+      </par>
+      <par id="par_102">
+        <text src="01.xml#s102" id="txt_102"/>
+        <audio src="test_1h.mp3" clipBegin="00:38:51.110" clipEnd="00:39:17.384" id="aud_102"/>
+      </par>
+      <par id="par_103">
+        <text src="01.xml#s103" id="txt_103"/>
+        <audio src="test_1h.mp3" clipBegin="00:39:18.329" clipEnd="00:39:39.743" id="aud_103"/>
+      </par>
+      <par id="par_104">
+        <text src="01.xml#s104" id="txt_104"/>
+        <audio src="test_1h.mp3" clipBegin="00:39:40.807" clipEnd="00:40:06.777" id="aud_104"/>
+      </par>
+      <par id="par_105">
+        <text src="01.xml#s105" id="txt_105"/>
+        <audio src="test_1h.mp3" clipBegin="00:40:07.553" clipEnd="00:40:26.065" id="aud_105"/>
+      </par>
+      <par id="par_106">
+        <text src="01.xml#s106" id="txt_106"/>
+        <audio src="test_1h.mp3" clipBegin="00:40:26.065" clipEnd="00:40:39.937" id="aud_106"/>
+      </par>
+      <par id="par_107">
+        <text src="01.xml#s107" id="txt_107"/>
+        <audio src="test_1h.mp3" clipBegin="00:40:40.105" clipEnd="00:41:01.148" id="aud_107"/>
+      </par>
+      <par id="par_108">
+        <text src="01.xml#s108" id="txt_108"/>
+        <audio src="test_1h.mp3" clipBegin="00:41:02.009" clipEnd="00:41:12.590" id="aud_108"/>
+      </par>
+      <par id="par_109">
+        <text src="01.xml#s109" id="txt_109"/>
+        <audio src="test_1h.mp3" clipBegin="00:41:13.079" clipEnd="00:41:34.156" id="aud_109"/>
+      </par>
+      <par id="par_110">
+        <text src="01.xml#s110" id="txt_110"/>
+        <audio src="test_1h.mp3" clipBegin="00:41:34.156" clipEnd="00:41:57.494" id="aud_110"/>
+      </par>
+      <par id="par_111">
+        <text src="01.xml#s111" id="txt_111"/>
+        <audio src="test_1h.mp3" clipBegin="00:41:57.983" clipEnd="00:42:19.803" id="aud_111"/>
+      </par>
+      <par id="par_112">
+        <text src="01.xml#s112" id="txt_112"/>
+        <audio src="test_1h.mp3" clipBegin="00:42:19.803" clipEnd="00:42:38.095" id="aud_112"/>
+      </par>
+      <par id="par_113">
+        <text src="01.xml#s113" id="txt_113"/>
+        <audio src="test_1h.mp3" clipBegin="00:42:38.348" clipEnd="00:42:57.282" id="aud_113"/>
+      </par>
+      <par id="par_114">
+        <text src="01.xml#s114" id="txt_114"/>
+        <audio src="test_1h.mp3" clipBegin="00:42:57.282" clipEnd="00:43:08.774" id="aud_114"/>
+      </par>
+      <par id="par_115">
+        <text src="01.xml#s115" id="txt_115"/>
+        <audio src="test_1h.mp3" clipBegin="00:43:09.230" clipEnd="00:43:36.652" id="aud_115"/>
+      </par>
+      <par id="par_116">
+        <text src="01.xml#s116" id="txt_116"/>
+        <audio src="test_1h.mp3" clipBegin="00:43:37.630" clipEnd="00:43:47.705" id="aud_116"/>
+      </par>
+      <par id="par_117">
+        <text src="01.xml#s117" id="txt_117"/>
+        <audio src="test_1h.mp3" clipBegin="00:43:47.857" clipEnd="00:44:13.051" id="aud_117"/>
+      </par>
+      <par id="par_118">
+        <text src="01.xml#s118" id="txt_118"/>
+        <audio src="test_1h.mp3" clipBegin="00:44:14.317" clipEnd="00:44:30.567" id="aud_118"/>
+      </par>
+      <par id="par_119">
+        <text src="01.xml#s119" id="txt_119"/>
+        <audio src="test_1h.mp3" clipBegin="00:44:31.850" clipEnd="00:45:01.364" id="aud_119"/>
+      </par>
+      <par id="par_120">
+        <text src="01.xml#s120" id="txt_120"/>
+        <audio src="test_1h.mp3" clipBegin="00:45:02.157" clipEnd="00:45:31.452" id="aud_120"/>
+      </par>
+      <par id="par_121">
+        <text src="01.xml#s121" id="txt_121"/>
+        <audio src="test_1h.mp3" clipBegin="00:45:32.093" clipEnd="00:45:49.070" id="aud_121"/>
+      </par>
+      <par id="par_122">
+        <text src="01.xml#s122" id="txt_122"/>
+        <audio src="test_1h.mp3" clipBegin="00:45:49.289" clipEnd="00:46:14.838" id="aud_122"/>
+      </par>
+      <par id="par_123">
+        <text src="01.xml#s123" id="txt_123"/>
+        <audio src="test_1h.mp3" clipBegin="00:46:14.838" clipEnd="00:46:38.497" id="aud_123"/>
+      </par>
+      <par id="par_124">
+        <text src="01.xml#s124" id="txt_124"/>
+        <audio src="test_1h.mp3" clipBegin="00:46:39.627" clipEnd="00:46:54.697" id="aud_124"/>
+      </par>
+      <par id="par_125">
+        <text src="01.xml#s125" id="txt_125"/>
+        <audio src="test_1h.mp3" clipBegin="00:46:54.697" clipEnd="00:47:14.305" id="aud_125"/>
+      </par>
+      <par id="par_126">
+        <text src="01.xml#s126" id="txt_126"/>
+        <audio src="test_1h.mp3" clipBegin="00:47:14.660" clipEnd="00:47:36.108" id="aud_126"/>
+      </par>
+      <par id="par_127">
+        <text src="01.xml#s127" id="txt_127"/>
+        <audio src="test_1h.mp3" clipBegin="00:47:37.492" clipEnd="00:47:59.986" id="aud_127"/>
+      </par>
+      <par id="par_128">
+        <text src="01.xml#s128" id="txt_128"/>
+        <audio src="test_1h.mp3" clipBegin="00:48:00.256" clipEnd="00:48:18.278" id="aud_128"/>
+      </par>
+      <par id="par_129">
+        <text src="01.xml#s129" id="txt_129"/>
+        <audio src="test_1h.mp3" clipBegin="00:48:19.392" clipEnd="00:48:48.299" id="aud_129"/>
+      </par>
+      <par id="par_130">
+        <text src="01.xml#s130" id="txt_130"/>
+        <audio src="test_1h.mp3" clipBegin="00:48:48.299" clipEnd="00:49:06.659" id="aud_130"/>
+      </par>
+      <par id="par_131">
+        <text src="01.xml#s131" id="txt_131"/>
+        <audio src="test_1h.mp3" clipBegin="00:49:07.469" clipEnd="00:49:33.642" id="aud_131"/>
+      </par>
+      <par id="par_132">
+        <text src="01.xml#s132" id="txt_132"/>
+        <audio src="test_1h.mp3" clipBegin="00:49:34.925" clipEnd="00:49:57.976" id="aud_132"/>
+      </par>
+      <par id="par_133">
+        <text src="01.xml#s133" id="txt_133"/>
+        <audio src="test_1h.mp3" clipBegin="00:49:58.364" clipEnd="00:50:06.194" id="aud_133"/>
+      </par>
+      <par id="par_134">
+        <text src="01.xml#s134" id="txt_134"/>
+        <audio src="test_1h.mp3" clipBegin="00:50:06.667" clipEnd="00:50:35.050" id="aud_134"/>
+      </par>
+      <par id="par_135">
+        <text src="01.xml#s135" id="txt_135"/>
+        <audio src="test_1h.mp3" clipBegin="00:50:36.198" clipEnd="00:50:53.478" id="aud_135"/>
+      </par>
+      <par id="par_136">
+        <text src="01.xml#s136" id="txt_136"/>
+        <audio src="test_1h.mp3" clipBegin="00:50:54.136" clipEnd="00:51:23.701" id="aud_136"/>
+      </par>
+      <par id="par_137">
+        <text src="01.xml#s137" id="txt_137"/>
+        <audio src="test_1h.mp3" clipBegin="00:51:23.701" clipEnd="00:51:52.388" id="aud_137"/>
+      </par>
+      <par id="par_138">
+        <text src="01.xml#s138" id="txt_138"/>
+        <audio src="test_1h.mp3" clipBegin="00:51:52.388" clipEnd="00:52:22.358" id="aud_138"/>
+      </par>
+      <par id="par_139">
+        <text src="01.xml#s139" id="txt_139"/>
+        <audio src="test_1h.mp3" clipBegin="00:52:23.050" clipEnd="00:52:42.777" id="aud_139"/>
+      </par>
+      <par id="par_140">
+        <text src="01.xml#s140" id="txt_140"/>
+        <audio src="test_1h.mp3" clipBegin="00:52:44.178" clipEnd="00:53:08.309" id="aud_140"/>
+      </par>
+      <par id="par_141">
+        <text src="01.xml#s141" id="txt_141"/>
+        <audio src="test_1h.mp3" clipBegin="00:53:09.423" clipEnd="00:53:23.598" id="aud_141"/>
+      </par>
+      <par id="par_142">
+        <text src="01.xml#s142" id="txt_142"/>
+        <audio src="test_1h.mp3" clipBegin="00:53:24.948" clipEnd="00:53:44.455" id="aud_142"/>
+      </par>
+      <par id="par_143">
+        <text src="01.xml#s143" id="txt_143"/>
+        <audio src="test_1h.mp3" clipBegin="00:53:44.455" clipEnd="00:54:02.444" id="aud_143"/>
+      </par>
+      <par id="par_144">
+        <text src="01.xml#s144" id="txt_144"/>
+        <audio src="test_1h.mp3" clipBegin="00:54:02.663" clipEnd="00:54:26.120" id="aud_144"/>
+      </par>
+      <par id="par_145">
+        <text src="01.xml#s145" id="txt_145"/>
+        <audio src="test_1h.mp3" clipBegin="00:54:27.335" clipEnd="00:54:51.955" id="aud_145"/>
+      </par>
+      <par id="par_146">
+        <text src="01.xml#s146" id="txt_146"/>
+        <audio src="test_1h.mp3" clipBegin="00:54:52.360" clipEnd="00:55:17.183" id="aud_146"/>
+      </par>
+      <par id="par_147">
+        <text src="01.xml#s147" id="txt_147"/>
+        <audio src="test_1h.mp3" clipBegin="00:55:17.588" clipEnd="00:55:46.107" id="aud_147"/>
+      </par>
+      <par id="par_148">
+        <text src="01.xml#s148" id="txt_148"/>
+        <audio src="test_1h.mp3" clipBegin="00:55:46.681" clipEnd="00:55:58.561" id="aud_148"/>
+      </par>
+      <par id="par_149">
+        <text src="01.xml#s149" id="txt_149"/>
+        <audio src="test_1h.mp3" clipBegin="00:55:58.915" clipEnd="00:56:24.025" id="aud_149"/>
+      </par>
+      <par id="par_150">
+        <text src="01.xml#s150" id="txt_150"/>
+        <audio src="test_1h.mp3" clipBegin="00:56:24.785" clipEnd="00:56:36.344" id="aud_150"/>
+      </par>
+      <par id="par_151">
+        <text src="01.xml#s151" id="txt_151"/>
+        <audio src="test_1h.mp3" clipBegin="00:56:37.103" clipEnd="00:57:04.947" id="aud_151"/>
+      </par>
+      <par id="par_152">
+        <text src="01.xml#s152" id="txt_152"/>
+        <audio src="test_1h.mp3" clipBegin="00:57:05.200" clipEnd="00:57:30.293" id="aud_152"/>
+      </par>
+      <par id="par_153">
+        <text src="01.xml#s153" id="txt_153"/>
+        <audio src="test_1h.mp3" clipBegin="00:57:30.918" clipEnd="00:57:51.286" id="aud_153"/>
+      </par>
+      <par id="par_154">
+        <text src="01.xml#s154" id="txt_154"/>
+        <audio src="test_1h.mp3" clipBegin="00:57:52.518" clipEnd="00:58:08.060" id="aud_154"/>
+      </par>
+      <par id="par_155">
+        <text src="01.xml#s155" id="txt_155"/>
+        <audio src="test_1h.mp3" clipBegin="00:58:08.397" clipEnd="00:58:30.655" id="aud_155"/>
+      </par>
+      <par id="par_156">
+        <text src="01.xml#s156" id="txt_156"/>
+        <audio src="test_1h.mp3" clipBegin="00:58:31.060" clipEnd="00:58:54.787" id="aud_156"/>
+      </par>
+      <par id="par_157">
+        <text src="01.xml#s157" id="txt_157"/>
+        <audio src="test_1h.mp3" clipBegin="00:58:56.153" clipEnd="00:59:24.318" id="aud_157"/>
+      </par>
+      <par id="par_158">
+        <text src="01.xml#s158" id="txt_158"/>
+        <audio src="test_1h.mp3" clipBegin="00:59:24.773" clipEnd="00:59:50.727" id="aud_158"/>
+      </par>
+      <par id="par_159">
+        <text src="01.xml#s159" id="txt_159"/>
+        <audio src="test_1h.mp3" clipBegin="00:59:51.048" clipEnd="00:59:59.975" id="aud_159"/>
+      </par>
+    </seq>
+  </body>
+</smil>
