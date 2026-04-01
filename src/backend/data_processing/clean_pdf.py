@@ -105,10 +105,19 @@ class UltimatePDFCleaner:
 
         text = re.sub(r'\s+', ' ', text).strip()
 
-        viet_upper = "A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ"
-        pattern = r'(?<=[.?!])\s+(?=[%s])' % viet_upper
+        # 1. Bảo vệ các từ viết tắt phổ biến để không bị cắt xén
+        abbreviations = ["Tp.", "TP.", "T.P.", "Th.S.", "PGS.", "TS.", "ThS.", "Ths.", "vs.", "v.v.", "St.", "GS.", "BS.", "GS.TS.", "PGS.TS.", "Mr.", "Mrs.", "Dr."]
+        for abbr in abbreviations:
+            text = text.replace(abbr, abbr.replace('.', '__DOT__'))
 
-        return [s.strip() for s in re.split(pattern, text) if s.strip()]
+        # 2. Bảo vệ các tên viết tắt định dạng "A.", "B.", "J. C.", v.v.
+        viet_upper = "A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ"
+        text = re.sub(rf'\b([{viet_upper}])\.(?=\s)', r'\1__DOT__', text)
+
+        # Split pattern handling Vietnamese upper case and NOT splitting continuous dots like `...`
+        pattern = rf'(?<=[.?!])(?<!\.\.)\s+(?=[{viet_upper}\"\'])'
+
+        return [s.strip().replace('__DOT__', '.') for s in re.split(pattern, text) if s.strip()]
 
     def get_lines_with_meta(self, page):
         words = page.extract_words(extra_attrs=['size'])
@@ -166,18 +175,46 @@ class UltimatePDFCleaner:
         final = []
         buffer = []
 
+        def ends_with_abbreviation(s):
+            s = s.strip()
+            words = s.split()
+            if not words: return False
+            last_word = words[-1]
+            if last_word in ["Tp.", "TP.", "T.P.", "Th.S.", "PGS.", "TS.", "ThS.", "Ths.", "vs.", "v.v.", "St.", "GS.", "BS.", "GS.TS.", "PGS.TS.", "Mr.", "Mrs.", "Dr."]:
+                return True
+            if re.match(r'^[A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]\.$', last_word):
+                return True
+            return False
+
+        def is_end_of_sentence(s):
+            s = s.strip()
+            if re.search(r'\.{3,}["\']?$', s): return False
+            if ends_with_abbreviation(s): return False
+            return bool(re.search(r'[.?!]["\']?$', s))
+
+        def is_continue_punct(s):
+            s = s.strip()
+            if re.search(r'\.{3,}["\']?$', s): return True
+            return bool(re.search(r'[,:;-]["\']?$', s))
+
         for line in all_lines:
-            text = line['text']
+            text = line['text'].strip()
+            if not text: continue
 
             # ❌ bỏ dòng ALL CAPS dài (title rác)
             if text.isupper() and len(text) > 20:
                 continue
 
             if buffer:
-                prev = buffer[-1]
+                prev = buffer[-1].strip()
 
-                if text[0].islower():
-                    buffer[-1] = prev + " " + text
+                if not is_end_of_sentence(prev):
+                    is_prev_title_or_meta = (len(prev) < 40 and not is_continue_punct(prev)) or prev.isupper()
+                    if text[0].islower() or text[0].isdigit() or is_continue_punct(prev) or ends_with_abbreviation(prev) or not is_prev_title_or_meta:
+                        buffer[-1] = prev + " " + text
+                    else:
+                        final.extend(self.split_sentences(" ".join(buffer)))
+                        buffer = [text]
                 else:
                     final.extend(self.split_sentences(" ".join(buffer)))
                     buffer = [text]
@@ -187,7 +224,16 @@ class UltimatePDFCleaner:
         if buffer:
             final.extend(self.split_sentences(" ".join(buffer)))
 
-        return final
+        # Ensure all content lines end with a period if missing (except short title/metadata)
+        result = []
+        for f in final:
+            f = f.strip()
+            if not f: continue
+            if len(f) > 50 and not is_end_of_sentence(f):
+                f += '.'
+            result.append(f)
+
+        return result
 
     def extract_and_clean(self, pdf_path, output_txt_path):
         print(f"Đang xử lý: {pdf_path}")
