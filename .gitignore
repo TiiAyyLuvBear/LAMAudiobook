@@ -64,4 +64,4 @@ credentials.json
 secrets.yaml
 
 # Node modules
-frontend/node_modules/
+node_modules/

@@ -1,7 +1,16 @@
 # Main FastAPI Application
+import os
+import sys
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+
+# Ensure `backend.*` imports work when running `python app.py` inside `src/backend`.
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(current_dir)
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
 
 from backend.config import get_config
 from backend.database import init_db

@@ -17,7 +17,15 @@ class Config:
     DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
     
     # Database
-    DATABASE_URL = os.getenv('DATABASE_URL', f'sqlite:///{BASE_DIR}/news_portal.db')
+    _raw_database_url = os.getenv('DATABASE_URL', f'sqlite:///{BASE_DIR}/news_portal.db')
+    if _raw_database_url.startswith('sqlite:///') and not _raw_database_url.startswith('sqlite:////'):
+        # Resolve relative sqlite path from project root so behavior is stable across cwd.
+        sqlite_path = Path(_raw_database_url.replace('sqlite:///', '', 1))
+        if not sqlite_path.is_absolute():
+            sqlite_path = BASE_DIR / sqlite_path
+        DATABASE_URL = f"sqlite:///{sqlite_path.as_posix()}"
+    else:
+        DATABASE_URL = _raw_database_url
     
     # API
     API_V1_PREFIX = "/api/v1"
