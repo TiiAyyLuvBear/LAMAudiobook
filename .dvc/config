@@ -1,0 +1,5 @@
+[core]
+    remote = dagshub
+['remote "dagshub"']
+    url = s3://dvc
+    endpointurl = https://dagshub.com/api/v1/repos/TiiAyyLuvBear/audiobook_xttsv2.s3
