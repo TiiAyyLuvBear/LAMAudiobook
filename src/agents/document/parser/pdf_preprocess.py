@@ -5,12 +5,12 @@ This module prepares clean text for the agentic audiobook pipeline:
 - Read PDF text only (ignores images)
 - Remove repeated headers/footers and page numbers
 - Group content into chapters and paragraphs
-- Return JSON-ready list structure
+- Return voice-planning JSON list structure
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pathlib import Path
 from collections import Counter, defaultdict
 from typing import Any, Dict, List, Tuple
@@ -251,23 +251,50 @@ def _split_chapters(paragraphs: List[ParagraphItem]) -> List[ChapterItem]:
     return chapters
 
 
+def _split_sentences(text: str) -> List[str]:
+    """Split paragraph text into sentence-level items."""
+    if not text:
+        return []
+    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _is_dialogue_sentence(sentence: str) -> bool:
+    """Heuristic dialogue detection for initial preprocessing output."""
+    return sentence.startswith("-") or ('"' in sentence) or ("“" in sentence) or ("”" in sentence)
+
+
+def _to_voice_planning_items(chapters: List[ChapterItem]) -> List[Dict[str, Any]]:
+    """Convert chapter/paragraph structure into voice-planning sentence items."""
+    items: List[Dict[str, Any]] = []
+    for chapter in chapters:
+        for para in chapter.paragraphs:
+            for sentence in _split_sentences(para.text):
+                is_dialogue = _is_dialogue_sentence(sentence)
+                items.append(
+                    {
+                        "sentence": sentence,
+                        "type": "dialogue" if is_dialogue else "narration",
+                        "speaker": "unknown" if is_dialogue else "narrator",
+                        "emotion": "neutral",
+                        "intensity": 0.5,
+                    }
+                )
+    return items
+
+
 def preprocess_pdf(pdf_path: str) -> List[Dict[str, Any]]:
     """
-    Preprocess PDF into chapter -> paragraph structure.
+    Preprocess PDF into voice-planning sentence list.
 
     Returns a JSON-ready list:
     [
       {
-        "chapter_index": 1,
-        "chapter_title": "Chapter 1",
-        "paragraphs": [
-          {
-            "paragraph_index": 1,
-            "text": "...",
-            "page_start": 1,
-            "page_end": 1
-          }
-        ]
+        "sentence": "...",
+        "type": "narration" | "dialogue",
+        "speaker": "narrator" | "unknown",
+        "emotion": "neutral",
+        "intensity": 0.5
       }
     ]
     """
@@ -282,14 +309,7 @@ def preprocess_pdf(pdf_path: str) -> List[Dict[str, Any]]:
     paragraphs = _group_paragraphs(cleaned_lines)
     chapters = _split_chapters(paragraphs)
 
-    return [
-        {
-            "chapter_index": chapter.chapter_index,
-            "chapter_title": chapter.chapter_title,
-            "paragraphs": [asdict(p) for p in chapter.paragraphs],
-        }
-        for chapter in chapters
-    ]
+    return _to_voice_planning_items(chapters)
 
 
 def main() -> None:
