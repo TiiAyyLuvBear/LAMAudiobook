@@ -65,3 +65,6 @@ secrets.yaml
 
 # Node modules
 node_modules/
+
+# LLM cache
+.claude/
