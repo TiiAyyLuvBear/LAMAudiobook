@@ -785,6 +785,88 @@ class DocumentPipeline:
 
 # ─── CLI Entry Point ───
 
+def _resolve_output_path(input_path: str, output_arg: Optional[str], default_ext: str) -> Optional[str]:
+    """Chuẩn hóa output path: hỗ trợ truyền file hoặc thư mục."""
+    if not output_arg:
+        return None
+
+    output_arg = os.path.expanduser(output_arg)
+    base_name = os.path.splitext(os.path.basename(input_path))[0]
+    default_filename = f"{base_name}{default_ext}"
+
+    # Nếu là thư mục, tự sinh file theo tên input.
+    if os.path.isdir(output_arg):
+        return os.path.join(output_arg, default_filename)
+
+    # Hỗ trợ trường hợp path kết thúc bằng '/'.
+    if output_arg.endswith(os.sep):
+        os.makedirs(output_arg, exist_ok=True)
+        return os.path.join(output_arg, default_filename)
+
+    parent_dir = os.path.dirname(output_arg)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+
+    return output_arg
+
+
+def _build_chapter_text(document_dict: dict) -> str:
+    """Ghép văn bản theo chương: mỗi câu một dòng, giữa 2 chương có 1 dòng trống."""
+    blocks = document_dict.get("blocks", [])
+    chapters: list[str] = []
+    current_chapter_lines: list[str] = []
+
+    web_link_pattern = re.compile(
+        r'(?i)(?:https?://|www\.)\S+|(?:[a-z0-9-]+\.)+(?:com|org|net|vn|io|edu|gov)(?:/\S*)?'
+    )
+
+    def clean_web_tags(text: str) -> str:
+        cleaned = web_link_pattern.sub(' ', text)
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        if not cleaned:
+            return ''
+        if re.fullmatch(r'[\W_]+', cleaned):
+            return ''
+        return cleaned
+
+    def split_sentences(text: str) -> list[str]:
+        normalized = re.sub(r'\s+', ' ', text).strip()
+        if not normalized:
+            return []
+        sentences = re.split(r'(?<=[.!?…])\s+', normalized)
+        cleaned_sentences: list[str] = []
+        for sentence in sentences:
+            cleaned_sentence = clean_web_tags(sentence)
+            if cleaned_sentence:
+                cleaned_sentences.append(cleaned_sentence)
+        return cleaned_sentences
+
+    def flush_chapter() -> None:
+        if not current_chapter_lines:
+            return
+        chapter_text = '\n'.join(current_chapter_lines).strip()
+        if chapter_text:
+            chapters.append(chapter_text)
+
+    for block in blocks:
+        text = str(block.get("text", "")).strip()
+        if not text:
+            continue
+
+        level = int(block.get("level", 0) or 0)
+        lines = split_sentences(text)
+        if not lines:
+            continue
+
+        if level == 1:
+            flush_chapter()
+            current_chapter_lines = lines[:]
+        else:
+            current_chapter_lines.extend(lines)
+
+    flush_chapter()
+    return '\n\n'.join(chapters)
+
 def main():
     import argparse
     import json
@@ -793,8 +875,9 @@ def main():
         description="Chuyển đổi PDF/EPUB thành JSON + SSML cho TTS Audiobook"
     )
     parser.add_argument('--input', '-i', required=True, help='Đường dẫn file đầu vào (PDF/EPUB)')
-    parser.add_argument('--output', '-o', default=None, help='Đường dẫn file đầu ra (JSON)')
-    parser.add_argument('--ssml', '-s', default=None, help='Đường dẫn file SSML đầu ra')
+    parser.add_argument('--output', '-o', default=None, help='Đường dẫn file/thư mục đầu ra (JSON)')
+    parser.add_argument('--ssml', '-s', default=None, help='Đường dẫn file/thư mục SSML đầu ra')
+    parser.add_argument('--txt', '-t', default=None, help='Đường dẫn file/thư mục TXT đầu ra theo chương')
     parser.add_argument('--lang', '-l', default='vi', help='Ngôn ngữ (mặc định: vi)')
     parser.add_argument('--no-clean', action='store_true', help='Bỏ qua bước clean text')
     parser.add_argument('--api-key', '-k', default=None, help='API key cho LLM fallback')
@@ -811,16 +894,26 @@ def main():
     result = pipeline.process(args.input)
 
     # Lưu JSON
-    if args.output:
-        with open(args.output, 'w', encoding='utf-8') as f:
+    output_json_path = _resolve_output_path(args.input, args.output, '.json')
+    if output_json_path:
+        with open(output_json_path, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
-        print(f"  JSON -> {args.output}")
+        print(f"  JSON -> {output_json_path}")
 
     # Lưu SSML riêng
-    if args.ssml:
-        with open(args.ssml, 'w', encoding='utf-8') as f:
+    output_ssml_path = _resolve_output_path(args.input, args.ssml, '.ssml')
+    if output_ssml_path:
+        with open(output_ssml_path, 'w', encoding='utf-8') as f:
             f.write(result['ssml'])
-        print(f"  SSML -> {args.ssml}")
+        print(f"  SSML -> {output_ssml_path}")
+
+    # Lưu TXT theo chương
+    output_txt_path = _resolve_output_path(args.input, args.txt, '.txt')
+    if output_txt_path:
+        chapter_text = _build_chapter_text(result['document'])
+        with open(output_txt_path, 'w', encoding='utf-8') as f:
+            f.write(chapter_text)
+        print(f"  TXT -> {output_txt_path}")
 
     # In stats
     print(f"\nStats:")
