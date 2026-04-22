@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 try:
     from .base import BaseAgent, AgentResult
-    from src.types.pipeline import TextBlock
+    from src.schema.pipeline import TextBlock
 except ImportError:
     # Allow running this file directly: python src/agents/cleaner.py
     import importlib.util

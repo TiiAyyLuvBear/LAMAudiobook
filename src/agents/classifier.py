@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from .base import BaseAgent, AgentResult
-    from src.types.pipeline import Sentence
+    from src.schema.pipeline import Sentence
 except ImportError:
     import importlib.util
     repo_root = Path(__file__).resolve().parents[2]
