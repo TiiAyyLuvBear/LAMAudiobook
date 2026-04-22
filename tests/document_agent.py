@@ -722,12 +722,52 @@ class DocumentPipeline:
         self.use_llm_fallback = use_llm_fallback
         self.llm_api_key = llm_api_key
 
+    def _split_sentences_for_txt(self, text: str) -> list[str]:
+        """Tách nội dung body thành từng câu để xuống dòng trong TXT"""
+        text = text.strip()
+        if not text:
+            return []
+
+        sentences = re.split(r'(?<=[.!?。！？])\s+', text)
+        sentences = [sent.strip() for sent in sentences if sent.strip()]
+        return sentences if sentences else [text]
+
+    def to_plain_text(self, blocks: list[DocumentBlock]) -> str:
+        """
+        Xuất văn bản TXT theo cấu trúc:
+        - Heading/Chapter nằm trên 1 dòng
+        - Giữa các heading/chapter có 1 dòng trống
+        - Body: mỗi câu 1 dòng
+        """
+        lines: list[str] = []
+
+        for block in blocks:
+            text = block.text.strip()
+            if not text:
+                continue
+
+            if block.level > 0:
+                if lines and lines[-1] != "":
+                    lines.append("")
+                lines.append(text)
+                continue
+
+            for sentence in self._split_sentences_for_txt(text):
+                lines.append(sentence)
+
+        # Tránh dòng trống thừa ở cuối file
+        while lines and lines[-1] == "":
+            lines.pop()
+
+        return '\n'.join(lines)
+
     def process(self, file_path: str) -> dict:
         """
         Xử lý file PDF/EPUB.
         Trả về dict với keys:
           - document: ParsedDocument (dict format)
           - ssml: SSML string
+          - txt: plain text theo cấu trúc heading/body
           - stats: thống kê
         """
         ext = os.path.splitext(file_path)[1].lower()
@@ -752,6 +792,7 @@ class DocumentPipeline:
 
         # ── Format to SSML ──
         ssml = self.tts_formatter.to_ssml(cleaned_blocks)
+        txt = self.to_plain_text(cleaned_blocks)
 
         # ── Stats ──
         stats = {
@@ -767,6 +808,7 @@ class DocumentPipeline:
         return {
             "document": cleaned_doc.to_dict(),
             "ssml": ssml,
+            "txt": txt,
             "stats": stats,
         }
 
@@ -790,11 +832,12 @@ def main():
     import json
 
     parser = argparse.ArgumentParser(
-        description="Chuyển đổi PDF/EPUB thành JSON + SSML cho TTS Audiobook"
+        description="Chuyển đổi PDF/EPUB thành JSON + SSML + TXT cho TTS Audiobook"
     )
     parser.add_argument('--input', '-i', required=True, help='Đường dẫn file đầu vào (PDF/EPUB)')
     parser.add_argument('--output', '-o', default=None, help='Đường dẫn file đầu ra (JSON)')
     parser.add_argument('--ssml', '-s', default=None, help='Đường dẫn file SSML đầu ra')
+    parser.add_argument('--txt', '-t', default=None, help='Đường dẫn file TXT đầu ra')
     parser.add_argument('--lang', '-l', default='vi', help='Ngôn ngữ (mặc định: vi)')
     parser.add_argument('--no-clean', action='store_true', help='Bỏ qua bước clean text')
     parser.add_argument('--api-key', '-k', default=None, help='API key cho LLM fallback')
@@ -821,6 +864,12 @@ def main():
         with open(args.ssml, 'w', encoding='utf-8') as f:
             f.write(result['ssml'])
         print(f"  SSML -> {args.ssml}")
+
+    # Lưu TXT riêng
+    if args.txt:
+        with open(args.txt, 'w', encoding='utf-8') as f:
+            f.write(result['txt'])
+        print(f"  TXT -> {args.txt}")
 
     # In stats
     print(f"\nStats:")
