@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from .base import BaseAgent, AgentResult
-from types.pipeline import TextBlock
+from schema.pipeline import TextBlock
 
 
 class ParserInput:

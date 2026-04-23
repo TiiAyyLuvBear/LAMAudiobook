@@ -5,7 +5,7 @@ Combines post-processing responsibilities.
 from typing import Any, Dict, List
 
 from .base import BaseAgent, AgentResult
-from types.audio import (
+from schema.audio import (
     AudioSegment,
     AudioFinalizeInput,
     AudioFinalizeOutput,

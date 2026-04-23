@@ -4,7 +4,7 @@ Splitter Agent — Detects and splits document into chapters.
 from typing import Any, List
 
 from .base import BaseAgent, AgentResult
-from types.pipeline import Chapter, Paragraph
+from schema.pipeline import Chapter, Paragraph
 
 
 class SplitterInput:

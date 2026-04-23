@@ -18,8 +18,8 @@ from agents import (
     QCAgent, QCInput,
     MemoryAgent, MemoryInput,
 )
-from types.audio import TTSSegment, AudioSegment
-from types.pipeline import Chapter
+from schema.audio import TTSSegment, AudioSegment
+from schema.pipeline import Chapter
 from .config import PipelineConfig, PipelineStage
 from .state import StateManager
 from .executor import ParallelExecutor

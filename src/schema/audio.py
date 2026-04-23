@@ -11,6 +11,7 @@ class TTSSegment:
     text: str
     voice_id: str
     emotion: Optional[str] = None
+    intensity: float = 1.0
     speed: float = 1.0
     chapter_index: int = 1
     segment_index: int = 0
