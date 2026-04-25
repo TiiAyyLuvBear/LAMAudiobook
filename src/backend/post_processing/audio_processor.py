@@ -151,8 +151,9 @@ class AudioProcessor:
         for seg in segments:
             # === Step A: XAC DINH DUONG DAN FILE ===
             wav_file = seg['wav']
-            if wav_file.startswith('wavs/') or wav_file.startswith('wavs\\'):
-                filename = os.path.basename(wav_file)  # Extract filename
+            wav_file_norm = wav_file.replace('\\', '/')
+            if wav_file_norm.startswith('wavs/') or wav_file_norm.startswith('wav/'):
+                filename = os.path.basename(wav_file_norm)  # Extract filename
             else:
                 filename = wav_file
             
@@ -233,11 +234,36 @@ class AudioProcessor:
         return True
 
 
+def _find_wavs_folder(folder_path):
+    """Tim thu muc chua cac file wav trong 1 job folder."""
+    for folder_name in ('wav', 'wavs'):
+        candidate = os.path.join(folder_path, folder_name)
+        if os.path.isdir(candidate):
+            return candidate
+    return None
+
+
+def _find_metadata_csv(folder_path):
+    """Tim file CSV metadata trong 1 job folder."""
+    csv_files = sorted(
+        f for f in os.listdir(folder_path)
+        if f.lower().endswith('.csv') and os.path.isfile(os.path.join(folder_path, f))
+    )
+    if not csv_files:
+        return None
+
+    # Uu tien metadata.csv, neu khong co thi lay file csv dau tien.
+    for csv_name in csv_files:
+        if csv_name.lower() == 'metadata.csv':
+            return os.path.join(folder_path, csv_name)
+
+    return os.path.join(folder_path, csv_files[0])
+
+
 def main():
     parser = argparse.ArgumentParser(description="🎵 Audio Post-Processing")
-    parser.add_argument('--wavs', default='../audio/pipeline_1cm_anhduong_output/wavs', help='WAV folder')
-    parser.add_argument('--metadata', default='../audio/pipeline_1cm_anhduong_output/metadata.csv', help='Metadata file')
-    parser.add_argument('--output', default='../audio/pipeline_1cm_anhduong_output/output_merged.wav', help='Output file')
+    parser.add_argument('--audio-root', default='../audio', help='Audio root folder')
+    parser.add_argument('--output-name', default='output_merged.wav', help='Output file name per subfolder')
     parser.add_argument('--sr', type=int, default=22050, help='Sample rate')
     parser.add_argument('--fade', type=float, default=50, help='Fade (ms)')
     parser.add_argument('--loudness', type=float, default=-20.0, help='Loudness (dB)')
@@ -248,10 +274,60 @@ def main():
     processor = AudioProcessor(sr=args.sr)
     processor.fade_ms = args.fade
     processor.loudness_db = args.loudness
-    
-    success = processor.process(args.wavs, args.metadata, args.output, args.verbose)
-    
-    return 0 if success else 1
+
+    audio_root = os.path.abspath(args.audio_root)
+    if not os.path.isdir(audio_root):
+        print(f"Khong tim thay audio root: {audio_root}")
+        return 1
+
+    subfolders = sorted(
+        os.path.join(audio_root, name)
+        for name in os.listdir(audio_root)
+        if os.path.isdir(os.path.join(audio_root, name))
+    )
+
+    if not subfolders:
+        print(f"Khong co folder con nao trong: {audio_root}")
+        return 1
+
+    success_count = 0
+    failed_count = 0
+
+    print(f"Audio root: {audio_root}")
+    print(f"Tim thay {len(subfolders)} folder con de xu ly")
+
+    for job_folder in subfolders:
+        job_name = os.path.basename(job_folder)
+        wavs_folder = _find_wavs_folder(job_folder)
+        metadata_file = _find_metadata_csv(job_folder)
+
+        if not wavs_folder or not metadata_file:
+            print(f"\n[{job_name}] Skip: thieu folder wav/wavs hoac file csv")
+            failed_count += 1
+            continue
+
+        output_file = os.path.join(job_folder, args.output_name)
+
+        print(f"\n{'#'*60}")
+        print(f"JOB: {job_name}")
+        print(f"WAV: {wavs_folder}")
+        print(f"CSV: {metadata_file}")
+        print(f"OUT: {output_file}")
+        print(f"{'#'*60}")
+
+        success = processor.process(wavs_folder, metadata_file, output_file, args.verbose)
+        if success:
+            success_count += 1
+        else:
+            failed_count += 1
+
+    print(f"\n{'='*60}")
+    print("TONG KET")
+    print(f"Thanh cong: {success_count}")
+    print(f"That bai:   {failed_count}")
+    print(f"{'='*60}")
+
+    return 0 if success_count > 0 and failed_count == 0 else 1
 
 
 if __name__ == "__main__":
