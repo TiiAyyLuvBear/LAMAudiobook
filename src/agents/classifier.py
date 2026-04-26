@@ -1,403 +1,278 @@
 """
-Classifier Agent — Pure PhoBERT Implementation.
-Uses ONLY PhoBERT MLM for all decisions (Genre, Mood, Type, Speaker, Emotion).
-Optimized with Batched Inference and Threading to avoid blocking the event loop.
+Classifier Agent — "Deep Consistency" Version.
+Phân loại ngữ nghĩa cho từng câu để đảm bảo sự nhất quán và chính xác tuyệt đối.
+
+Improvements v2:
+- Fixed: dialogue_ratio now correctly computed
+- Fixed: Distributed sentence sampling across chapters (not just first 30)
+- Added: recommended_voice_style via cosine similarity on voice labels
 """
-import json
+
+import torch
+import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModel
 import re
 import asyncio
-import argparse
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from collections import Counter
 
 try:
     from .base import BaseAgent, AgentResult
-    from src.schema.pipeline import Sentence
 except ImportError:
-    import importlib.util
-    repo_root = Path(__file__).resolve().parents[2]
+    BaseAgent = object
 
-    base_spec = importlib.util.spec_from_file_location(
-        "agents.base", str(repo_root / "src" / "agents" / "base.py")
-    )
-    base_mod = importlib.util.module_from_spec(base_spec)
-    base_spec.loader.exec_module(base_mod)
+    class AgentResult:
+        def __init__(self, success, data=None, error=None):
+            self.success, self.data, self.error = success, data, error
 
-    types_spec = importlib.util.spec_from_file_location(
-        "types.pipeline", str(repo_root / "src" / "types" / "pipeline.py")
-    )
-    types_mod = importlib.util.module_from_spec(types_spec)
-    types_spec.loader.exec_module(types_mod)
 
-    BaseAgent = base_mod.BaseAgent
-    AgentResult = base_mod.AgentResult
-    Sentence = types_mod.Sentence
-
-# ==========================================
-# CÁC DATA CLASSES
-# ==========================================
 class ClassifierInput:
     def __init__(
         self,
-        chapters: Optional[List[Any]] = None,
-        emotion_level: str = "basic",
+        context_buffer=None,
+        text: Optional[str] = None,
         file_path: Optional[str] = None,
+        chapters: Optional[
+            List[Any]
+        ] = None,  # List[ChapterBlock] — for distributed sampling
     ):
-        self.chapters = chapters
-        self.emotion_level = emotion_level
+        self.context_buffer = context_buffer
+        self.text = text
         self.file_path = file_path
+        self.chapters = chapters or []
+
 
 class ClassifierOutput:
     def __init__(
         self,
-        annotated_chapters: List[Dict[str, Any]],
-        sentences: List[Sentence],
-        speakers: List[str],
-        speaker_count: int,
-        dialogue_ratio: float,
-        predictions: Optional[List[Dict[str, float]]] = None,
         genre: Optional[str] = None,
         mood: Optional[str] = None,
-        source_text: Optional[str] = None,
+        dialogue_ratio: float = 0.0,
+        recommended_voice_style: Optional[str] = None,
+        sentences: Optional[List[dict]] = None,
     ):
-        self.annotated_chapters = annotated_chapters
-        self.sentences = sentences
-        self.speakers = speakers
-        self.speaker_count = speaker_count
-        self.dialogue_ratio = dialogue_ratio
-        self.predictions = predictions or []
         self.genre = genre
         self.mood = mood
-        self.source_text = source_text
+        self.dialogue_ratio = dialogue_ratio
+        self.recommended_voice_style = recommended_voice_style
+        self.sentences = sentences or []
 
-# ==========================================
-# AGENT CLASSIFIER PURE PHO-BERT
-# ==========================================
+
 class ClassifierAgent(BaseAgent):
     name = "classifier"
+    _tokenizer = None
+    _model = None
+    _model_name = "keepitreal/vietnamese-sbert"
+
+    # Genre labels for zero-shot classification
+    GENRES = [
+        "Trinh thám / Kinh dị",
+        "Chiến tranh / Lịch sử",
+        "Kiếm hiệp / Tiên hiệp",
+        "Kỹ năng / Tư duy",
+        "Ngôn tình",
+        "Văn học / Đời sống",
+    ]
+
+    # Emotion labels for sentence classification
+    MOODS = [
+        "Bí ẩn / Hồi hộp",
+        "Căng thẳng",
+        "U buồn / Bi thương",
+        "Vui vẻ / Hào hứng",
+        "Lãng mạn / Nhẹ nhàng",
+        "Chiêm nghiệm / Suy ngẫm",
+    ]
+
+    # Voice style labels for TTS recommendation
+    VOICE_STYLES = [
+        "calm and warm",
+        "dramatic and intense",
+        "light and playful",
+        "deep and solemn",
+        "mysterious and tense",
+        "romantic and gentle",
+    ]
+
+    # Vietnamese labels matching VOICE_STYLES order
+    VOICE_STYLE_VI = [
+        "Nhẹ nhàng & Ấm áp",
+        "Mạnh mẽ & Kịch tính",
+        "Nhẹ nhàng & Vui tươi",
+        "Trầm & Trang nghiêm",
+        "Huyền bí & Căng thẳng",
+        "Lãng mạn & Dịu dàng",
+    ]
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        super().__init__(name=self.name, config=config)
-        self._phobert_tokenizer = None
-        self._phobert_mlm = None
-        self._fill_mask_pipeline = None
-        self._phobert_backend = "uninitialized"
-        self.genre_map = self._load_json_reference("genres_ref.json")
-        self.mood_map = self._load_json_reference("moods_ref.json")
+        if BaseAgent is not object:
+            super().__init__(name=self.name, config=config)
 
-    def _load_json_reference(self, filepath: str) -> dict:
-        try:
-            path = Path(filepath)
-            if path.exists():
-                return json.loads(path.read_text(encoding="utf-8"))
-        except Exception as e:
-            print(f"[Warning] Failed to load {filepath}: {e}")
-        return {}
+    # ─────────────────────────────────────────────
+    # Model
+    # ─────────────────────────────────────────────
 
-    def _load_phobert(self) -> None:
-        """Khởi tạo PhoBERT và Pipeline Batched Inference"""
-        if self._phobert_mlm is not None and self._fill_mask_pipeline is not None:
-            return
-        try:
-            import torch
-            from transformers import AutoModelForMaskedLM, AutoTokenizer, pipeline
+    @classmethod
+    def _load_model(cls):
+        if cls._model is None:
+            cls._tokenizer = AutoTokenizer.from_pretrained(cls._model_name)
+            cls._model = AutoModel.from_pretrained(cls._model_name)
+            cls._model.eval()
 
-            model_name = "vinai/phobert-base-v2"
-            self._phobert_tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self._phobert_mlm = AutoModelForMaskedLM.from_pretrained(model_name)
-            self._phobert_mlm.eval()
-            
-            device = 0 if torch.cuda.is_available() else -1
-            self._fill_mask_pipeline = pipeline(
-                "fill-mask", 
-                model=self._phobert_mlm, 
-                tokenizer=self._phobert_tokenizer, 
-                device=device,
-                top_k=1 # Chỉ lấy token có xác suất cao nhất để tối ưu tốc độ
-            )
-            self._phobert_backend = model_name
-        except Exception as e:
-            self._phobert_backend = "model-load-failed"
-            raise RuntimeError(f"PhoBERT load failed: {e}")
+    def _get_embeddings(self, texts: List[str]) -> torch.Tensor:
+        self._load_model()
+        inputs = self._tokenizer(
+            texts, padding=True, truncation=True, max_length=128, return_tensors="pt"
+        )
+        with torch.no_grad():
+            outputs = self._model(**inputs)
+        return outputs.last_hidden_state.mean(dim=1)
 
-    def _clean_mask_token(self, token: str) -> str:
-        token = str(token).strip()
-        token = token.replace(" ", "_").replace("/", "_").replace("-", "_")
-        token = re.sub(r"_+", "_", token).strip("_")
-        return token or "unknown"
+    def _semantic_classify_batch(
+        self, texts: List[str], labels: List[str]
+    ) -> List[str]:
+        """Batch cosine-similarity classification against label embeddings."""
+        text_embs = self._get_embeddings(texts)  # (N, D)
+        label_embs = self._get_embeddings(labels)  # (M, D)
+        sim_matrix = F.cosine_similarity(
+            text_embs.unsqueeze(1), label_embs.unsqueeze(0), dim=2
+        )
+        best_indices = torch.argmax(sim_matrix, dim=1)
+        return [labels[i.item()] for i in best_indices]
 
-    def _split_sentences(self, text: str) -> List[str]:
-        """Tách đoạn văn thành các chuỗi đầu vào (vẫn cần thiết để model đọc từng câu)"""
-        if not text: return []
-        parts = re.split(r"(?<=[.!?])\s+", text.strip())
-        return [p.strip() for p in parts if p.strip()]
+    # ─────────────────────────────────────────────
+    # Sampling helpers
+    # ─────────────────────────────────────────────
 
-    def _phobert_rank_document_sync(self, text: str) -> Tuple[List[Dict[str, float]], str, str]:
-        self._load_phobert()
-        mask_token = self._phobert_tokenizer.mask_token
-        text_short = re.sub(r"\s+", " ", text).strip()[:800]
+    @staticmethod
+    def _extract_sentences_from_text(text: str, max_sentences: int = 30) -> List[str]:
+        """Split text into sentences and return up to max_sentences."""
+        sentences = [
+            s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if len(s.strip()) > 10
+        ]
+        return sentences[:max_sentences]
 
-        g_prompt = f"Văn bản: {text_short}. Thể loại chính là {mask_token}."
-        m_prompt = f"Văn bản: {text_short}. Không khí đoạn văn rất {mask_token}."
-        genre_targets = list(self.genre_map.keys()) if self.genre_map else None
-        mood_targets = list(self.mood_map.keys()) if self.mood_map else None
+    @staticmethod
+    def _distributed_sample(chapters: List[Any], total: int = 60) -> List[str]:
+        """
+        Sample sentences evenly distributed across chapters.
+        Each chapter contributes roughly (total / num_chapters) sentences.
+        """
+        if not chapters:
+            return []
 
-        try:
-            g_res = self._fill_mask_pipeline(g_prompt, targets=genre_targets)
-            m_res = self._fill_mask_pipeline(m_prompt, targets=mood_targets)
+        per_chapter = max(1, total // len(chapters))
+        sampled: List[str] = []
 
-            raw_genre = self._clean_mask_token(g_res[0]["token_str"])
-            raw_mood = self._clean_mask_token(m_res[0]["token_str"])
-            top_genre = self.genre_map.get(raw_genre, raw_genre)
-            top_mood = self.mood_map.get(raw_mood, raw_mood)
-            
-            predictions = [
-                {"label": f"Genre_{top_genre}", "score": round(g_res[0]["score"], 4)},
-                {"label": f"Mood_{top_mood}", "score": round(m_res[0]["score"], 4)}
+        for ch in chapters:
+            ch_text = ch.plain_text if hasattr(ch, "plain_text") else ""
+            sentences = [
+                s.strip()
+                for s in re.split(r"(?<=[.!?])\s+", ch_text)
+                if len(s.strip()) > 10
             ]
-            return predictions, top_genre, top_mood
-        except Exception:
-            return [], "unknown", "neutral"
+            # Take evenly spaced sentences from the chapter
+            step = max(1, len(sentences) // per_chapter)
+            sampled.extend(sentences[::step][:per_chapter])
 
-    def _phobert_classify_batch_sync(self, sentences: List[str]) -> List[Dict[str, str]]:
-        """
-        Dự đoán Type, Emotion, Speaker cho một LÔ (Batch) các câu văn.
-        Việc đưa list vào pipeline giúp tốc độ tăng gấp nhiều lần so với chạy for loop.
-        """
-        if not sentences: return []
-        self._load_phobert()
-        mask = self._phobert_tokenizer.mask_token
+        return sampled[:total]
 
-        # Chuẩn bị 3 list prompts cho 3 thuộc tính
-        type_prompts = [f"Câu văn: '{s[:150]}'. Đây là lời {mask}." for s in sentences]
-        emo_prompts = [f"Câu văn: '{s[:150]}'. Cảm xúc câu này là {mask}." for s in sentences]
-        spk_prompts = [f"Câu văn: '{s[:150]}'. Người nói là {mask}." for s in sentences]
-        emo_targets = list(self.mood_map.keys()) if self.mood_map else None
+    # ─────────────────────────────────────────────
+    # Core classification (sync, runs in thread)
+    # ─────────────────────────────────────────────
 
-        try:
-            # Chạy pipeline theo batch (tận dụng phần cứng I/O)
-            t_preds = self._fill_mask_pipeline(type_prompts, batch_size=16)
-            e_preds = self._fill_mask_pipeline(emo_prompts, batch_size=16, targets=emo_targets)
-            s_preds = self._fill_mask_pipeline(spk_prompts, batch_size=16)
+    def _classify(self, input_data: ClassifierInput) -> ClassifierOutput:
+        self._load_model()
+        ctx = input_data.context_buffer
 
-            results = []
-            for i in range(len(sentences)):
-                # Lấy kết quả từ pipeline (pipeline trả về dict nếu input là string, trả list dict nếu input là list)
-                t_res = t_preds[i] if isinstance(t_preds, list) else t_preds
-                e_res = e_preds[i] if isinstance(e_preds, list) else e_preds
-                s_res = s_preds[i] if isinstance(s_preds, list) else s_preds
+        # ── 1. Genre from book summary ──────────────────────────
+        genre_results = self._semantic_classify_batch([ctx.summary], self.GENRES)
+        genre = genre_results[0]
 
-                # Trích xuất token
-                t_tok = t_res[0]['token_str'] if isinstance(t_res, list) else t_res['token_str']
-                raw_emo = e_res[0]['token_str'] if isinstance(e_res, list) else e_res['token_str']
-                s_tok = s_res[0]['token_str'] if isinstance(s_res, list) else s_res['token_str']
-                mapped_emo = self.mood_map.get(self._clean_mask_token(raw_emo), self._clean_mask_token(raw_emo))
+        # ── 2. Recommended voice style from book summary ────────
+        style_results = self._semantic_classify_batch([ctx.summary], self.VOICE_STYLES)
+        style_en = style_results[0]
+        style_idx = self.VOICE_STYLES.index(style_en)
+        recommended_voice_style = self.VOICE_STYLE_VI[style_idx]
 
-                results.append({
-                    "type": self._clean_mask_token(t_tok),
-                    "emotion": mapped_emo,
-                    "speaker": self._clean_mask_token(s_tok)
-                })
-            return results
-        except Exception as e:
-            print(f"[Warning] PhoBERT batch inference failed: {e}")
-            return [{"type": "unknown", "emotion": "neutral", "speaker": "unknown"} for _ in sentences]
-
-    async def _process_chapter_async(self, chapter_idx: int, chapter_title: str, paragraphs: List[Any]) -> Dict[str, Any]:
-        """Xử lý từng chương bất đồng bộ bằng cách đẩy batch inference vào ThreadPool"""
-        all_sentences_text = []
-        para_mapping = [] # Lưu vết câu nào thuộc đoạn nào
-
-        # 1. Thu thập và tách toàn bộ câu trong chương
-        for p_idx, para in enumerate(paragraphs):
-            para_text = getattr(para, "text", "") if not isinstance(para, dict) else para.get("text", "")
-            if not para_text: continue
-            
-            sents = self._split_sentences(para_text)
-            for s in sents:
-                all_sentences_text.append(s)
-                para_mapping.append({"p_idx": p_idx + 1, "text": para_text})
-
-        # 2. Giao việc cho PhoBERT suy luận toàn bộ lô câu văn (trong background thread)
-        batch_results = await asyncio.to_thread(self._phobert_classify_batch_sync, all_sentences_text)
-
-        # 3. Đóng gói kết quả trả về
-        chapter_dict = {
-            "chapter_index": chapter_idx,
-            "chapter_title": chapter_title,
-            "paragraphs": [],
-            "extracted_sentences": []
-        }
-        
-        # Nhóm câu trả lại theo Paragraph
-        current_p_idx = -1
-        current_para_sents = []
-        current_para_text = ""
-
-        for s_text, mapping, res in zip(all_sentences_text, para_mapping, batch_results):
-            sent_obj = Sentence(
-                text=s_text,
-                type=res["type"],
-                speaker=res["speaker"],
-                emotion=res["emotion"],
-                intensity=0.5,
-                chapter_index=chapter_idx,
-                paragraph_index=mapping["p_idx"]
+        # ── 3. Sentence sampling ────────────────────────────────
+        if input_data.chapters:
+            raw_sentences = self._distributed_sample(input_data.chapters, total=60)
+        elif input_data.text:
+            raw_sentences = self._extract_sentences_from_text(
+                input_data.text, max_sentences=60
             )
-            chapter_dict["extracted_sentences"].append(sent_obj)
+        elif input_data.file_path:
+            text = Path(input_data.file_path).read_text(
+                encoding="utf-8", errors="ignore"
+            )
+            raw_sentences = self._extract_sentences_from_text(text, max_sentences=60)
+        else:
+            raw_sentences = []
 
-            if mapping["p_idx"] != current_p_idx:
-                if current_p_idx != -1:
-                    chapter_dict["paragraphs"].append({"text": current_para_text, "sentences": current_para_sents})
-                current_p_idx = mapping["p_idx"]
-                current_para_text = mapping["text"]
-                current_para_sents = []
-            
-            current_para_sents.append({"text": s_text, "type": res["type"], "speaker": res["speaker"], "emotion": res["emotion"]})
+        if not raw_sentences:
+            return ClassifierOutput(
+                genre=genre,
+                mood=ctx.primary_mood,
+                dialogue_ratio=0.0,
+                recommended_voice_style=recommended_voice_style,
+            )
 
-        if current_p_idx != -1:
-             chapter_dict["paragraphs"].append({"text": current_para_text, "sentences": current_para_sents})
+        # ── 4. Sentence emotion classification ──────────────────
+        sent_moods = self._semantic_classify_batch(raw_sentences, self.MOODS)
 
-        return chapter_dict
+        # ── 5. Dialogue detection & speaker tagging ─────────────
+        dialogue_pattern = re.compile(r'^\s*[-–—"\'\"]')
+        entities = ctx.entities or []
+        processed_sentences = []
+        dialogue_count = 0
 
-    def _load_text_from_file(self, file_path: str) -> str:
-        # Giữ nguyên logic đọc file của bạn...
-        path = Path(file_path)
-        if not path.exists(): raise FileNotFoundError(f"File not found: {file_path}")
-        suffix = path.suffix.lower()
-        if suffix == ".txt": return path.read_text(encoding="utf-8", errors="ignore").strip()
-        if suffix == ".json":
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            plain = payload.get("plain_text")
-            if isinstance(plain, str) and plain.strip(): return plain.strip()
-            blocks = payload.get("blocks", [])
-            if isinstance(blocks, list): return "\n".join([b.get("text", "") for b in blocks if isinstance(b, dict) and b.get("text")]).strip()
-        raise ValueError("Unsupported input format")
+        for i, s in enumerate(raw_sentences):
+            is_dialogue = bool(dialogue_pattern.match(s))
+            if is_dialogue:
+                dialogue_count += 1
+
+            speaker = "Người kể chuyện"
+            s_lower = s.lower()
+            for ent in entities:
+                if ent.lower() in s_lower:
+                    speaker = ent
+                    break
+
+            processed_sentences.append(
+                {
+                    "text": s,
+                    "type": "dialogue" if is_dialogue else "narration",
+                    "emotion": sent_moods[i],
+                    "speaker": speaker,
+                }
+            )
+
+        # ── 6. Dialogue ratio (fixed bug) ───────────────────────
+        dialogue_ratio = dialogue_count / len(raw_sentences) if raw_sentences else 0.0
+
+        # ── 7. Primary mood = majority vote across all sentences ─
+        mood_counts = Counter(sent_moods)
+        primary_mood = (
+            mood_counts.most_common(1)[0][0] if sent_moods else ctx.primary_mood
+        )
+
+        return ClassifierOutput(
+            genre=genre,
+            mood=primary_mood,
+            dialogue_ratio=dialogue_ratio,
+            recommended_voice_style=recommended_voice_style,
+            sentences=processed_sentences,
+        )
+
+    # ─────────────────────────────────────────────
+    # Agent interface
+    # ─────────────────────────────────────────────
 
     async def run(self, input_data: ClassifierInput) -> AgentResult:
         try:
-            if isinstance(input_data, dict):
-                input_data = ClassifierInput(**input_data)
-
-            # MODE 1: Xử lý file thẳng
-            if input_data.file_path:
-                source_text = self._load_text_from_file(input_data.file_path)
-                predictions, genre, mood = await asyncio.to_thread(self._phobert_rank_document_sync, source_text)
-
-                return AgentResult(
-                    success=True,
-                    data=ClassifierOutput(
-                        annotated_chapters=[], sentences=[], speakers=[], speaker_count=0,
-                        dialogue_ratio=0.0, predictions=predictions, genre=genre, mood=mood, source_text=source_text,
-                    ),
-                    metadata={"backend": self._phobert_backend, "mode": "phobert-auto-only"},
-                )
-
-            # MODE 2: Xử lý Chapter
-            chapters = input_data.chapters or []
-            annotated_chapters = []
-            all_sentences = []
-            speakers_set = set()
-            dialogue_count = 0
-
-            # Tung toàn bộ Chapter vào ThreadPool chạy song song
-            tasks = []
-            for chapter in chapters:
-                c_idx = getattr(chapter, "chapter_index", 1)
-                c_title = getattr(chapter, "chapter_title", "")
-                paras = getattr(chapter, "paragraphs", [])
-                tasks.append(self._process_chapter_async(c_idx, c_title, paras))
-
-            chapter_results = await asyncio.gather(*tasks)
-
-            # Tổng hợp kết quả
-            for ch_res in chapter_results:
-                annotated_chapters.append({
-                    "chapter_index": ch_res["chapter_index"],
-                    "chapter_title": ch_res["chapter_title"],
-                    "paragraphs": ch_res["paragraphs"]
-                })
-                
-                for sent_obj in ch_res["extracted_sentences"]:
-                    all_sentences.append(sent_obj)
-                    speakers_set.add(sent_obj.speaker)
-                    # Tính ratio dựa trên những token model thường gán cho hội thoại
-                    if any(kw in str(sent_obj.type).lower() for kw in ["nói", "thoại", "đáp", "hỏi"]):
-                        dialogue_count += 1
-
-            total_sentences = len(all_sentences)
-            dialogue_ratio = dialogue_count / total_sentences if total_sentences > 0 else 0.0
-            joined_text = " ".join([s.text for s in all_sentences]).strip()
-
-            predictions, genre, mood = [], "unknown", "neutral"
-            if joined_text:
-                predictions, genre, mood = await asyncio.to_thread(self._phobert_rank_document_sync, joined_text)
-
-            return AgentResult(
-                success=True,
-                data=ClassifierOutput(
-                    annotated_chapters=annotated_chapters,
-                    sentences=all_sentences,
-                    speakers=list(speakers_set),
-                    speaker_count=len(speakers_set),
-                    dialogue_ratio=dialogue_ratio,
-                    predictions=predictions,
-                    genre=genre,
-                    mood=mood,
-                    source_text=joined_text,
-                ),
-                metadata={"backend": self._phobert_backend},
-            )
+            result = await asyncio.to_thread(self._classify, input_data)
+            return AgentResult(success=True, data=result)
         except Exception as e:
             return AgentResult(success=False, error=str(e))
-
-
-def _default_output_path(input_file: str) -> str:
-    p = Path(input_file)
-    return str(p.with_suffix(".classified.json"))
-
-async def _run_cli() -> int:
-    parser = argparse.ArgumentParser(description="Classifier CLI: Pure PhoBERT Approach")
-    parser.add_argument("-i", "--input", required=True, help="Input file (.txt or .json)")
-    parser.add_argument("-o", "--output", default=None, help="Output JSON path")
-    args = parser.parse_args()
-
-    output_path = args.output or _default_output_path(args.input)
-
-    agent = ClassifierAgent()
-    print(f"Đang phân tích file: {args.input} bằng PhoBERT...")
-    result = await agent.run(ClassifierInput(file_path=args.input))
-    
-    if not result.success:
-        print(f"Lỗi khi chạy Classifier: {result.error}")
-        return 1
-
-    out: ClassifierOutput = result.data
-    
-    # Gom các kết quả quan trọng để lưu ra file JSON
-    payload = {
-        "genre": out.genre,
-        "mood": out.mood,
-        "dialogue_ratio": out.dialogue_ratio,
-        "predictions": out.predictions,
-        "metadata": result.metadata or {},
-        "sentences_preview": [
-            {"text": s.text, "type": s.type, "emotion": s.emotion, "speaker": s.speaker} 
-            for s in out.sentences[:5] # Chỉ lưu 5 câu đầu để preview tránh phình to file
-        ] if out.sentences else []
-    }
-
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(output_path).write_text(json.dumps(payload, ensure_ascii=False, indent=4), encoding="utf-8")
-
-    print("\n--- KẾT QUẢ PHÂN TÍCH ---")
-    print(f"Thể loại: {out.genre}")
-    print(f"Không khí: {out.mood}")
-    print(f"Tỉ lệ đối thoại: {out.dialogue_ratio:.2f}")
-    print(f"File kết quả đã được lưu tại: {output_path}")
-    
-    return 0
-
-if __name__ == "__main__":
-    # Khởi chạy Event Loop cho các hàm async
-    raise SystemExit(asyncio.run(_run_cli()))

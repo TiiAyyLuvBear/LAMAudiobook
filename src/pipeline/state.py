@@ -1,6 +1,7 @@
 """
 Pipeline state management.
 """
+
 from .config import PipelineState, PipelineStage
 
 
@@ -45,3 +46,9 @@ class StateManager:
 
     def update_chapter(self, current: int) -> None:
         self._state.current_chapter = current
+
+    def set_status(self, message: str) -> None:
+        self._state.status_message = message
+
+    def to_dict(self) -> dict:
+        return self._state.to_dict()

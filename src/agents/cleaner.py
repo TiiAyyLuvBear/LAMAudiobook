@@ -1,6 +1,7 @@
 """
 Cleaner Agent — Removes headers, footers, page numbers, noise.
 """
+
 import re
 import sys
 import json
@@ -11,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 try:
     from .base import BaseAgent, AgentResult
-    from src.schema.pipeline import TextBlock
+    from src.schema.pipeline import TextBlock, ChapterBlock
 except ImportError:
     # Allow running this file directly: python src/agents/cleaner.py
     import importlib.util
@@ -26,8 +27,8 @@ except ImportError:
     base_spec.loader.exec_module(base_mod)
 
     types_spec = importlib.util.spec_from_file_location(
-        "types.pipeline",
-        str(repo_root / "src" / "types" / "pipeline.py"),
+        "schema.pipeline",
+        str(repo_root / "src" / "schema" / "pipeline.py"),
     )
     types_mod = importlib.util.module_from_spec(types_spec)
     types_spec.loader.exec_module(types_mod)
@@ -35,10 +36,12 @@ except ImportError:
     BaseAgent = base_mod.BaseAgent
     AgentResult = base_mod.AgentResult
     TextBlock = types_mod.TextBlock
+    ChapterBlock = types_mod.ChapterBlock
 
 
 class CleanerInput:
     """Input for Cleaner Agent"""
+
     def __init__(
         self,
         text_blocks: List[Any],
@@ -54,17 +57,22 @@ class CleanerInput:
 
 class CleanerOutput:
     """Output from Cleaner Agent"""
+
     def __init__(
         self,
         cleaned_blocks: List[TextBlock],
         removed_count: int,
         metadata: Dict[str, Any],
         plain_text: Optional[str] = None,
+        chapters: Optional[List[Any]] = None,  # List[ChapterBlock]
+        chapter_plain_texts: Optional[List[str]] = None,
     ):
         self.cleaned_blocks = cleaned_blocks
         self.removed_count = removed_count
         self.metadata = metadata
         self.plain_text = plain_text
+        self.chapters = chapters or []
+        self.chapter_plain_texts = chapter_plain_texts or []
 
 
 class CleanerAgent(BaseAgent):
@@ -76,41 +84,41 @@ class CleanerAgent(BaseAgent):
         super().__init__(name=self.name, config=config)
 
     def _clean_text(self, text: str) -> str:
-        text = re.sub(r'https?://\S+', '', text)
-        text = re.sub(r'<[^>]+>', '', text)
-        text = re.sub(r'\S+@\S+\.\S+', '', text)
-        text = re.sub(r'[ \t]+', ' ', text)
-        text = re.sub(r'\u200b', '', text)
+        text = re.sub(r"https?://\S+", "", text)
+        text = re.sub(r"<[^>]+>", "", text)
+        text = re.sub(r"\S+@\S+\.\S+", "", text)
+        text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"\u200b", "", text)
         return text.strip()
 
     def _is_noise_line(self, text: str) -> bool:
-        if re.search(r'https?://', text):
+        if re.search(r"https?://", text):
             return True
-        if re.search(r'www\.|\.com|\.org|\.net', text) and len(text) > 20:
+        if re.search(r"www\.|\.com|\.org|\.net", text) and len(text) > 20:
             return True
-        if re.fullmatch(r'[-–—_=~]{3,}', text):
+        if re.fullmatch(r"[-–—_=~]{3,}", text):
             return True
-        if len(text) <= 2 and not re.search(r'[a-zA-Zà-žÀ-Ž]', text):
+        if len(text) <= 2 and not re.search(r"[a-zA-Zà-žÀ-Ž]", text):
             return True
-        if re.search(r'\.{3,}\s*\d+\s*$', text):
+        if re.search(r"\.{3,}\s*\d+\s*$", text):
             return True
-        if text.lower().strip() in ('trang', 'page'):
+        if text.lower().strip() in ("trang", "page"):
             return True
         return False
 
     def _expand_abbreviations(self, text: str) -> str:
         abbr_map = {
-            r'\bđ/c\b': 'đồng chí',
-            r'\bĐ/C\b': 'Đồng chí',
-            r'\bTP\b': 'Thành phố',
-            r'\bTT\b': 'Thị trấn',
-            r'\bQĐ\b': 'Quyết định',
-            r'\bTTCP\b': 'Thủ tướng Chính phủ',
-            r'\bCP\b': 'Chính phủ',
-            r'\bTNHH\b': 'Trách nhiệm hữu hạn',
-            r'\bCổ phần\b': 'Cổ phần',
-            r'\bv\.v\.\b': 'vân vân',
-            r'\bv\.v\b': 'vân vân',
+            r"\bđ/c\b": "đồng chí",
+            r"\bĐ/C\b": "Đồng chí",
+            r"\bTP\b": "Thành phố",
+            r"\bTT\b": "Thị trấn",
+            r"\bQĐ\b": "Quyết định",
+            r"\bTTCP\b": "Thủ tướng Chính phủ",
+            r"\bCP\b": "Chính phủ",
+            r"\bTNHH\b": "Trách nhiệm hữu hạn",
+            r"\bCổ phần\b": "Cổ phần",
+            r"\bv\.v\.\b": "vân vân",
+            r"\bv\.v\b": "vân vân",
         }
         for pattern, replacement in abbr_map.items():
             text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
@@ -119,17 +127,17 @@ class CleanerAgent(BaseAgent):
     def _is_sentence_ending(self, text: str) -> bool:
         if not text:
             return False
-        return text.strip()[-1] in '.?!。！？'
+        return text.strip()[-1] in ".?!。！？"
 
     def _merge_paragraph(self, sentences: List[str]) -> str:
-        merged = ' '.join(sentences)
-        return re.sub(r'\s+', ' ', merged).strip()
+        merged = " ".join(sentences)
+        return re.sub(r"\s+", " ", merged).strip()
 
     def _split_sentences_for_txt(self, text: str) -> List[str]:
         text = text.strip()
         if not text:
             return []
-        sentences = re.split(r'(?<=[.!?。！？])\s+', text)
+        sentences = re.split(r"(?<=[.!?。！？])\s+", text)
         return [s.strip() for s in sentences if s.strip()]
 
     def _merge_body_blocks(
@@ -143,7 +151,7 @@ class CleanerAgent(BaseAgent):
 
         while i < len(blocks) and len(sentences) < 50:
             block = blocks[i]
-            if block.block_type == 'heading':
+            if block.block_type == "heading":
                 break
 
             text = self._clean_text(block.text)
@@ -157,7 +165,7 @@ class CleanerAgent(BaseAgent):
                 consecutive_non_ending = 0
             else:
                 if sentences and not self._is_sentence_ending(sentences[-1]):
-                    sentences[-1] += ' ' + text
+                    sentences[-1] += " " + text
                     consecutive_non_ending += 1
                 else:
                     sentences.append(text)
@@ -212,39 +220,127 @@ class CleanerAgent(BaseAgent):
             if not text:
                 continue
 
-            if block.block_type == 'heading':
-                if lines and lines[-1] != '':
-                    lines.append('')
+            if block.block_type == "heading":
+                if lines and lines[-1] != "":
+                    lines.append("")
                 lines.append(text)
                 continue
 
             for sentence in self._split_sentences_for_txt(text):
                 lines.append(sentence)
 
-        while lines and lines[-1] == '':
+        while lines and lines[-1] == "":
             lines.pop()
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def _to_cleaned_block(self, block: Any) -> Optional[TextBlock]:
-        raw_text = getattr(block, 'text', str(block)) if not isinstance(block, dict) else block.get('text', '')
+        raw_text = (
+            getattr(block, "text", str(block))
+            if not isinstance(block, dict)
+            else block.get("text", "")
+        )
         text = self._clean_text(raw_text)
         if not text or self._is_noise_line(text):
             return None
+
+        # Get existing block_type or default to paragraph
+        block_type = (
+            getattr(block, "block_type", "paragraph")
+            if not isinstance(block, dict)
+            else block.get("block_type", "paragraph")
+        )
+
+        # Heuristic: If it's a paragraph but looks like a chapter header, promote it
+        # Criteria: Short ( < 10 words) and starts with Chapter/Chương keywords
+        if block_type == "paragraph" and len(text.split()) < 10:
+            if re.match(
+                r"^\s*(Chương|Chapter|Tiết|Phần|Mục|Hồi)\s+(\d+|[IVXLCDM]+|[MộtHaiBaBốnNămSáuBảyTámChínMười]+)",
+                text,
+                re.IGNORECASE,
+            ):
+                block_type = "heading"
+
         return TextBlock(
             text=text,
-            page=getattr(block, 'page', 1) if not isinstance(block, dict) else block.get('page', 1),
-            block_type=getattr(block, 'block_type', 'paragraph') if not isinstance(block, dict) else block.get('block_type', 'paragraph'),
+            page=(
+                getattr(block, "page", 1)
+                if not isinstance(block, dict)
+                else block.get("page", 1)
+            ),
+            block_type=block_type,
         )
+
+    def _group_into_chapters(
+        self, blocks: List[TextBlock]
+    ) -> List[Any]:  # List[ChapterBlock]
+        """
+        Group cleaned TextBlocks into ChapterBlocks using headings as chapter boundaries.
+        If no headings exist, the entire text becomes a single chapter.
+        """
+        chapters = []
+        current_title = "Mở đầu"
+        current_paragraphs: List[str] = []
+        current_blocks: List[TextBlock] = []
+
+        for block in blocks:
+            if block.block_type == "heading":
+                # Save previous chapter if it has content
+                if current_paragraphs:
+                    chapters.append(
+                        ChapterBlock(
+                            index=len(chapters),
+                            title=current_title,
+                            paragraphs=current_paragraphs,
+                            paragraph_blocks=current_blocks,
+                        )
+                    )
+                # Start new chapter
+                current_title = block.text.strip()
+                current_paragraphs = []
+                current_blocks = []
+            else:
+                text = block.text.strip()
+                if text:
+                    current_paragraphs.append(text)
+                    current_blocks.append(block)
+
+        # Flush last chapter
+        if current_paragraphs:
+            chapters.append(
+                ChapterBlock(
+                    index=len(chapters),
+                    title=current_title,
+                    paragraphs=current_paragraphs,
+                    paragraph_blocks=current_blocks,
+                )
+            )
+
+        # Fallback: no headings found → single chapter
+        if not chapters:
+            all_text = self._to_plain_text(blocks)
+            if all_text.strip():
+                chapters.append(
+                    ChapterBlock(
+                        index=0,
+                        title="Nội dung",
+                        paragraphs=[all_text],
+                        paragraph_blocks=blocks,
+                    )
+                )
+
+        return chapters
 
     async def run(self, input_data: CleanerInput) -> AgentResult:
         try:
             if isinstance(input_data, dict):
                 input_data = CleanerInput(
-                    text_blocks=input_data.get('text_blocks', []),
-                    remove_headers=bool(input_data.get('remove_headers', True)),
-                    remove_footers=bool(input_data.get('remove_footers', True)),
-                    remove_page_numbers=bool(input_data.get('remove_page_numbers', True)),
+                    text_blocks=input_data.get("text_blocks", []),
+                    remove_headers=bool(input_data.get("remove_headers", True)),
+                    remove_footers=bool(input_data.get("remove_footers", True)),
+                    remove_page_numbers=bool(
+                        input_data.get("remove_page_numbers", True)
+                    ),
                 )
 
             cleaned: List[TextBlock] = []
@@ -256,7 +352,9 @@ class CleanerAgent(BaseAgent):
                     removed += 1
                     continue
 
-                if input_data.remove_page_numbers and re.fullmatch(r'\s*\d{1,5}\s*', text_block.text):
+                if input_data.remove_page_numbers and re.fullmatch(
+                    r"\s*\d{1,5}\s*", text_block.text
+                ):
                     removed += 1
                     continue
 
@@ -266,14 +364,20 @@ class CleanerAgent(BaseAgent):
             i = 0
             while i < len(cleaned):
                 block = cleaned[i]
-                if block.block_type == 'heading':
+                if block.block_type == "heading":
                     merged.append(block)
                     i += 1
                     continue
 
                 merged_text, next_i = self._merge_body_blocks(cleaned, i)
                 if merged_text:
-                    merged.append(TextBlock(text=merged_text, page=cleaned[i].page, block_type='paragraph'))
+                    merged.append(
+                        TextBlock(
+                            text=merged_text,
+                            page=cleaned[i].page,
+                            block_type="paragraph",
+                        )
+                    )
                 i = next_i
 
             merged, duplicates_removed = self._remove_duplicate_headers(
@@ -284,10 +388,13 @@ class CleanerAgent(BaseAgent):
             removed += duplicates_removed
 
             plain_text = self._to_plain_text(merged)
+            chapters = self._group_into_chapters(merged)
+            chapter_plain_texts = [ch.plain_text for ch in chapters]
 
             metadata: Dict[str, Any] = {
-                'removed_count': removed,
-                'cleaned_blocks': len(merged),
+                "removed_count": removed,
+                "cleaned_blocks": len(merged),
+                "chapter_count": len(chapters),
             }
 
             return AgentResult(
@@ -297,51 +404,19 @@ class CleanerAgent(BaseAgent):
                     removed_count=removed,
                     metadata=metadata,
                     plain_text=plain_text,
+                    chapters=chapters,
+                    chapter_plain_texts=chapter_plain_texts,
                 ),
             )
         except Exception as e:
             return AgentResult(success=False, error=str(e))
 
 
-def _extract_epub_blocks(file_path: str) -> List[TextBlock]:
-    """Extract rough text blocks from EPUB as cleaner input."""
-    from ebooklib import epub
-    from bs4 import BeautifulSoup
-
-    blocks: List[TextBlock] = []
-    book = epub.read_epub(file_path)
-    text_types = {1, 7, 8, 9}
-
-    for item in book.get_items():
-        if item.get_type() not in text_types:
-            continue
-
-        name = item.get_name().lower()
-        if any(x in name for x in ["nav", "cover", "titlepage", "toc"]):
-            continue
-
-        try:
-            content = item.get_content()
-            if isinstance(content, bytes):
-                content = content.decode("utf-8", errors="replace")
-
-            soup = BeautifulSoup(content, "html.parser")
-            tags = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "span"]
-            for tag in soup.find_all(tags):
-                text = tag.get_text(separator=" ", strip=True)
-                if not text:
-                    continue
-                block_type = "heading" if tag.name.lower() in {"h1", "h2", "h3", "h4", "h5", "h6"} else "paragraph"
-                blocks.append(TextBlock(text=text, page=1, block_type=block_type))
-        except Exception:
-            continue
-
-    return blocks
-
-
 def _blocks_to_ssml(blocks: List[TextBlock]) -> str:
     """Render cleaned blocks to simple SSML for TTS."""
-    parts = ['<speak version="1.0" xmlns="http://www.w3.org/2006/10/ssml" xml:lang="vi">']
+    parts = [
+        '<speak version="1.0" xmlns="http://www.w3.org/2006/10/ssml" xml:lang="vi">'
+    ]
 
     for block in blocks:
         text = block.text.strip()
@@ -349,7 +424,7 @@ def _blocks_to_ssml(blocks: List[TextBlock]) -> str:
             continue
 
         if block.block_type == "heading":
-            parts.append(f"<s>{text}</s><break time=\"1.5s\"/>")
+            parts.append(f'<s>{text}</s><break time="1.5s"/>')
             continue
 
         sentences = re.split(r"(?<=[.?!])\s+", text)
@@ -359,7 +434,7 @@ def _blocks_to_ssml(blocks: List[TextBlock]) -> str:
                 continue
             if sentence.endswith("."):
                 sentence = sentence[:-1]
-            parts.append(f"<s>{sentence}</s><break time=\"0.5s\"/>")
+            parts.append(f'<s>{sentence}</s><break time="0.5s"/>')
 
     parts.append("</speak>")
     return "\n".join(parts)
@@ -371,13 +446,27 @@ def _default_output_path(input_path: str, output_format: str) -> str:
 
 
 async def _run_cli() -> int:
-    parser = argparse.ArgumentParser(description="Cleaner CLI: input EPUB, output TXT/JSON/SSML")
+    parser = argparse.ArgumentParser(
+        description="Cleaner CLI: input EPUB, output TXT/JSON/SSML"
+    )
     parser.add_argument("-i", "--input", required=True, help="Input EPUB file path")
-    parser.add_argument("-f", "--format", required=True, choices=["txt", "json", "ssml"], help="Output format")
+    parser.add_argument(
+        "-f",
+        "--format",
+        required=True,
+        choices=["txt", "json", "ssml"],
+        help="Output format",
+    )
     parser.add_argument("-o", "--output", default=None, help="Output file path")
-    parser.add_argument("--keep-headers", action="store_true", help="Keep repeated headers")
-    parser.add_argument("--keep-footers", action="store_true", help="Keep repeated footers")
-    parser.add_argument("--keep-page-numbers", action="store_true", help="Keep page numbers")
+    parser.add_argument(
+        "--keep-headers", action="store_true", help="Keep repeated headers"
+    )
+    parser.add_argument(
+        "--keep-footers", action="store_true", help="Keep repeated footers"
+    )
+    parser.add_argument(
+        "--keep-page-numbers", action="store_true", help="Keep page numbers"
+    )
     args = parser.parse_args()
 
     input_path = args.input
@@ -391,10 +480,18 @@ async def _run_cli() -> int:
     output_path = args.output or _default_output_path(input_path, args.format)
 
     try:
-        raw_blocks = _extract_epub_blocks(input_path)
-    except ImportError as e:
-        print("Missing dependency for EPUB parsing. Install: pip install ebooklib beautifulsoup4")
-        print(f"Details: {e}")
+        from .parser import ParserAgent, ParserInput
+
+        parser_agent = ParserAgent()
+        parse_res = await parser_agent.run(
+            ParserInput(file_path=input_path, file_type="epub")
+        )
+        if not parse_res.success:
+            print(f"Extraction failed: {parse_res.error}")
+            return 1
+        raw_blocks = parse_res.data.blocks
+    except Exception as e:
+        print(f"Extraction failed: {e}")
         return 1
 
     agent = CleanerAgent()
@@ -434,7 +531,9 @@ async def _run_cli() -> int:
                 for b in data.cleaned_blocks
             ],
         }
-        output_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        output_file.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     print(f"Input: {input_path}")
     print(f"Output: {output_file}")

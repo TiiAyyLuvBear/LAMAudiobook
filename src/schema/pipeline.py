@@ -1,6 +1,7 @@
 """
 Shared data types for the audiobook pipeline.
 """
+
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 from enum import Enum
@@ -8,13 +9,14 @@ from enum import Enum
 
 class PipelineStage(Enum):
     """Pipeline execution stages"""
+
     PLANNING = "planning"
     PARSING = "parsing"
     CLEANING = "cleaning"
     SPLITTING = "splitting"
-    ANALYZING = "analyzing"      # parallel: classifier + voice
-    GENERATING = "generating"    # parallel: TTS chunks
-    FINALIZING = "finalizing"    # QC + audio concat
+    ANALYZING = "analyzing"  # parallel: classifier + voice
+    GENERATING = "generating"  # parallel: TTS chunks
+    FINALIZING = "finalizing"  # QC + audio concat
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -22,10 +24,12 @@ class PipelineStage(Enum):
 @dataclass
 class PipelineState:
     """Current state of the pipeline"""
+
     stage: PipelineStage = PipelineStage.PLANNING
     progress: float = 0.0
     current_chapter: int = 0
     total_chapters: int = 0
+    status_message: str = ""
     error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +38,7 @@ class PipelineState:
             "progress": self.progress,
             "current_chapter": self.current_chapter,
             "total_chapters": self.total_chapters,
+            "status_message": self.status_message,
             "error": self.error,
         }
 
@@ -41,6 +46,7 @@ class PipelineState:
 @dataclass
 class PipelineConfig:
     """Configuration for the audiobook pipeline"""
+
     input_file: str
     output_dir: str
     output_format: str = "mp3"
@@ -62,6 +68,7 @@ class PipelineConfig:
 @dataclass
 class Chapter:
     """A chapter extracted from the document"""
+
     chapter_index: int
     chapter_title: str
     paragraphs: List["Paragraph"] = field(default_factory=list)
@@ -79,7 +86,9 @@ class Chapter:
                 TextBlock(
                     text=p.text,
                     page=p.page_start,
-                    block_type="heading" if p.text == self.chapter_title else "paragraph",
+                    block_type=(
+                        "heading" if p.text == self.chapter_title else "paragraph"
+                    ),
                 )
             )
         return blocks
@@ -88,6 +97,7 @@ class Chapter:
 @dataclass
 class Paragraph:
     """A paragraph within a chapter"""
+
     paragraph_index: int
     text: str
     page_start: int
@@ -97,6 +107,7 @@ class Paragraph:
 @dataclass
 class TextBlock:
     """A block of text extracted from document"""
+
     text: str
     page: int
     block_type: str = "paragraph"  # "paragraph", "heading", "list"
@@ -104,12 +115,38 @@ class TextBlock:
 
 
 @dataclass
+class ChapterBlock:
+    """
+    A chapter extracted from the document by the Cleaner agent.
+    Used as the canonical chapter representation shared between
+    Cleaner → Summarizer → Classifier.
+    """
+
+    index: int  # 0-based chapter index
+    title: str  # Heading text; "Chapter 0" if no heading found
+    paragraphs: List[str]  # Plain-text paragraphs (cleaned)
+    paragraph_blocks: List[TextBlock] = field(
+        default_factory=list
+    )  # Original blocks for re-use
+
+    @property
+    def plain_text(self) -> str:
+        """Concatenated plain text of this chapter."""
+        return "\n".join(self.paragraphs)
+
+    @property
+    def word_count(self) -> int:
+        return len(self.plain_text.split())
+
+
+@dataclass
 class Sentence:
     """A single sentence with analysis metadata"""
+
     text: str
-    type: str = "narration"       # "narration" or "dialogue"
+    type: str = "narration"  # "narration" or "dialogue"
     speaker: str = "narrator"
-    emotion: str = "neutral"       # "neutral", "happy", "sad", "angry", etc.
-    intensity: float = 0.5         # 0.0 - 1.0
+    emotion: str = "neutral"  # "neutral", "happy", "sad", "angry", etc.
+    intensity: float = 0.5  # 0.0 - 1.0
     chapter_index: int = 1
     paragraph_index: int = 1

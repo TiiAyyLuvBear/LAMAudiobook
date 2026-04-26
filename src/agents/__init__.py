@@ -14,6 +14,7 @@ Agent Index:
 - classifier : Classifies narration/dialogue + detects speakers/emotions
 - voice      : Assigns TTS voice IDs to speakers
 - tts        : Converts annotated text → audio (XTTSv2)
+- summarizer : Extractive summarization for better classification
 - audio      : Concatenate, normalize, add chapter markers
 - qc         : Validates audio quality, flags segments for retry
 - memory     : Maintains speaker voice consistency across chapters
@@ -32,6 +33,7 @@ from .tts import TTSAgent, TTSGeneratorInput, TTSGeneratorOutput
 from .audio import AudioAgent, AudioFinalizeInput, AudioFinalizeOutput
 from .qc import QCAgent, QCInput, QCOutput, QCIssue
 from .memory import MemoryAgent, MemoryInput, MemoryOutput, SpeakerMemory
+from .summarizer import SummarizerAgent, SummarizerInput, SummarizerOutput
 
 __all__ = [
     # base
@@ -71,4 +73,7 @@ __all__ = [
     "MemoryInput",
     "MemoryOutput",
     "SpeakerMemory",
+    "SummarizerAgent",
+    "SummarizerInput",
+    "SummarizerOutput",
 ]
