@@ -36,6 +36,9 @@ class PlannerAgent(BaseAgent):
 
     name = "planner"
 
+    def __init__(self, config=None):
+        super().__init__(name=self.name, config=config)
+
     async def run(self, input_data: PlannerInput) -> AgentResult:
         try:
             # TODO: implement actual planning logic

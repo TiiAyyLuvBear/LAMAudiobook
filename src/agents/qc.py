@@ -44,6 +44,9 @@ class QCAgent(BaseAgent):
 
     name = "qc"
 
+    def __init__(self, config=None):
+        super().__init__(name=self.name, config=config)
+
     async def run(self, input_data: QCInput) -> AgentResult:
         try:
             issues: List[QCIssue] = []

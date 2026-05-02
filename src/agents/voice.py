@@ -4,15 +4,33 @@ Voice Agent — Assigns TTS voice IDs and prosody to speakers.
 import hashlib
 from typing import Any, Dict, List, Optional, Tuple
 
+try:
+    from qdrant_client import QdrantClient
+except ImportError:
+    QdrantClient = None
+
+try:
+    import torch
+    import torch.nn.functional as F
+    from transformers import AutoTokenizer, AutoModel
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+
 from .base import BaseAgent, AgentResult
 from schema.audio import VoiceAssignment
 
 
 class VoiceInput:
     """Input for Voice Agent"""
-    def __init__(self, speakers: List[str], speaker_mode: str = "multi"):
+    def __init__(self, speakers: List[str], speaker_mode: str = "multi",
+                 book_summary: str = "", book_mood: str = "",
+                 character_emotions: Optional[Dict[str, str]] = None):
         self.speakers = speakers
         self.speaker_mode = speaker_mode
+        self.book_summary = book_summary
+        self.book_mood = book_mood
+        self.character_emotions = character_emotions or {}
 
 
 class VoiceOutput:
@@ -33,31 +51,84 @@ class VoiceAgent(BaseAgent):
     def __init__(self, name: str = "voice", config: Optional[Dict[str, Any]] = None):
         super().__init__(name, config)
         self.narrator_fallback = "narrator_vi_fallback"
-        # Voice Pool (Voice DB List) - Trong dự án thật sẽ nạp từ file JSON/YAML
+        self.db_path = "data/qdrant_voice_db"
+        self.collection_name = "voices"
+        self.qdrant = None
+        
+        if QdrantClient:
+            try:
+                self.qdrant = QdrantClient(path=self.db_path)
+                if not self.qdrant.collection_exists(self.collection_name):
+                    self.qdrant = None
+            except Exception:
+                self.qdrant = None
+
+        self.model_name = "keepitreal/vietnamese-sbert"
+        self._tokenizer = None
+        self._model = None
+        
+        # Fallback pool
         self.voice_pool = self.config.get("voice_pool", [
             "female_hcm_01", "female_hn_02", 
             "male_hcm_01", "male_hn_02", 
             "child_voice_01"
         ])
 
+    def _load_model(self):
+        if HAS_TORCH and self._model is None:
+            try:
+                self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+                self._model = AutoModel.from_pretrained(self.model_name)
+                self._model.eval()
+            except Exception:
+                pass
+
+    def _get_embedding(self, text: str):
+        self._load_model()
+        if not HAS_TORCH or not self._model:
+            return None
+        inputs = self._tokenizer([text], padding=True, truncation=True, max_length=128, return_tensors="pt")
+        with torch.no_grad():
+            outputs = self._model(**inputs)
+        return outputs.last_hidden_state.mean(dim=1)
+
+    def _select_voice_by_vector(self, text_context: str, fallback_voice: str) -> str:
+        """Sử dụng Qdrant để tìm voice phù hợp nhất từ Voice DB."""
+        if self.qdrant is None:
+            return fallback_voice
+            
+        emb = self._get_embedding(text_context)
+        if emb is None:
+            return fallback_voice
+            
+        try:
+            # emb is a tensor if HAS_TORCH is true, so we convert it to list
+            query_vector = emb.squeeze().tolist() if hasattr(emb, "squeeze") else emb
+            
+            search_result = self.qdrant.search(
+                collection_name=self.collection_name,
+                query_vector=query_vector,
+                limit=1
+            )
+            if search_result:
+                return search_result[0].payload.get("voice_id", fallback_voice)
+        except Exception as e:
+            pass
+        
+        return fallback_voice
+
     def _map_speaker(self, speaker: Optional[str]) -> str:
-        """Deterministic Voice ID assignment using SHA-256 Modulo Map"""
+        """Deterministic Voice ID assignment fallback using SHA-256 Modulo Map"""
         if not speaker or speaker.lower() == "narrator":
             return self.narrator_fallback
             
-        # 1. Băm SHA-256 ra chuỗi Hex
         speaker_hash = hashlib.sha256(speaker.lower().encode("utf-8")).hexdigest()
-        
-        # 2. Chuyển Base-16 String sang Integer khổng lồ
         hash_int = int(speaker_hash, 16)
         
-        # 3. Thuật toán Modulo (chia lấy dư) dựa trên kích thước Voice DB
         if not self.voice_pool:
             return self.narrator_fallback
             
         assigned_index = hash_int % len(self.voice_pool)
-        
-        # 4. Trả về đúng tên Voice ID của file vật lý
         return self.voice_pool[assigned_index]
 
     def map_prosody(self, emotion: str, intensity: float) -> Tuple[float, float]:
@@ -79,13 +150,20 @@ class VoiceAgent(BaseAgent):
     async def run(self, input_data: VoiceInput) -> AgentResult:
         try:
             assignments: List[VoiceAssignment] = []
+            
+            # 1. Chọn giọng Narrator dựa trên book_summary và book_mood
+            narrator_context = f"Tóm tắt: {input_data.book_summary}. Cảm xúc: {input_data.book_mood}"
+            narrator_voice = self._select_voice_by_vector(narrator_context, self.narrator_fallback)
 
             for speaker in input_data.speakers:
-                # Support the hybrid Single/Multi switch logic
-                if input_data.speaker_mode == "single":
-                    vid = self.narrator_fallback
+                if input_data.speaker_mode == "single" or speaker.lower() == "narrator":
+                    vid = narrator_voice
                 else:
-                    vid = self._map_speaker(speaker)
+                    # 2. Chọn giọng nhân vật dựa trên cảm xúc chủ đạo
+                    char_emo = input_data.character_emotions.get(speaker, "")
+                    char_context = f"Nhân vật: {speaker}. Cảm xúc chủ đạo: {char_emo}"
+                    fallback_vid = self._map_speaker(speaker)
+                    vid = self._select_voice_by_vector(char_context, fallback_vid)
                 
                 assignments.append(
                     VoiceAssignment(
@@ -99,8 +177,10 @@ class VoiceAgent(BaseAgent):
                 success=True,
                 data=VoiceOutput(
                     voice_assignments=assignments,
-                    narrator_voice=self.narrator_fallback,
+                    narrator_voice=narrator_voice,
                 ),
             )
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return AgentResult(success=False, error=str(e))

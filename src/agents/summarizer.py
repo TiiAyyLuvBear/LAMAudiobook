@@ -5,11 +5,15 @@ Tối ưu hóa cho văn bản dài bằng Map-Reduce theo chương (chapter-awar
 """
 
 import asyncio
-import torch
 import re
 from typing import Any, Dict, List, Optional
 from collections import Counter
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+
+try:
+    import torch
+    from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+except ImportError:
+    pass
 
 try:
     from .base import BaseAgent, AgentResult
@@ -74,17 +78,24 @@ class SummarizerAgent(BaseAgent):
     def _load_model(cls):
         if cls._model is None:
             print(f"[Summarizer] Loading model {cls._model_name}...")
-            cls._tokenizer = AutoTokenizer.from_pretrained(cls._model_name)
-            cls._model = AutoModelForSeq2SeqLM.from_pretrained(cls._model_name)
+            try:
+                cls._tokenizer = AutoTokenizer.from_pretrained(cls._model_name)
+                cls._model = AutoModelForSeq2SeqLM.from_pretrained(cls._model_name)
 
-            if torch.cuda.is_available():
-                cls._model = cls._model.to("cuda")
-                print("[Summarizer] Using CUDA")
-            elif hasattr(torch, "xpu") and torch.xpu.is_available():
-                cls._model = cls._model.to("xpu")
-                print("[Summarizer] Using XPU")
+                if torch.cuda.is_available():
+                    cls._model = cls._model.to("cuda")
+                    print("[Summarizer] Using CUDA")
+                elif hasattr(torch, "xpu") and torch.xpu.is_available():
+                    cls._model = cls._model.to("xpu")
+                    print("[Summarizer] Using XPU")
 
-            cls._model.eval()
+                cls._model.eval()
+            except NameError:
+                print("[Summarizer] Transformers not available, using MOCK model.")
+                cls._model = "MOCK"
+            except Exception as e:
+                print(f"[Summarizer] Load failed, using MOCK model. Error: {e}")
+                cls._model = "MOCK"
 
     # ─────────────────────────────────────────────
     # Lightweight heuristic extractors (no model needed)
@@ -209,6 +220,9 @@ class SummarizerAgent(BaseAgent):
 
     def _summarize_single_chunk(self, chunk_text: str) -> str:
         """Run ViT5 inference on a single text chunk."""
+        if self._model == "MOCK" or self._model is None:
+            return chunk_text[:200] + " [MOCK SUMMARY]"
+
         device = next(self._model.parameters()).device
         inputs = self._tokenizer(
             chunk_text,

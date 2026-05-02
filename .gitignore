@@ -48,7 +48,6 @@ models/*.pth
 models/*.h5
 models/*.pkl
 !models/.gitkeep
-*.wav
 
 # Logs
 logs/
@@ -68,3 +67,5 @@ node_modules/
 
 # LLM cache
 .claude/
+
+audio_cache/

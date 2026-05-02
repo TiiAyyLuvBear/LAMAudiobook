@@ -8,9 +8,13 @@ Improvements v2:
 - Added: recommended_voice_style via cosine similarity on voice labels
 """
 
-import torch
-import torch.nn.functional as F
-from transformers import AutoTokenizer, AutoModel
+try:
+    import torch
+    import torch.nn.functional as F
+    from transformers import AutoTokenizer, AutoModel
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
 import re
 import asyncio
 from pathlib import Path
@@ -116,12 +120,20 @@ class ClassifierAgent(BaseAgent):
     @classmethod
     def _load_model(cls):
         if cls._model is None:
-            cls._tokenizer = AutoTokenizer.from_pretrained(cls._model_name)
-            cls._model = AutoModel.from_pretrained(cls._model_name)
-            cls._model.eval()
+            if not HAS_TORCH:
+                cls._model = "MOCK"
+                return
+            try:
+                cls._tokenizer = AutoTokenizer.from_pretrained(cls._model_name)
+                cls._model = AutoModel.from_pretrained(cls._model_name)
+                cls._model.eval()
+            except Exception:
+                cls._model = "MOCK"
 
-    def _get_embeddings(self, texts: List[str]) -> torch.Tensor:
+    def _get_embeddings(self, texts: List[str]) -> Any:
         self._load_model()
+        if self._model == "MOCK" or self._model is None or not HAS_TORCH:
+            return None
         inputs = self._tokenizer(
             texts, padding=True, truncation=True, max_length=128, return_tensors="pt"
         )
@@ -134,6 +146,9 @@ class ClassifierAgent(BaseAgent):
     ) -> List[str]:
         """Batch cosine-similarity classification against label embeddings."""
         text_embs = self._get_embeddings(texts)  # (N, D)
+        if text_embs is None:
+            return [labels[0] for _ in texts]
+            
         label_embs = self._get_embeddings(labels)  # (M, D)
         sim_matrix = F.cosine_similarity(
             text_embs.unsqueeze(1), label_embs.unsqueeze(0), dim=2

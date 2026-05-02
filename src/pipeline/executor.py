@@ -43,7 +43,8 @@ class ParallelExecutor:
         names = []
 
         for name, agent in agents:
-            task = asyncio.create_task(agent.execute(input_data))
+            specific_input = input_data.get(name, input_data) if isinstance(input_data, dict) else input_data
+            task = asyncio.create_task(agent.execute(specific_input))
             tasks.append(task)
             names.append(name)
 

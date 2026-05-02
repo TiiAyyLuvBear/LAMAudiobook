@@ -32,6 +32,9 @@ class SplitterAgent(BaseAgent):
 
     name = "splitter"
 
+    def __init__(self, config=None):
+        super().__init__(name=self.name, config=config)
+
     async def run(self, input_data: SplitterInput) -> AgentResult:
         try:
             # TODO: implement chapter detection

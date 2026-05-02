@@ -3,6 +3,7 @@ Audio Agent — Finalizes audio: concatenate, normalize, add chapter markers.
 Combines post-processing responsibilities.
 """
 from typing import Any, Dict, List
+from pathlib import Path
 
 from .base import BaseAgent, AgentResult
 from schema.audio import (
@@ -23,6 +24,9 @@ class AudioAgent(BaseAgent):
     """
 
     name = "audio"
+
+    def __init__(self, config=None):
+        super().__init__(name=self.name, config=config)
 
     async def run(self, input_data: AudioFinalizeInput) -> AgentResult:
         try:

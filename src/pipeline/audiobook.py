@@ -36,6 +36,7 @@ from schema.pipeline import Chapter
 from .config import PipelineConfig, PipelineStage
 from .state import StateManager
 from .executor import ParallelExecutor
+from utils.tts_engine import RealXTTSEngine
 
 
 logger = logging.getLogger(__name__)
@@ -62,12 +63,12 @@ class AudiobookPipeline:
         self.classifier = ClassifierAgent()
         self.summarizer = SummarizerAgent()
         # self.planner = PlannerAgent()
-        # self.splitter = SplitterAgent()
-        # self.voice = VoiceAgent()
-        # self.tts = TTSAgent()
-        # self.audio = AudioAgent()
-        # self.qc = QCAgent()
-        # self.memory = MemoryAgent()
+        self.splitter = SplitterAgent()
+        self.voice = VoiceAgent()
+        self.tts = TTSAgent(engine=RealXTTSEngine(voice_dir="data/voice_samples"))
+        self.audio = AudioAgent()
+        self.qc = QCAgent()
+        self.memory = MemoryAgent()
 
     # ─────────────────────────────────────────────
     # PHASE 1: Parse  (sequential)
@@ -154,57 +155,54 @@ class AudiobookPipeline:
     # ─────────────────────────────────────────────
 
     async def _phase2_analyze(self, parse_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Classifier + Voice + Memory run concurrently."""
+        """Voice + Memory run concurrently using data from Phase 1."""
         self.state.set_stage(PipelineStage.ANALYZING)
-        plan = parse_data["plan"]
+        
+        ctx = parse_data["summarize"]
+        classifier_data = parse_data["classify"]
+        
+        # Extract character emotions for VoiceAgent
+        char_emotions = {}
+        if hasattr(classifier_data, "sentences"):
+            for s in classifier_data.sentences:
+                spk = s.get("speaker")
+                emo = s.get("emotion")
+                if spk and emo and spk != "Người kể chuyện":
+                    if spk not in char_emotions:
+                        char_emotions[spk] = []
+                    char_emotions[spk].append(emo)
+        
+        # Get dominant emotion per character
+        from collections import Counter
+        for spk in char_emotions:
+            char_emotions[spk] = Counter(char_emotions[spk]).most_common(1)[0][0]
 
-        # Step 2.1: Summarizer (Build Context)
-        summarize_result = await self.executor.execute_single(
-            "summarizer",
-            self.summarizer,
-            SummarizerInput(text=parse_data.get("plain_text", "")),
-        )
-        if not summarize_result.success:
-            raise RuntimeError(f"Summarizer failed: {summarize_result.error}")
-
-        ctx = summarize_result.data
-
-        # Step 2.2: Classifier + Voice + Memory (parallel)
-        # Note: In this version, Classifier needs the context buffer
+        # Step 2: Voice + Memory (parallel)
         results = await self.executor.execute_group(
             agents=[
-                ("classifier", self.classifier),
                 ("voice", self.voice),
                 ("memory", self.memory),
             ],
             input_data={
-                "classifier": ClassifierInput(
-                    file_path=self.config.input_file,
-                    context_buffer=ctx,
-                    text=parse_data.get("plain_text"),
-                ),
                 "voice": VoiceInput(
                     speakers=ctx.entities,
-                    speaker_mode=getattr(plan, "speaker_mode", "single"),
+                    speaker_mode="multi",
+                    book_summary=ctx.summary,
+                    book_mood=getattr(classifier_data, "recommended_voice_style", None) or ctx.primary_mood,
+                    character_emotions=char_emotions
                 ),
                 "memory": MemoryInput(action="clear"),
             },
             raise_on_error=False,
         )
 
-        classifier_result = results.get("classifier")
         voice_result = results.get("voice")
         memory_result = results.get("memory")
 
-        if not classifier_result or not classifier_result.success:
-            raise RuntimeError(
-                f"Classifier failed: {classifier_result.error if classifier_result else 'No result'}"
-            )
-
         return {
-            "classifier": classifier_result.data,
-            "voice": voice_result.data if voice_result else None,
-            "memory": memory_result.data if memory_result else None,
+            "classifier": classifier_data,
+            "voice": voice_result.data if voice_result and voice_result.success else None,
+            "memory": memory_result.data if memory_result and memory_result.success else None,
             "context": ctx,
         }
 
@@ -234,13 +232,13 @@ class AudiobookPipeline:
         for i, sent in enumerate(sentences):
             segments.append(
                 TTSSegment(
-                    text=sent.text,
-                    voice_id=voice_map.get(sent.speaker, "narrator_vi_female"),
-                    emotion=sent.emotion,
+                    text=sent.get("text", ""),
+                    voice_id=voice_map.get(sent.get("speaker", ""), "narrator_vi_female"),
+                    emotion=sent.get("emotion", "neutral"),
                     speed=1.0,
-                    chapter_index=sent.chapter_index,
+                    chapter_index=sent.get("chapter_index", 1),
                     segment_index=i,
-                    speaker=sent.speaker,
+                    speaker=sent.get("speaker", "narrator"),
                 )
             )
 
