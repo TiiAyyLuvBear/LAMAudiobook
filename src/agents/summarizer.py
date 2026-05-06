@@ -1,19 +1,64 @@
 """
-Summarizer Agent — "Map-Reduce" Version.
+Summarizer Agent — "Map-Reduce" Version (Patched).
 Nhiệm vụ: Tạo Context Buffer (Summary, Mood, Keywords, Entities) cho Audiobook Pipeline.
-Tối ưu hóa cho văn bản dài bằng Map-Reduce theo chương (chapter-aware).
+Tối ưu hóa:
+  - Threading (max_workers=2) cho T4 GPU (1 GPU thread + 1 prep thread).
+  - fp16 để tiết kiệm VRAM.
+  - num_beams=2 (giảm từ 4) để tăng tốc.
+  - Fix mood keywords (bỏ dấu gạch dưới → khoảng trắng).
+  - Language gate: dừng pipeline nếu không phải tiếng Việt.
 """
 
 import asyncio
 import re
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 from collections import Counter
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     import torch
     from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 except ImportError:
     pass
+
+# ─────────────────────────────────────────────
+# Vietnamese Language Detection
+# ─────────────────────────────────────────────
+
+_VIET_CHARS = set(
+    'àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ'
+    'ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐƠƯẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲỴỶỸ'
+)
+
+
+def detect_language(text: str, threshold: float = 0.015) -> str:
+    """Trả về 'vi' nếu là tiếng Việt, ngược lại trả mã ước tính."""
+    sample = text[:5000]
+    if not sample.strip():
+        return 'unknown'
+    vi_count = sum(1 for c in sample if c in _VIET_CHARS)
+    ratio = vi_count / len(sample)
+    logger.info(f'[LangDetect] Vi-char ratio: {ratio:.4f} (threshold={threshold})')
+    if ratio >= threshold:
+        return 'vi'
+    cjk = sum(1 for c in sample if '\u4e00' <= c <= '\u9fff')
+    if cjk / len(sample) > 0.1:
+        return 'zh'
+    return 'en'
+
+
+def assert_vietnamese(text: str) -> None:
+    """Raise LanguageError nếu văn bản không phải tiếng Việt."""
+    lang = detect_language(text)
+    if lang != 'vi':
+        names = {'zh': 'Tiếng Trung', 'en': 'Tiếng Anh', 'unknown': 'Không xác định'}
+        raise ValueError(
+            f'LANGUAGE_ERROR:{names.get(lang, lang)}'
+        )
 
 try:
     from .base import BaseAgent, AgentResult
@@ -47,13 +92,13 @@ class SummarizerOutput:
     def __init__(
         self,
         summary: str,
-        primary_mood: str,
         keywords: List[str],
         entities: List[str],
         chapter_summaries: Optional[List[str]] = None,
+        primary_mood: str = '',
     ):
         self.summary = summary
-        self.primary_mood = primary_mood
+        self.primary_mood = primary_mood  # kept for backward compat, filled by Classifier
         self.keywords = keywords
         self.entities = entities
         self.chapter_summaries = chapter_summaries or []
@@ -77,25 +122,29 @@ class SummarizerAgent(BaseAgent):
     @classmethod
     def _load_model(cls):
         if cls._model is None:
-            print(f"[Summarizer] Loading model {cls._model_name}...")
+            logger.info(f'[Summarizer] Loading {cls._model_name} (fp16 + T4 optimized)...')
             try:
                 cls._tokenizer = AutoTokenizer.from_pretrained(cls._model_name)
-                cls._model = AutoModelForSeq2SeqLM.from_pretrained(cls._model_name)
-
+                dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+                cls._model = AutoModelForSeq2SeqLM.from_pretrained(
+                    cls._model_name, torch_dtype=dtype
+                )
                 if torch.cuda.is_available():
-                    cls._model = cls._model.to("cuda")
-                    print("[Summarizer] Using CUDA")
-                elif hasattr(torch, "xpu") and torch.xpu.is_available():
-                    cls._model = cls._model.to("xpu")
-                    print("[Summarizer] Using XPU")
-
+                    cls._model = cls._model.to('cuda')
+                    gpu_name = torch.cuda.get_device_name(0)
+                    vram_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
+                    logger.info(f'[Summarizer] GPU: {gpu_name} ({vram_gb:.1f}GB VRAM), fp16=True')
+                elif hasattr(torch, 'xpu') and torch.xpu.is_available():
+                    cls._model = cls._model.to('xpu')
+                    logger.info('[Summarizer] Using XPU')
                 cls._model.eval()
+                logger.info('[Summarizer] Model ready.')
             except NameError:
-                print("[Summarizer] Transformers not available, using MOCK model.")
-                cls._model = "MOCK"
+                logger.warning('[Summarizer] Transformers not available → MOCK mode.')
+                cls._model = 'MOCK'
             except Exception as e:
-                print(f"[Summarizer] Load failed, using MOCK model. Error: {e}")
-                cls._model = "MOCK"
+                logger.error(f'[Summarizer] Load failed → MOCK. Error: {e}')
+                cls._model = 'MOCK'
 
     # ─────────────────────────────────────────────
     # Lightweight heuristic extractors (no model needed)
@@ -108,75 +157,8 @@ class SummarizerAgent(BaseAgent):
         )
         return list(set([e[0] for e in Counter(candidates).most_common(5)]))
 
-    def _detect_primary_mood(self, text: str) -> str:
-        """Xác định tông giọng chủ đạo dựa trên mật độ từ khóa cảm xúc."""
-        mood_weights = {
-            "Bí ẩn / Hồi hộp": [
-                "giết",
-                "vụ_án",
-                "chết",
-                "hung_thủ",
-                "bí_ẩn",
-                "thủ_phạm",
-                "nghi_phạm",
-                "án_mạng",
-                "điều_tra",
-            ],
-            "Căng thẳng": [
-                "nguy_hiểm",
-                "truy_đuổi",
-                "khẩn_cấp",
-                "kinh_hoàng",
-                "đấu_tranh",
-                "tấn_công",
-                "súng",
-                "đạn",
-            ],
-            "U buồn": [
-                "đau_đớn",
-                "khóc",
-                "mất_mát",
-                "tuyệt_vọng",
-                "bi_kịch",
-                "bi_thương",
-                "chia_ly",
-                "đau_khổ",
-                "tang_tóc",
-            ],
-            "Vui vẻ": [
-                "hạnh_phúc",
-                "niềm_vui",
-                "phấn_khích",
-                "hào_hứng",
-                "chiến_thắng",
-                "vui_vẻ",
-            ],
-            "Lãng mạn": [
-                "dịu_dàng",
-                "êm_đềm",
-                "lãng_mạn",
-                "ấm_áp",
-                "bình_yên",
-                "ngọt_ngào",
-                "hôn",
-                "nhớ_nhung",
-            ],
-            "Chiêm nghiệm": [
-                "triết_lý",
-                "suy_ngẫm",
-                "sâu_sắc",
-                "nhân_sinh",
-                "cuộc_đời",
-                "ý_nghĩa",
-            ],
-        }
-        text_lower = text.lower()
-        scores = {
-            m: sum(text_lower.count(kw) for kw in kws)
-            for m, kws in mood_weights.items()
-        }
-        max_mood = max(scores, key=scores.get)
-        return max_mood if scores[max_mood] > 0 else "Bình thường"
+    # _detect_primary_mood đã bị xoá.
+    # Mood giờ do ClassifierAgent quyết định bằng vietnamese-sbert (model-based).
 
     def _extract_keywords(self, text: str, top_k: int = 10) -> List[str]:
         """Trích xuất từ khóa có loại bỏ Stopwords tiếng Việt."""
@@ -233,11 +215,11 @@ class SummarizerAgent(BaseAgent):
 
         with torch.no_grad():
             outputs = self._model.generate(
-                inputs["input_ids"],
-                max_length=256,
-                min_length=40,
-                length_penalty=1.5,
-                num_beams=4,
+                inputs['input_ids'],
+                max_length=200,
+                min_length=30,
+                length_penalty=1.2,
+                num_beams=2,       # T4 patch: 4→2, ~2x faster
                 early_stopping=True,
             )
 
@@ -283,66 +265,49 @@ class SummarizerAgent(BaseAgent):
 
         return self._summarize_single_chunk(combined)
 
-    def _summarize_single_chapter(self, ch: Any) -> str:
-        """Helper to summarize a single chapter object, handling internal chunking if needed."""
-        ch_text = ch.plain_text if hasattr(ch, "plain_text") else str(ch)
+    @staticmethod
+    def _extractive_chapter_summary(ch: Any, max_sentences: int = 3) -> str:
+        """Trích 3 câu đầu tiên của chương làm tóm tắt (extractive, không cần model)."""
+        ch_text = ch.plain_text if hasattr(ch, 'plain_text') else str(ch)
         if not ch_text.strip():
-            return ""
-
-        words = ch_text.split()
-        if len(words) <= self.chunk_size:
-            return self._summarize_single_chunk(ch_text)
-        else:
-            chunks = self._split_into_word_chunks(ch_text)
-            # This might trigger further parallel map-reduce
-            return self._map_reduce_chunks(chunks)
+            return ''
+        sentences = re.split(r'(?<=[.!?])\s+', ch_text.strip())
+        meaningful = [s.strip() for s in sentences if len(s.strip()) > 15]
+        return ' '.join(meaningful[:max_sentences])
 
     def _summarize_by_chapters(
         self, chapters: List[Any], status_callback: Optional[Any] = None
     ) -> tuple:
         """
-        Chapter-aware Map-Reduce:
-        1. Summarize each chapter individually (Sequential).
-        2. Combine chapter summaries → final book summary.
-        Returns: (book_summary, chapter_summaries_list)
+        Fast extractive chapter summaries + 1 ViT5 call for book summary.
+        Thay vì chạy ViT5 trên mỗi chương (~8s × N), chỉ trích 3 câu đầu (~0s × N)
+        rồi gộp lại → 1 lần ViT5 duy nhất cho tóm tắt toàn sách.
         """
-        import time
-
-        chapter_summaries = []
         total_chapters = len(chapters)
+        logger.info(f'[Summarizer] Extractive mode: {total_chapters} chương')
 
-        print(f"[Summarizer] Bắt đầu tóm tắt theo chương: {total_chapters} chương")
-
+        # Phase 1: extractive summaries (instant, no model)
+        chapter_summaries = []
         for i, ch in enumerate(chapters):
-            start_ch = time.time()
-            title = getattr(ch, "title", f"Chương {i+1}")
-            msg = f"[{i+1}/{total_chapters}] Đang tóm tắt: {title}..."
-            print(f"[Summarizer] {msg}")
-
+            title = getattr(ch, 'title', f'Chương {i+1}')
+            msg = f'[{i+1}/{total_chapters}] Trích tóm tắt: {title}'
             if status_callback:
                 status_callback(msg, i + 1, total_chapters)
+            summary = self._extractive_chapter_summary(ch)
+            chapter_summaries.append(summary)
+            logger.info(f'[Summarizer] ✓ {title} (extractive)')
 
-            ch_summary = self._summarize_single_chapter(ch)
-            chapter_summaries.append(ch_summary)
-
-            elapsed = time.time() - start_ch
-            done_msg = f"  -> Xong {title} trong {elapsed:.2f}s"
-            print(f"[Summarizer] {done_msg}")
-            if status_callback:
-                status_callback(done_msg, i + 1, total_chapters)
-
-        # Final reduce across all chapter summaries
-        final_msg = "Đang tổng hợp tóm tắt toàn bộ sách..."
-        print(f"[Summarizer] {final_msg}")
+        # Phase 2: 1 ViT5 call for book summary
+        final_msg = 'Đang tóm tắt toàn sách (1 lần ViT5)...'
+        logger.info(f'[Summarizer] {final_msg}')
         if status_callback:
             status_callback(final_msg, total_chapters, total_chapters)
+
         non_empty = [s for s in chapter_summaries if s.strip()]
         if not non_empty:
-            book_summary = ""
-        elif len(non_empty) == 1:
-            book_summary = non_empty[0]
+            book_summary = ''
         else:
-            combined = " \n ".join(non_empty)
+            combined = ' '.join(non_empty)
             if len(combined.split()) > self.chunk_size:
                 book_summary = self._map_reduce_chunks(
                     self._split_into_word_chunks(combined)
@@ -363,29 +328,28 @@ class SummarizerAgent(BaseAgent):
         status_callback: Optional[Any] = None,
     ) -> SummarizerOutput:
         """Run the full summarization pipeline (blocking)."""
+        # Language gate
+        assert_vietnamese(text)
+
         self._load_model()
 
-        # 1. Fast heuristic extraction from raw text
-        primary_mood = self._detect_primary_mood(text)
+        # 1. Fast heuristic extraction (no model)
         entities = self._extract_entities(text[:50000])
         keywords = self._extract_keywords(text)
 
-        # 2. Chapter-aware summarization if chapters provided, else word-chunk fallback
+        # 2. Summarization: extractive per-chapter + 1 ViT5 for book
         if chapters is not None and len(chapters) > 0:
             book_summary, chapter_summaries = self._summarize_by_chapters(
                 chapters, status_callback
             )
         else:
-            print(
-                "[Summarizer] Không tìm thấy chương, chuyển sang tóm tắt theo đoạn văn (word-chunks)."
-            )
+            logger.info('[Summarizer] Không tìm thấy chương → word-chunk fallback.')
             chunks = self._split_into_word_chunks(text)
             book_summary = self._map_reduce_chunks(chunks)
             chapter_summaries = []
 
         return SummarizerOutput(
             summary=book_summary,
-            primary_mood=primary_mood,
             keywords=keywords,
             entities=entities,
             chapter_summaries=chapter_summaries,

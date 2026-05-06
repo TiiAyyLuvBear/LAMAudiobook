@@ -109,6 +109,17 @@ class ClassifierAgent(BaseAgent):
         "Lãng mạn & Dịu dàng",
     ]
 
+    # Vietnamese query phrases dùng để embed khi classify voice style
+    # (tránh so sánh tiếng Việt vs tiếng Anh trong không gian embedding)
+    VOICE_STYLE_QUERY = [
+        "giọng nhẹ nhàng, ấm áp, bình yên, thư thái",
+        "giọng mạnh mẽ, kịch tính, căng thẳng, hào hùng",
+        "giọng vui tươi, nhẹ nhõm, tươi sáng, hóm hỉnh",
+        "giọng trầm, trang nghiêm, sâu lắng, u uẩn",
+        "giọng huyền bí, hồi hộp, bí ẩn, rùng rợn",
+        "giọng lãng mạn, dịu dàng, tình cảm, êm đềm",
+    ]
+
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         if BaseAgent is not object:
             super().__init__(name=self.name, config=config)
@@ -142,19 +153,49 @@ class ClassifierAgent(BaseAgent):
         return outputs.last_hidden_state.mean(dim=1)
 
     def _semantic_classify_batch(
-        self, texts: List[str], labels: List[str]
+        self, texts: List[str], labels: List[str],
+        query_labels: Optional[List[str]] = None,
+        temperature: float = 0.1,
+        threshold: float = 0.30,
+        default_label: str = 'Bình thường',
     ) -> List[str]:
-        """Batch cosine-similarity classification against label embeddings."""
+        """Batch cosine-similarity classification.
+
+        Args:
+            query_labels: nếu khác None, dùng để embed thay vì labels
+                          (tránh lệch ngôn ngữ Việt/Anh).
+            temperature:  softmax(sim / T) — T nhỏ hơn = sắc nét hơn.
+            threshold:    nếu max_cosine_sim < threshold → trả default_label
+                          thay vì ép chọn nhãn gần nhất dù text trung tính.
+            default_label: nhãn trả về khi không vượt threshold.
+        """
+        import random
         text_embs = self._get_embeddings(texts)  # (N, D)
         if text_embs is None:
-            return [labels[0] for _ in texts]
-            
-        label_embs = self._get_embeddings(labels)  # (M, D)
+            # MOCK: trả ngẫu nhiên để không bị thiên vị về labels[0]
+            return [random.choice(labels) for _ in texts]
+
+        embed_targets = query_labels if query_labels else labels
+        label_embs = self._get_embeddings(embed_targets)  # (M, D)
+
         sim_matrix = F.cosine_similarity(
             text_embs.unsqueeze(1), label_embs.unsqueeze(0), dim=2
-        )
-        best_indices = torch.argmax(sim_matrix, dim=1)
-        return [labels[i.item()] for i in best_indices]
+        )  # (N, M)
+
+        # Threshold check: câu nào không rõ ràng → gán default_label
+        max_sims, best_indices_raw = sim_matrix.max(dim=1)  # (N,)
+
+        # Softmax trên các câu vượt threshold (tránh hard argmax)
+        weights = torch.softmax(sim_matrix / temperature, dim=1)  # (N, M)
+        best_indices = torch.argmax(weights, dim=1)              # (N,)
+
+        results = []
+        for i in range(len(texts)):
+            if max_sims[i].item() < threshold:
+                results.append(default_label)
+            else:
+                results.append(labels[best_indices[i].item()])
+        return results
 
     # ─────────────────────────────────────────────
     # Sampling helpers
@@ -201,17 +242,7 @@ class ClassifierAgent(BaseAgent):
         self._load_model()
         ctx = input_data.context_buffer
 
-        # ── 1. Genre from book summary ──────────────────────────
-        genre_results = self._semantic_classify_batch([ctx.summary], self.GENRES)
-        genre = genre_results[0]
-
-        # ── 2. Recommended voice style from book summary ────────
-        style_results = self._semantic_classify_batch([ctx.summary], self.VOICE_STYLES)
-        style_en = style_results[0]
-        style_idx = self.VOICE_STYLES.index(style_en)
-        recommended_voice_style = self.VOICE_STYLE_VI[style_idx]
-
-        # ── 3. Sentence sampling ────────────────────────────────
+        # ── 1. Sentence sampling ────────────────────────────────
         if input_data.chapters:
             raw_sentences = self._distributed_sample(input_data.chapters, total=60)
         elif input_data.text:
@@ -226,19 +257,31 @@ class ClassifierAgent(BaseAgent):
         else:
             raw_sentences = []
 
+        # ── 2. Voice style from book summary (Vietnamese queries) ──
+        # D\u00f9ng VOICE_STYLE_QUERY (ti\u1ebfng Vi\u1ec7t) thay v\u00ec VOICE_STYLES (ti\u1ebfng Anh)
+        # \u0111\u1ec3 tr\u00e1nh l\u1ec7ch ng\u00f4n ng\u1eef khi embed v\u1edbi vietnamese-sbert
+        style_results = self._semantic_classify_batch(
+            [ctx.summary],
+            labels=self.VOICE_STYLES,
+            query_labels=self.VOICE_STYLE_QUERY,
+        )
+        style_en = style_results[0]
+        style_idx = self.VOICE_STYLES.index(style_en)
+        recommended_voice_style = self.VOICE_STYLE_VI[style_idx]
+
         if not raw_sentences:
             return ClassifierOutput(
-                genre=genre,
-                mood=ctx.primary_mood,
+                genre=None,
+                mood="Bình thường",
                 dialogue_ratio=0.0,
                 recommended_voice_style=recommended_voice_style,
             )
 
-        # ── 4. Sentence emotion classification ──────────────────
+        # ── 3. Sentence mood classification (model-based) ───────
         sent_moods = self._semantic_classify_batch(raw_sentences, self.MOODS)
 
-        # ── 5. Dialogue detection & speaker tagging ─────────────
-        dialogue_pattern = re.compile(r'^\s*[-–—"\'\"]')
+        # ── 4. Dialogue detection & speaker tagging ─────────────
+        dialogue_pattern = re.compile(r'^\s*[-–—"\'\u2018\u2019\u201c\u201d\u00ab\u00bb\u276c\u276d]')
         entities = ctx.entities or []
         processed_sentences = []
         dialogue_count = 0
@@ -264,17 +307,15 @@ class ClassifierAgent(BaseAgent):
                 }
             )
 
-        # ── 6. Dialogue ratio (fixed bug) ───────────────────────
+        # ── 5. Dialogue ratio ───────────────────────────────────
         dialogue_ratio = dialogue_count / len(raw_sentences) if raw_sentences else 0.0
 
-        # ── 7. Primary mood = majority vote across all sentences ─
+        # ── 6. Primary mood = majority vote (model-based, 1 mood cho toàn sách)
         mood_counts = Counter(sent_moods)
-        primary_mood = (
-            mood_counts.most_common(1)[0][0] if sent_moods else ctx.primary_mood
-        )
+        primary_mood = mood_counts.most_common(1)[0][0] if sent_moods else "Bình thường"
 
         return ClassifierOutput(
-            genre=genre,
+            genre=None,  # Genre đã bỏ, tập trung vào mood/voice
             mood=primary_mood,
             dialogue_ratio=dialogue_ratio,
             recommended_voice_style=recommended_voice_style,

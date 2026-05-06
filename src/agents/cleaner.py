@@ -89,7 +89,23 @@ class CleanerAgent(BaseAgent):
         text = re.sub(r"\S+@\S+\.\S+", "", text)
         text = re.sub(r"[ \t]+", " ", text)
         text = re.sub(r"\u200b", "", text)
+        text = self._normalize_for_tts(text)
         return text.strip()
+
+    @staticmethod
+    def _normalize_for_tts(text: str) -> str:
+        """Chu\u1ea9n ho\u00e1 k\u00fd t\u1ef1 \u0111\u1eb7c bi\u1ec7t cho TTS engine."""
+        # Curly quotes → straight
+        text = text.replace("\u201c", '"').replace("\u201d", '"')
+        text = text.replace("\u2018", "'").replace("\u2019", "'")
+        text = text.replace("\u00ab", '"').replace("\u00bb", '"')
+        # Ellipsis → 3 dots
+        text = text.replace("\u2026", "...")
+        # Em/en dash → hyphen
+        text = text.replace("\u2014", " - ").replace("\u2013", " - ")
+        # Remove decorative chars
+        text = re.sub(r"[\u2022\u25cf\u25cb\u2605\u2606\u00a7]+", "", text)
+        return text
 
     def _is_noise_line(self, text: str) -> bool:
         if re.search(r"https?://", text):
@@ -103,6 +119,21 @@ class CleanerAgent(BaseAgent):
         if re.search(r"\.{3,}\s*\d+\s*$", text):
             return True
         if text.lower().strip() in ("trang", "page"):
+            return True
+        # --- TTS-unfriendly patterns for Vietnamese books ---
+        if re.search(r"ISBN[\s:\-]*[\d\-X]{10,}", text, re.IGNORECASE):
+            return True
+        if re.search(r"Nhà xuất bản|NXB|In\s+\d+\s+bản|Khổ\s+\d+", text, re.IGNORECASE):
+            return True
+        if re.search(r"Bản quyền|Copyright|©|All rights reserved", text, re.IGNORECASE):
+            return True
+        if re.search(r"Liên hệ.*\d{4,}|Điện thoại|Fax\s*:", text, re.IGNORECASE):
+            return True
+        if re.search(r"Mục lục|Table of Contents", text, re.IGNORECASE) and len(text) < 30:
+            return True
+        if re.fullmatch(r"\s*\[\d+\].*", text):
+            return True
+        if re.search(r"Chịu trách nhiệm xuất bản|Biên tập|Trình bày bìa", text, re.IGNORECASE):
             return True
         return False
 

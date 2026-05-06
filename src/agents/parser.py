@@ -122,17 +122,24 @@ class ParserAgent(BaseAgent):
             return AgentResult(success=False, error=str(e))
 
     def _extract_epub_blocks(self, file_path: str) -> List[TextBlock]:
-        """Extract rough text blocks from EPUB."""
+        """Extract rough text blocks from EPUB, filtering TTS-unfriendly content."""
         blocks: List[TextBlock] = []
         book = epub.read_epub(file_path)
         text_types = {1, 7, 8, 9}
+
+        # Files to skip entirely
+        _SKIP_NAMES = {"nav", "cover", "titlepage", "toc", "colophon",
+                        "appendix", "footnote", "endnote", "bibliography"}
+        # HTML tags to ignore (not useful for TTS)
+        _SKIP_TAGS = {"aside", "footer", "figcaption", "table", "nav",
+                       "script", "style", "sup", "sub"}
 
         for item in book.get_items():
             if item.get_type() not in text_types:
                 continue
 
             name = item.get_name().lower()
-            if any(x in name for x in ["nav", "cover", "titlepage", "toc"]):
+            if any(x in name for x in _SKIP_NAMES):
                 continue
 
             try:
@@ -141,6 +148,11 @@ class ParserAgent(BaseAgent):
                     content = content.decode("utf-8", errors="replace")
 
                 soup = BeautifulSoup(content, "html.parser")
+
+                # Remove unwanted tags before extracting text
+                for tag in soup.find_all(_SKIP_TAGS):
+                    tag.decompose()
+
                 tags = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "span"]
                 for tag in soup.find_all(tags):
                     text = tag.get_text(separator=" ", strip=True)
