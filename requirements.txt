@@ -1,19 +1,40 @@
-# Backend API Dependencies - News Portal
-# Core Framework
+# 🎧 AudioBook AI - Unified Requirements
+
+# --- Core Framework & UI ---
+streamlit>=1.44.0
+python-dotenv>=1.0.0
+asyncio>=3.4.3
+
+# --- AI & NLP ---
+torch>=2.0.0
+transformers>=4.36.0
+sentence-transformers>=2.2.2
+qdrant-client>=1.7.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# --- Document Parsing ---
+ebooklib>=0.18
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+PyMuPDF>=1.23.0
+
+# --- Audio Processing ---
+# System dependency: ffmpeg must be installed (apt install ffmpeg / brew install ffmpeg)
+pydub>=0.25.1
+# TTS>=0.22.0  # Required for Real XTTSv2 engine. Install separately if GPU is available.
+
+# --- Backend API (News Portal) ---
 fastapi>=0.109.0
 uvicorn>=0.27.0
 pydantic>=2.5.0
-python-dotenv>=1.0.0
-
-# Database
 sqlalchemy>=2.0.25
-
-# Utilities
 python-slugify>=8.0.2
 
-# Development & Testing (optional)
-pytest>=7.4.0
+# --- Utilities & Testing ---
 httpx>=0.26.0
-
-# Note: Chatbot/AI dependencies excluded (torch, transformers, etc.)
-# Focus on core News Portal APIs only
+pytest>=7.4.0
+tqdm>=4.66.0
+pathlib>=1.0.1
+requests>=2.31.0
+python-magic>=0.4.27  # Useful for file type detection
