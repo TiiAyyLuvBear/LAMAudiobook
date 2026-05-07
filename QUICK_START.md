@@ -28,6 +28,7 @@ For production GPU XTTS:
 ```powershell
 $env:TTS_ENGINE="xtts_gpu"
 $env:XTTS_MODEL_NAME_OR_PATH="aiMy144/XTTSv2VietAudiobook"
+$env:XTTS_RUNTIME_DIR="models/XTTSv2-Finetuning-for-New-Languages"
 ```
 
 The service expects CUDA, the direct XTTS runtime used by `models/XTTSv2.ipynb`, and reference WAV files in `data/voice_samples`.

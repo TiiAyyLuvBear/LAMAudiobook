@@ -23,7 +23,8 @@ PyMuPDF>=1.23.0
 # --- Audio Processing ---
 # System dependency: ffmpeg must be installed (apt install ffmpeg / brew install ffmpeg)
 pydub>=0.25.1
-# Direct XTTS runtime follows models/XTTSv2.ipynb and models/requirements.txt.
+# Direct XTTS runtime follows models/XTTSv2.ipynb. Clone XTTSv2-Finetuning-for-New-Languages
+# and install that repo's requirements for production GPU inference.
 
 # --- Backend API (Audiobook Service) ---
 fastapi>=0.109.0

@@ -33,6 +33,7 @@ Override it by setting `XTTS_MODEL_NAME_OR_PATH`:
 ```env
 TTS_ENGINE=xtts_gpu
 XTTS_MODEL_NAME_OR_PATH=aiMy144/XTTSv2VietAudiobook
+XTTS_RUNTIME_DIR=models/XTTSv2-Finetuning-for-New-Languages
 XTTS_VOICE_DIR=data/voice_samples
 ```
 
@@ -70,6 +71,7 @@ TTS_ENGINE=xtts_gpu
 XTTS_MODEL_NAME_OR_PATH=aiMy144/XTTSv2VietAudiobook
 XTTS_CONFIG_PATH=
 XTTS_VOCAB_PATH=
+XTTS_RUNTIME_DIR=models/XTTSv2-Finetuning-for-New-Languages
 XTTS_VOICE_DIR=data/voice_samples
 HF_TOKEN=
 ```
@@ -117,7 +119,8 @@ The notebook:
 
 - checks CUDA/GPU,
 - installs runtime dependencies and `ffmpeg`,
-- installs the dependency set from `models/requirements.txt`,
+- clones `XTTSv2-Finetuning-for-New-Languages` so the direct `TTS/` source exists,
+- installs the dependency set from that runtime repo,
 - downloads the fine-tuned XTTSv2 model from `aiMy144/XTTSv2VietAudiobook`,
 - starts FastAPI on port `8000`,
 - creates a Cloudflare quick tunnel for the API,

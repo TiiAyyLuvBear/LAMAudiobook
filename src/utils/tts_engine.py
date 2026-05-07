@@ -10,6 +10,7 @@ import hashlib
 import shutil
 
 DEFAULT_XTTS_HF_REPO = "aiMy144/XTTSv2VietAudiobook"
+DEFAULT_XTTS_RUNTIME_DIR = "models/XTTSv2-Finetuning-for-New-Languages"
 
 class CacheManager:
     """Manages audio cache for exact deterministic generation paths"""
@@ -91,11 +92,13 @@ class RealXTTSEngine(XTTSEngine):
         self.model_name_or_path = env_model or DEFAULT_XTTS_HF_REPO
         self.config_path = config_path or os.getenv("XTTS_CONFIG_PATH")
         self.vocab_path = vocab_path or os.getenv("XTTS_VOCAB_PATH")
+        self.runtime_dir = Path(os.getenv("XTTS_RUNTIME_DIR", DEFAULT_XTTS_RUNTIME_DIR))
         self.model_cache_key = "|".join(
             [
                 self.model_name_or_path or "",
                 self.config_path or "",
                 self.vocab_path or "",
+                str(self.runtime_dir),
             ]
         )
         self._load_tts()
@@ -214,9 +217,12 @@ class RealXTTSEngine(XTTSEngine):
         return chunks or [text]
 
     def _load_xtts_checkpoint(self, checkpoint: Path, config_path: Path, vocab_path: Optional[Path]):
-        model_dir = str(config_path.parent.resolve())
-        if model_dir not in sys.path:
-            sys.path.insert(0, model_dir)
+        search_dirs = [self.runtime_dir, config_path.parent]
+        for search_dir in search_dirs:
+            if search_dir.exists():
+                search_path = str(search_dir.resolve())
+                if search_path not in sys.path:
+                    sys.path.insert(0, search_path)
 
         from TTS.tts.configs.xtts_config import XttsConfig
         from TTS.tts.models.xtts import Xtts
@@ -249,6 +255,7 @@ class RealXTTSEngine(XTTSEngine):
                 raise RuntimeError(
                     "Direct XTTS imports failed. This runtime must match models/XTTSv2.ipynb and provide "
                     "`TTS.tts.configs.xtts_config.XttsConfig` plus `TTS.tts.models.xtts.Xtts`. "
+                    f"Set XTTS_RUNTIME_DIR to the XTTSv2-Finetuning-for-New-Languages repo. "
                     f"Original import error: {exc}"
                 ) from exc
             except Exception as e:
