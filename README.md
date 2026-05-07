@@ -25,7 +25,7 @@ For production XTTS, keep the default:
 $env:TTS_ENGINE="xtts_gpu"
 ```
 
-`xtts_gpu` fails clearly if CUDA, Coqui TTS, or a reference voice file is missing. Mock audio is only used when `TTS_ENGINE=mock`.
+`xtts_gpu` fails clearly if CUDA, the direct XTTS runtime used by `models/XTTSv2.ipynb`, or a reference voice file is missing. Mock audio is only used when `TTS_ENGINE=mock`.
 
 The default production model is the uploaded Hugging Face repo `aiMy144/XTTSv2VietAudiobook`.
 Override it by setting `XTTS_MODEL_NAME_OR_PATH`:
@@ -117,7 +117,7 @@ The notebook:
 
 - checks CUDA/GPU,
 - installs runtime dependencies and `ffmpeg`,
-- installs Coqui `TTS`,
+- installs the dependency set from `models/requirements.txt`,
 - downloads the fine-tuned XTTSv2 model from `aiMy144/XTTSv2VietAudiobook`,
 - starts FastAPI on port `8000`,
 - creates a Cloudflare quick tunnel for the API,
@@ -126,4 +126,4 @@ The notebook:
 
 Open the Streamlit tunnel URL printed by the final setup cell, upload an EPUB, and download the completed audio.
 
-Coqui TTS/XTTS is sensitive to Python version. If Colab is on Python 3.12 and `pip install TTS==0.22.0` fails, use a Python 3.10/3.11 GPU runtime or a GPU VM instead.
+The Colab runner follows `models/XTTSv2.ipynb`: it loads `model.pth`, `config.json`, and `vocab.json` through `XttsConfig`/`Xtts` directly instead of using the `TTS.api.TTS` wrapper.

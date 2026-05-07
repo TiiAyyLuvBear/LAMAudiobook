@@ -30,7 +30,7 @@ $env:TTS_ENGINE="xtts_gpu"
 $env:XTTS_MODEL_NAME_OR_PATH="aiMy144/XTTSv2VietAudiobook"
 ```
 
-The service expects CUDA, Coqui TTS, and reference WAV files in `data/voice_samples`.
+The service expects CUDA, the direct XTTS runtime used by `models/XTTSv2.ipynb`, and reference WAV files in `data/voice_samples`.
 
 For a local checkpoint folder:
 

@@ -3,9 +3,11 @@ TTS Engine and Cache abstractions for Audio generation.
 """
 from abc import ABC, abstractmethod
 import os
+import sys
 from typing import Optional
 from pathlib import Path
 import hashlib
+import shutil
 
 DEFAULT_XTTS_HF_REPO = "aiMy144/XTTSv2VietAudiobook"
 
@@ -140,17 +142,11 @@ class RealXTTSEngine(XTTSEngine):
             raise RuntimeError(f"XTTS vocab file not found: {vocab}")
         return model_path, config, vocab
 
-    def _load_from_local_path(self, tts_cls, model_path: Path):
+    def _load_from_local_path(self, model_path: Path):
         if model_path.is_dir():
             checkpoint, config, vocab = self._resolve_local_model_files(model_path)
             print(f"[XTTS] Loading local fine-tuned checkpoint: {checkpoint}")
-            kwargs = {
-                "model_path": str(checkpoint),
-                "config_path": str(config),
-            }
-            if vocab:
-                kwargs["vocab_path"] = str(vocab)
-            return tts_cls(**kwargs)
+            return self._load_xtts_checkpoint(checkpoint, config, vocab)
 
         if model_path.is_file():
             config = Path(self.config_path) if self.config_path else model_path.with_name("config.json")
@@ -158,17 +154,12 @@ class RealXTTSEngine(XTTSEngine):
                 raise RuntimeError(
                     f"XTTS_CONFIG_PATH is required because config file was not found next to {model_path}"
                 )
-            kwargs = {
-                "model_path": str(model_path),
-                "config_path": str(config),
-            }
-            if self.vocab_path:
-                kwargs["vocab_path"] = self.vocab_path
-            return tts_cls(**kwargs)
+            vocab = Path(self.vocab_path) if self.vocab_path else model_path.with_name("vocab.json")
+            return self._load_xtts_checkpoint(model_path, config, vocab if vocab.exists() else None)
 
         raise RuntimeError(f"XTTS local model path does not exist: {model_path}")
 
-    def _load_from_huggingface(self, tts_cls, repo_id: str):
+    def _load_from_huggingface(self, repo_id: str):
         try:
             from huggingface_hub import snapshot_download
         except ImportError as exc:
@@ -184,7 +175,62 @@ class RealXTTSEngine(XTTSEngine):
                 token=os.getenv("HF_TOKEN") or None,
             )
         )
-        return self._load_from_local_path(tts_cls, local_dir)
+        return self._load_from_local_path(local_dir)
+
+    @staticmethod
+    def _preprocess_text(text: str, language: str = "vi") -> list[str]:
+        if language == "vi":
+            try:
+                from vinorm import TTSnorm
+                text = TTSnorm(text, unknown=False, lower=False, rule=True)
+            except Exception:
+                pass
+
+        try:
+            if language in ["ja", "zh-cn"]:
+                sentences = [item for item in text.split("。") if item.strip()]
+            else:
+                from underthesea import sent_tokenize
+                sentences = sent_tokenize(text)
+        except Exception:
+            sentences = [text]
+
+        chunks = []
+        chunk = ""
+        word_count = 0
+        for sentence in sentences:
+            chunk += " " + sentence
+            word_count += len(sentence.split())
+            if word_count > 30:
+                chunks.append(chunk.strip())
+                chunk = ""
+                word_count = 0
+
+        if chunk.strip():
+            if chunks and word_count < 15:
+                chunks[-1] += " " + chunk.strip()
+            else:
+                chunks.append(chunk.strip())
+        return chunks or [text]
+
+    def _load_xtts_checkpoint(self, checkpoint: Path, config_path: Path, vocab_path: Optional[Path]):
+        model_dir = str(config_path.parent.resolve())
+        if model_dir not in sys.path:
+            sys.path.insert(0, model_dir)
+
+        from TTS.tts.configs.xtts_config import XttsConfig
+        from TTS.tts.models.xtts import Xtts
+
+        config = XttsConfig()
+        config.load_json(str(config_path))
+        model = Xtts.init_from_config(config)
+        model.load_checkpoint(
+            config,
+            checkpoint_path=str(checkpoint),
+            vocab_path=str(vocab_path) if vocab_path else None,
+            use_deepspeed=False,
+        )
+        return model
 
     def _load_tts(self):
         if self.model_cache_key not in RealXTTSEngine._tts_instances:
@@ -192,18 +238,19 @@ class RealXTTSEngine(XTTSEngine):
                 import torch
                 if not torch.cuda.is_available():
                     raise RuntimeError("CUDA is not available. Set TTS_ENGINE=mock for tests or install GPU runtime for XTTS.")
-                from TTS.api import TTS
-                print(f"[XTTS] Loading model to CUDA: {self.model_name_or_path}")
+                print(f"[XTTS] Loading direct XTTS checkpoint to CUDA: {self.model_name_or_path}")
                 model_ref = Path(self.model_name_or_path)
                 if model_ref.exists():
-                    tts = self._load_from_local_path(TTS, model_ref)
-                elif self.model_name_or_path.startswith("tts_models/"):
-                    tts = TTS(self.model_name_or_path)
+                    tts = self._load_from_local_path(model_ref)
                 else:
-                    tts = self._load_from_huggingface(TTS, self.model_name_or_path)
+                    tts = self._load_from_huggingface(self.model_name_or_path)
                 RealXTTSEngine._tts_instances[self.model_cache_key] = tts.to("cuda")
-            except ImportError:
-                raise RuntimeError("TTS package is not installed. Install Coqui TTS for production XTTS.")
+            except ImportError as exc:
+                raise RuntimeError(
+                    "Direct XTTS imports failed. This runtime must match models/XTTSv2.ipynb and provide "
+                    "`TTS.tts.configs.xtts_config.XttsConfig` plus `TTS.tts.models.xtts.Xtts`. "
+                    f"Original import error: {exc}"
+                ) from exc
             except Exception as e:
                 raise RuntimeError(f"Failed to load XTTS model: {e}") from e
         self._tts_instance = RealXTTSEngine._tts_instances[self.model_cache_key]
@@ -215,14 +262,40 @@ class RealXTTSEngine(XTTSEngine):
             raise RuntimeError(f"Reference audio not found for voice_id={voice_id}: {speaker_wav}")
 
         if self._tts_instance:
-            print(f"Synthesizing [Voice: {voice_id}] [Speed: {speed:.1f}]...")
-            self._tts_instance.tts_to_file(
-                text=text,
-                speaker_wav=str(speaker_wav),
-                language="vi",
-                file_path=output_path,
-                speed=speed
+            import torch
+            import torchaudio
+
+            print(f"Synthesizing direct XTTS [Voice: {voice_id}] [Speed: {speed:.1f}]...")
+            gpt_cond_latent, speaker_embedding = self._tts_instance.get_conditioning_latents(
+                audio_path=str(speaker_wav),
+                gpt_cond_len=self._tts_instance.config.gpt_cond_len,
+                max_ref_length=self._tts_instance.config.max_ref_len,
+                sound_norm_refs=self._tts_instance.config.sound_norm_refs,
             )
+            wav_chunks = []
+            for chunk in self._preprocess_text(text, "vi"):
+                if not chunk.strip():
+                    continue
+                wav_chunk = self._tts_instance.inference(
+                    text=chunk,
+                    language="vi",
+                    gpt_cond_latent=gpt_cond_latent,
+                    speaker_embedding=speaker_embedding,
+                    length_penalty=1.0,
+                    repetition_penalty=10.0,
+                    top_k=10,
+                    top_p=0.5,
+                )
+                wav_chunks.append(torch.tensor(wav_chunk["wav"]))
+
+            if not wav_chunks:
+                raise RuntimeError("XTTS received empty text after preprocessing")
+
+            output_file = Path(output_path)
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = output_file.with_suffix(output_file.suffix + ".tmp.wav")
+            torchaudio.save(str(tmp_path), torch.cat(wav_chunks, dim=0).unsqueeze(0).cpu(), 24000)
+            shutil.move(str(tmp_path), str(output_file))
             return
 
         raise RuntimeError("XTTS model is not loaded")
