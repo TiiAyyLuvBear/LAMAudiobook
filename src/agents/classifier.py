@@ -82,7 +82,7 @@ class ClassifierAgent(BaseAgent):
     # Emotion labels for sentence classification
     MOODS = [
         "Bí ẩn / Hồi hộp",
-        "Căng thẳng",
+        "Kịch tính / Căng thẳng",
         "U buồn / Bi thương",
         "Vui vẻ / Hào hứng",
         "Lãng mạn / Nhẹ nhàng",
@@ -157,7 +157,7 @@ class ClassifierAgent(BaseAgent):
         query_labels: Optional[List[str]] = None,
         temperature: float = 0.1,
         threshold: float = 0.30,
-        default_label: str = 'Bình thường',
+        default_label: str = 'Chiêm nghiệm / Suy ngẫm',
     ) -> List[str]:
         """Batch cosine-similarity classification.
 
@@ -264,6 +264,7 @@ class ClassifierAgent(BaseAgent):
             [ctx.summary],
             labels=self.VOICE_STYLES,
             query_labels=self.VOICE_STYLE_QUERY,
+            default_label=self.VOICE_STYLES[0],  # Ensure fallback is in the list
         )
         style_en = style_results[0]
         style_idx = self.VOICE_STYLES.index(style_en)
@@ -272,7 +273,7 @@ class ClassifierAgent(BaseAgent):
         if not raw_sentences:
             return ClassifierOutput(
                 genre=None,
-                mood="Bình thường",
+                mood="Chiêm nghiệm / Suy ngẫm",
                 dialogue_ratio=0.0,
                 recommended_voice_style=recommended_voice_style,
             )
@@ -312,7 +313,7 @@ class ClassifierAgent(BaseAgent):
 
         # ── 6. Primary mood = majority vote (model-based, 1 mood cho toàn sách)
         mood_counts = Counter(sent_moods)
-        primary_mood = mood_counts.most_common(1)[0][0] if sent_moods else "Bình thường"
+        primary_mood = mood_counts.most_common(1)[0][0] if sent_moods else "Chiêm nghiệm / Suy ngẫm"
 
         return ClassifierOutput(
             genre=None,  # Genre đã bỏ, tập trung vào mood/voice
