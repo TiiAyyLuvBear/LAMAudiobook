@@ -69,3 +69,4 @@ node_modules/
 .claude/
 
 audio_cache/
+storage/

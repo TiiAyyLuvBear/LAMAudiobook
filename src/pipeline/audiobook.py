@@ -36,7 +36,7 @@ from schema.pipeline import Chapter
 from .config import PipelineConfig, PipelineStage
 from .state import StateManager
 from .executor import ParallelExecutor
-from utils.tts_engine import RealXTTSEngine
+from utils.tts_engine import MockXTTSEngine, RealXTTSEngine
 
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,16 @@ class AudiobookPipeline:
         # self.planner = PlannerAgent()
         self.splitter = SplitterAgent()
         self.voice = VoiceAgent()
-        self.tts = TTSAgent(engine=RealXTTSEngine(voice_dir="data/voice_samples"))
+        if config.tts_engine.lower() in {"mock", "test"}:
+            tts_engine = MockXTTSEngine()
+        else:
+            tts_engine = RealXTTSEngine(
+                voice_dir=config.xtts_voice_dir,
+                model_name_or_path=config.xtts_model_name_or_path,
+                config_path=config.xtts_config_path,
+                vocab_path=config.xtts_vocab_path,
+            )
+        self.tts = TTSAgent(engine=tts_engine)
         self.audio = AudioAgent()
         self.qc = QCAgent()
         self.memory = MemoryAgent()
@@ -111,39 +120,43 @@ class AudiobookPipeline:
             self.state.update_chapter(current)
             self.state.set_chapters(total)
 
-        # Step 3: Summarizer — chapter-aware mode
-        summarize_result = await self.executor.execute_single(
-            "summarizer",
-            self.summarizer,
-            SummarizerInput(
-                text=clean_data.plain_text,
-                chapters=clean_data.chapters,  # Pass chapter structure from Cleaner
-                status_callback=_summarizer_status,
-            ),
-        )
-        if not summarize_result.success:
-            raise RuntimeError(f"Summarizer failed: {summarize_result.error}")
+        ctx = None
+        class_data = None
+        if self.config.analysis_enabled:
+            # Step 3: Summarizer — chapter-aware mode
+            summarize_result = await self.executor.execute_single(
+                "summarizer",
+                self.summarizer,
+                SummarizerInput(
+                    text=clean_data.plain_text,
+                    chapters=clean_data.chapters,
+                    status_callback=_summarizer_status,
+                ),
+            )
+            if not summarize_result.success:
+                raise RuntimeError(f"Summarizer failed: {summarize_result.error}")
 
-        ctx = summarize_result.data
+            ctx = summarize_result.data
 
-        # Step 4: Classifier — distributed sampling via chapters
-        class_result = await self.executor.execute_single(
-            "classifier",
-            self.classifier,
-            ClassifierInput(
-                context_buffer=ctx,
-                text=clean_data.plain_text,
-                chapters=clean_data.chapters,  # For distributed sentence sampling
-            ),
-        )
-        if not class_result.success:
-            raise RuntimeError(f"Classifier failed: {class_result.error}")
+            # Step 4: Classifier samples the book for metadata only.
+            class_result = await self.executor.execute_single(
+                "classifier",
+                self.classifier,
+                ClassifierInput(
+                    context_buffer=ctx,
+                    text=clean_data.plain_text,
+                    chapters=clean_data.chapters,
+                ),
+            )
+            if not class_result.success:
+                raise RuntimeError(f"Classifier failed: {class_result.error}")
+            class_data = class_result.data
 
         return {
             "parse": parse_data,
             "clean": clean_data,
             "summarize": ctx,
-            "classify": class_result.data,
+            "classify": class_data,
             "plain_text": clean_data.plain_text,
             "chapters": clean_data.chapters,
             "chapter_count": len(clean_data.chapters),
@@ -163,7 +176,7 @@ class AudiobookPipeline:
         
         # Extract character emotions for VoiceAgent
         char_emotions = {}
-        if hasattr(classifier_data, "sentences"):
+        if classifier_data and hasattr(classifier_data, "sentences"):
             for s in classifier_data.sentences:
                 spk = s.get("speaker")
                 emo = s.get("emotion")
@@ -185,10 +198,10 @@ class AudiobookPipeline:
             ],
             input_data={
                 "voice": VoiceInput(
-                    speakers=ctx.entities,
+                    speakers=(ctx.entities if ctx else ["narrator"]),
                     speaker_mode="multi",
-                    book_summary=ctx.summary,
-                    book_mood=getattr(classifier_data, "recommended_voice_style", None) or ctx.primary_mood,
+                    book_summary=(ctx.summary if ctx else ""),
+                    book_mood=(getattr(classifier_data, "recommended_voice_style", None) if classifier_data else None) or (ctx.primary_mood if ctx else "neutral"),
                     character_emotions=char_emotions
                 ),
                 "memory": MemoryInput(action="clear"),
@@ -210,37 +223,74 @@ class AudiobookPipeline:
     # PHASE 3: Generate  (parallel)
     # ─────────────────────────────────────────────
 
-    async def _phase3_generate(self, analyze_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Build TTS segments → run TTS agent (currently sequential, extensible to batch parallel)."""
-        self.state.set_stage(PipelineStage.GENERATING)
+    def _split_tts_text(self, text: str, max_chars: int = 280) -> List[str]:
+        import re
 
-        classifier_data = analyze_data["classifier"]
+        sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+        chunks: List[str] = []
+        current: List[str] = []
+        current_len = 0
+        for sentence in [s.strip() for s in sentences if s.strip()]:
+            if current and current_len + len(sentence) + 1 > max_chars:
+                chunks.append(" ".join(current))
+                current = []
+                current_len = 0
+            if len(sentence) > max_chars:
+                for i in range(0, len(sentence), max_chars):
+                    chunks.append(sentence[i : i + max_chars].strip())
+                continue
+            current.append(sentence)
+            current_len += len(sentence) + 1
+        if current:
+            chunks.append(" ".join(current))
+        return chunks
+
+    def _build_tts_segments(self, parse_data: Dict[str, Any], analyze_data: Dict[str, Any]) -> List[TTSSegment]:
         voice_data = analyze_data["voice"]
-
-        sentences = (
-            classifier_data.sentences if hasattr(classifier_data, "sentences") else []
-        )
+        classifier_data = analyze_data.get("classifier")
         voice_assignments = voice_data.voice_assignments if voice_data else []
 
-        # Build voice lookup
-        voice_map: Dict[str, str] = {}
-        for va in voice_assignments:
-            voice_map[va.speaker] = va.voice_id
+        voice_map: Dict[str, str] = {va.speaker: va.voice_id for va in voice_assignments}
+        narrator_voice = getattr(voice_data, "narrator_voice", "female_hn_01") if voice_data else "female_hn_01"
 
-        # Build TTS segments
-        segments = []
-        for i, sent in enumerate(sentences):
-            segments.append(
-                TTSSegment(
-                    text=sent.get("text", ""),
-                    voice_id=voice_map.get(sent.get("speaker", ""), "narrator_vi_female"),
-                    emotion=sent.get("emotion", "neutral"),
-                    speed=1.0,
-                    chapter_index=sent.get("chapter_index", 1),
-                    segment_index=i,
-                    speaker=sent.get("speaker", "narrator"),
-                )
-            )
+        classifier_lookup: Dict[str, Dict[str, Any]] = {}
+        if classifier_data and hasattr(classifier_data, "sentences"):
+            for sent in classifier_data.sentences:
+                text = (sent.get("text") or "").strip()
+                if text:
+                    classifier_lookup[text] = sent
+
+        segments: List[TTSSegment] = []
+        global_index = 0
+        for chapter in parse_data.get("chapters") or []:
+            chapter_index = int(getattr(chapter, "index", 0)) + 1
+            paragraphs = getattr(chapter, "paragraphs", []) or []
+            for paragraph in paragraphs:
+                for chunk in self._split_tts_text(paragraph):
+                    meta = classifier_lookup.get(chunk, {})
+                    speaker = meta.get("speaker") or "narrator"
+                    segments.append(
+                        TTSSegment(
+                            text=chunk,
+                            voice_id=voice_map.get(speaker, narrator_voice),
+                            emotion=meta.get("emotion", "neutral"),
+                            intensity=float(meta.get("intensity", 1.0) or 1.0),
+                            speed=1.0,
+                            chapter_index=chapter_index,
+                            segment_index=global_index,
+                            speaker=speaker,
+                        )
+                    )
+                    global_index += 1
+        return segments
+
+    async def _phase3_generate(self, parse_data: Dict[str, Any], analyze_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Build TTS segments from the full cleaned book, then synthesize them."""
+        self.state.set_stage(PipelineStage.GENERATING)
+
+        segments = self._build_tts_segments(parse_data, analyze_data)
+        if not segments:
+            raise RuntimeError("No TTS segments were produced from cleaned text")
 
         # TODO: chunk into batches and run batched TTS in parallel
         # For now: single TTS call with all segments
@@ -345,7 +395,7 @@ class AudiobookPipeline:
             analyze_data = await self._phase2_analyze(parse_data)
 
             # PHASE 3: Generate (parallel)
-            gen_data = await self._phase3_generate(analyze_data)
+            gen_data = await self._phase3_generate(parse_data, analyze_data)
 
             # PHASE 4: Finalize (sequential)
             finalize_data = await self._phase4_finalize(gen_data)
@@ -365,9 +415,10 @@ class AudiobookPipeline:
                     if hasattr(audio_out, "total_duration")
                     else 0
                 ),
-                "chapters": (
-                    audio_out.chapters if hasattr(audio_out, "chapters") else []
-                ),
+                "chapters": parse_data["chapters"],
+                "classify": analyze_data["classifier"],
+                "summarize": analyze_data["context"],
+                "chapter_count": parse_data["chapter_count"],
             }
 
         except Exception as e:

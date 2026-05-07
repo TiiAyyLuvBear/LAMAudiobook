@@ -1,50 +1,41 @@
-# 🚀 QUICK START - News Portal Backend
+# Quick Start
 
-## Setup & Run (Windows)
+Install dependencies:
 
-```bash
-# 1. Install dependencies
+```powershell
+.\.venv\Scripts\activate
 pip install -r requirements.txt
-
-# 2. Setup environment
-copy .env.example .env
-
-# 3. Seed database with sample data
-python src\seed_database.py
-
-# 4. Run server
-cd src
-python app.py
 ```
 
-Server runs at: **http://localhost:8000**
-- API Docs: http://localhost:8000/api/docs
+Run locally with mock TTS:
 
-## 📡 Available APIs
+```powershell
+$env:TTS_ENGINE="mock"
+uvicorn src.app:app --host 0.0.0.0 --port 8000
+```
 
-### Homepage
-- `GET /api/v1/homepage` - Tất cả dữ liệu trang chủ
-- `GET /api/v1/homepage/stats` - Thống kê
+In another terminal:
 
-### News  
-- `GET /api/v1/news` - Danh sách tin (pagination, filter)
-- `GET /api/v1/news/featured` - Tin nổi bật
-- `GET /api/v1/news/trending` - Tin trending
-- `GET /api/v1/news/{id}` - Chi tiết tin
-- `POST /api/v1/news` - Tạo tin mới
-- `PUT /api/v1/news/{id}` - Cập nhật
-- `DELETE /api/v1/news/{id}` - Xóa
+```powershell
+$env:API_BASE_URL="http://localhost:8000"
+streamlit run streamlit_app.py --server.port 8501
+```
 
-### Categories
-- `GET /api/v1/categories` - Danh sách danh mục
-- `GET /api/v1/categories/{id}` - Chi tiết
-- `GET /api/v1/categories/{id}/news` - Tin theo danh mục
-- `POST /api/v1/categories` - Tạo danh mục
-- `PUT /api/v1/categories/{id}` - Cập nhật
-- `DELETE /api/v1/categories/{id}` - Xóa
+Open `http://localhost:8501`, upload an EPUB, and wait for the queued job to complete.
 
-**Chi tiết**: Xem [src/backend/API_REQUIREMENTS.md](src/backend/API_REQUIREMENTS.md)
+For production GPU XTTS:
 
-## ❌ Excluded
+```powershell
+$env:TTS_ENGINE="xtts_gpu"
+$env:XTTS_MODEL_NAME_OR_PATH="your-hf-user/your-finetuned-xttsv2-repo"
+```
 
-Chatbot/AI APIs không có trong backend này (theo yêu cầu)
+The service expects CUDA, Coqui TTS, and reference WAV files in `data/voice_samples`.
+
+For a local checkpoint folder:
+
+```powershell
+$env:XTTS_MODEL_NAME_OR_PATH="models/model"
+```
+
+That folder needs `config.json` plus a `.pth` checkpoint. If the weight is still a DVC pointer, run `dvc pull` first.

@@ -3,6 +3,7 @@ Audio utilities for audio processing.
 """
 
 import subprocess
+import wave
 from pathlib import Path
 from typing import Optional
 
@@ -35,11 +36,9 @@ def convert_audio_format(
     output_path: str,
     format: str = "mp3",
     bitrate: str = "192k"
-) -> bool:
+) -> tuple[bool, Optional[str]]:
     """
     Convert audio to different format.
-    
-    Uses ffmpeg for conversion.
     """
     try:
         subprocess.run(
@@ -53,16 +52,20 @@ def convert_audio_format(
             capture_output=True,
             check=True
         )
-        return True
-    except Exception:
-        return False
+        return True, None
+    except subprocess.CalledProcessError as e:
+        return False, f"ffmpeg conversion failed: {e.stderr.decode() if e.stderr else str(e)}"
+    except FileNotFoundError:
+        return False, "ffmpeg not found"
+    except Exception as e:
+        return False, str(e)
 
 
 def normalize_audio(
     input_path: str,
     output_path: str,
     target_loudness: float = -16.0
-) -> bool:
+) -> tuple[bool, Optional[str]]:
     """
     Normalize audio volume using loudnorm filter.
     """
@@ -78,43 +81,90 @@ def normalize_audio(
             capture_output=True,
             check=True
         )
-        return True
-    except Exception:
-        return False
+        return True, None
+    except subprocess.CalledProcessError as e:
+        return False, f"ffmpeg normalization failed: {e.stderr.decode() if e.stderr else str(e)}"
+    except FileNotFoundError:
+        return False, "ffmpeg not found"
+    except Exception as e:
+        return False, str(e)
 
 
 def concatenate_audio(
     input_files: list,
     output_path: str,
     format: str = "wav"
-) -> bool:
+) -> tuple[bool, Optional[str]]:
     """
     Concatenate multiple audio files.
+    Returns (success, error_message).
     """
+    list_path = Path(output_path).parent / "concat_list.txt"
+    def _concat_wav_fallback() -> tuple[bool, Optional[str]]:
+        try:
+            params = None
+            with wave.open(output_path, "wb") as out_wav:
+                for index, input_file in enumerate(input_files):
+                    with wave.open(str(input_file), "rb") as in_wav:
+                        if index == 0:
+                            params = in_wav.getparams()
+                            out_wav.setparams(params)
+                        elif in_wav.getparams()[:3] != params[:3]:
+                            return False, "WAV fallback requires matching channels, sample width, and frame rate"
+                        out_wav.writeframes(in_wav.readframes(in_wav.getnframes()))
+            return True, None
+        except Exception as exc:
+            return False, str(exc)
+
     try:
-        # Create concat file list
-        list_path = Path(output_path).parent / "concat_list.txt"
-        with open(list_path, "w") as f:
+        # Create concat file list with forward slashes for ffmpeg compatibility
+        with open(list_path, "w", encoding="utf-8") as f:
             for file_path in input_files:
-                f.write(f"file '{file_path}'\n")
+                # Convert to absolute path and use forward slashes
+                p = Path(file_path).absolute().as_posix()
+                f.write(f"file '{p}'\n")
         
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", str(list_path),
-                "-c", "copy",
-                "-y",
-                output_path
-            ],
-            capture_output=True,
-            check=True
-        )
-        
-        # Cleanup
-        list_path.unlink()
-        return True
-        
-    except Exception:
-        return False
+        # Try fast concatenation with stream copy
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-f", "concat",
+                    "-safe", "0",
+                    "-i", str(list_path),
+                    "-c", "copy",
+                    "-y",
+                    output_path
+                ],
+                capture_output=True,
+                check=True
+            )
+            return True, None
+        except subprocess.CalledProcessError as e:
+            # Fallback: re-encode if stream copy fails
+            try:
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-f", "concat",
+                        "-safe", "0",
+                        "-i", str(list_path),
+                        "-y",
+                        output_path
+                    ],
+                    capture_output=True,
+                    check=True
+                )
+                return True, None
+            except subprocess.CalledProcessError as e2:
+                return False, f"ffmpeg failed: {e2.stderr.decode() if e2.stderr else str(e2)}"
+        except FileNotFoundError:
+            if format == "wav":
+                return _concat_wav_fallback()
+            return False, "ffmpeg command not found. Please install ffmpeg."
+            
+    except Exception as e:
+        return False, str(e)
+    finally:
+        if list_path.exists():
+            list_path.unlink()

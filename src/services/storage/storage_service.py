@@ -1,87 +1,81 @@
 """
-Storage Service - Handles file and data persistence.
+Storage service for audiobook jobs.
 """
 
-import os
+from __future__ import annotations
+
 import json
-import shutil
-from typing import Any, Dict, Optional
+import os
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 
 class StorageService:
-    """
-    Service for file and data storage operations.
-    
-    Handles:
-    - Temporary file management
-    - Output file storage
-    - Metadata persistence
-    """
-    
-    def __init__(self, base_dir: str = "./storage"):
-        self.base_dir = Path(base_dir)
-        self.temp_dir = self.base_dir / "temp"
-        self.output_dir = self.base_dir / "output"
-        self.metadata_dir = self.base_dir / "metadata"
-        
-        # Ensure directories exist
-        for dir_path in [self.temp_dir, self.output_dir, self.metadata_dir]:
-            dir_path.mkdir(parents=True, exist_ok=True)
-    
-    def save_temp_file(self, filename: str, content: bytes) -> str:
-        """Save a temporary file"""
-        file_path = self.temp_dir / filename
-        file_path.write_bytes(content)
-        return str(file_path)
-    
-    def get_temp_path(self, filename: str) -> str:
-        """Get path for a temporary file"""
-        return str(self.temp_dir / filename)
-    
-    def save_output(self, filename: str, content: bytes) -> str:
-        """Save output file"""
-        file_path = self.output_dir / filename
-        file_path.write_bytes(content)
-        return str(file_path)
-    
-    def get_output_path(self, filename: str) -> str:
-        """Get path for output file"""
-        return str(self.output_dir / filename)
-    
+    """Filesystem layout for queued audiobook jobs."""
+
+    def __init__(self, base_dir: Optional[str] = None):
+        self.base_dir = Path(base_dir or os.getenv("STORAGE_DIR", "./storage"))
+        self.jobs_dir = self.base_dir / "jobs"
+        self.jobs_dir.mkdir(parents=True, exist_ok=True)
+
+    def job_dir(self, job_id: str) -> Path:
+        return self.jobs_dir / job_id
+
+    def create_job_dirs(self, job_id: str) -> Dict[str, Path]:
+        root = self.job_dir(job_id)
+        paths = {
+            "root": root,
+            "input": root / "input",
+            "segments": root / "segments",
+            "output": root / "output",
+            "logs": root / "logs",
+        }
+        for path in paths.values():
+            path.mkdir(parents=True, exist_ok=True)
+        return paths
+
+    def input_path(self, job_id: str) -> Path:
+        return self.job_dir(job_id) / "input" / "book.epub"
+
+    def output_path(self, job_id: str, output_format: str = "mp3") -> Path:
+        return self.job_dir(job_id) / "output" / f"audiobook.{output_format}"
+
+    def metadata_path(self, job_id: str) -> Path:
+        return self.job_dir(job_id) / "metadata.json"
+
+    def log_path(self, job_id: str) -> Path:
+        return self.job_dir(job_id) / "logs" / "logs.txt"
+
+    def save_input_file(self, job_id: str, content: bytes) -> str:
+        self.create_job_dirs(job_id)
+        path = self.input_path(job_id)
+        path.write_bytes(content)
+        return str(path)
+
     def save_metadata(self, job_id: str, metadata: Dict[str, Any]) -> None:
-        """Save job metadata"""
-        file_path = self.metadata_dir / f"{job_id}.json"
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2, ensure_ascii=False)
-    
+        self.create_job_dirs(job_id)
+        self.metadata_path(job_id).write_text(
+            json.dumps(metadata, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
     def load_metadata(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """Load job metadata"""
-        file_path = self.metadata_dir / f"{job_id}.json"
-        if file_path.exists():
-            with open(file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        return None
-    
-    def cleanup_temp(self, job_id: Optional[str] = None) -> None:
-        """Clean up temporary files"""
-        if job_id:
-            # Clean specific job's temp files
-            for file_path in self.temp_dir.glob(f"{job_id}*"):
-                file_path.unlink()
-        else:
-            # Clean all temp files
-            shutil.rmtree(self.temp_dir)
-            self.temp_dir.mkdir(parents=True, exist_ok=True)
-    
+        path = self.metadata_path(job_id)
+        if not path.exists():
+            return None
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def append_log(self, job_id: str, message: str) -> None:
+        self.create_job_dirs(job_id)
+        with self.log_path(job_id).open("a", encoding="utf-8") as fh:
+            fh.write(message.rstrip() + "\n")
+
+    def read_logs(self, job_id: str, max_lines: int = 200) -> str:
+        path = self.log_path(job_id)
+        if not path.exists():
+            return ""
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        return "\n".join(lines[-max_lines:])
+
     def file_exists(self, path: str) -> bool:
-        """Check if file exists"""
         return Path(path).exists()
-    
-    def delete_file(self, path: str) -> bool:
-        """Delete a file"""
-        try:
-            Path(path).unlink()
-            return True
-        except Exception:
-            return False

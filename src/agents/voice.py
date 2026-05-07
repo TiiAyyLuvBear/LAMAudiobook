@@ -50,18 +50,25 @@ class VoiceAgent(BaseAgent):
 
     def __init__(self, name: str = "voice", config: Optional[Dict[str, Any]] = None):
         super().__init__(name, config)
-        self.narrator_fallback = "narrator_vi_fallback"
+        self.narrator_fallback = self.config.get("narrator_voice", "female_hn_01")
         self.db_path = "data/qdrant_voice_db"
         self.collection_name = "voices"
         self.qdrant = None
         
         if QdrantClient:
             try:
+                print(f"[VoiceAgent] Connecting to Qdrant at {self.db_path}...")
                 self.qdrant = QdrantClient(path=self.db_path)
-                if not self.qdrant.collection_exists(self.collection_name):
+                if self.qdrant.collection_exists(self.collection_name):
+                    print(f"[VoiceAgent] Connected to collection '{self.collection_name}'.")
+                else:
+                    print(f"[VoiceAgent] Collection '{self.collection_name}' not found. Vector search disabled.")
                     self.qdrant = None
-            except Exception:
+            except Exception as e:
+                print(f"[VoiceAgent] Qdrant connection failed: {e}")
                 self.qdrant = None
+        else:
+            print("[VoiceAgent] QdrantClient not installed. Vector search disabled.")
 
         self.model_name = "keepitreal/vietnamese-sbert"
         self._tokenizer = None
@@ -70,8 +77,7 @@ class VoiceAgent(BaseAgent):
         # Fallback pool
         self.voice_pool = self.config.get("voice_pool", [
             "female_hcm_01", "female_hn_02", 
-            "male_hcm_01", "male_hn_02", 
-            "child_voice_01"
+            "male_hn_01", "male_hn_02"
         ])
 
     def _load_model(self):
@@ -111,9 +117,14 @@ class VoiceAgent(BaseAgent):
                 limit=1
             )
             if search_result:
-                return search_result[0].payload.get("voice_id", fallback_voice)
+                voice_id = search_result[0].payload.get("voice_id", fallback_voice)
+                score = search_result[0].score
+                print(f"[VoiceAgent] Vector match: {voice_id} (score: {score:.3f}) for context: '{text_context[:50]}...'")
+                return voice_id
+            else:
+                print(f"[VoiceAgent] No vector match found for context: '{text_context[:50]}...'")
         except Exception as e:
-            pass
+            print(f"[VoiceAgent] Search error: {e}")
         
         return fallback_voice
 

@@ -24,12 +24,11 @@ PyMuPDF>=1.23.0
 pydub>=0.25.1
 # TTS>=0.22.0  # Required for Real XTTSv2 engine. Install separately if GPU is available.
 
-# --- Backend API (News Portal) ---
+# --- Backend API (Audiobook Service) ---
 fastapi>=0.109.0
 uvicorn>=0.27.0
 pydantic>=2.5.0
-sqlalchemy>=2.0.25
-python-slugify>=8.0.2
+python-multipart>=0.0.9
 
 # --- Utilities & Testing ---
 httpx>=0.26.0

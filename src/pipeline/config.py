@@ -26,6 +26,7 @@ class PipelineState:
     progress: float = 0.0
     current_chapter: int = 0
     total_chapters: int = 0
+    status_message: str = ""
     error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +35,7 @@ class PipelineState:
             "progress": self.progress,
             "current_chapter": self.current_chapter,
             "total_chapters": self.total_chapters,
+            "status_message": self.status_message,
             "error": self.error,
         }
 
@@ -47,6 +49,12 @@ class PipelineConfig:
     max_retries: int = 3
     normalize_audio: bool = True
     add_chapters: bool = True
+    analysis_enabled: bool = True
+    tts_engine: str = "xtts_gpu"
+    xtts_model_name_or_path: Optional[str] = None
+    xtts_config_path: Optional[str] = None
+    xtts_vocab_path: Optional[str] = None
+    xtts_voice_dir: str = "data/voice_samples"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -56,4 +64,10 @@ class PipelineConfig:
             "max_retries": self.max_retries,
             "normalize_audio": self.normalize_audio,
             "add_chapters": self.add_chapters,
+            "analysis_enabled": self.analysis_enabled,
+            "tts_engine": self.tts_engine,
+            "xtts_model_name_or_path": self.xtts_model_name_or_path,
+            "xtts_config_path": self.xtts_config_path,
+            "xtts_vocab_path": self.xtts_vocab_path,
+            "xtts_voice_dir": self.xtts_voice_dir,
         }

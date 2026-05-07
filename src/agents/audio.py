@@ -37,35 +37,46 @@ class AudioAgent(BaseAgent):
                     error="No audio segments to process",
                 )
 
-            output_dir = input_data.output_path.rsplit("/", 1)[0].rsplit("\\", 1)[0]
-            Path(output_dir).mkdir(parents=True, exist_ok=True)
+            output_path = Path(input_data.output_path)
+            output_dir = output_path.parent
+            output_dir.mkdir(parents=True, exist_ok=True)
 
             # Sort segments by index
             sorted_segs = sorted(segments, key=lambda s: (s.chapter_index, s.segment_index))
-            temp_wav = input_data.output_path.rsplit(".", 1)[0] + "_concat.wav"
+            temp_wav = str(output_dir / f"{output_path.stem}_concat.wav")
 
             # 1. Concatenate all audio segments
             file_paths = [s.file_path for s in sorted_segs if s.file_path]
+            if not file_paths:
+                return AgentResult(success=False, error="No valid file paths found in segments")
+
             if len(file_paths) == 1:
                 # Only one file — just copy
-                Path(file_paths[0]).rename(temp_wav) if file_paths[0] != temp_wav else None
+                import shutil
+                if str(Path(file_paths[0]).absolute()) != str(Path(temp_wav).absolute()):
+                    shutil.copy(file_paths[0], temp_wav)
             else:
-                ok = concatenate_audio(file_paths, temp_wav, format="wav")
+                ok, err = concatenate_audio(file_paths, temp_wav, format="wav")
                 if not ok:
-                    return AgentResult(success=False, error="Audio concatenation failed")
+                    return AgentResult(success=False, error=f"Audio concatenation failed: {err}")
 
             # 2. Normalize if requested
-            final_path = input_data.output_path
+            final_path = str(output_path)
             if input_data.normalize:
-                ok = normalize_audio(temp_wav, final_path)
+                ok, err = normalize_audio(temp_wav, final_path)
                 if not ok:
-                    # Fallback: use concatenated file
+                    if input_data.output_format != "wav":
+                        return AgentResult(success=False, error=err or "Audio normalization failed")
                     final_path = temp_wav
             else:
-                # Convert to output format
-                ok = convert_audio_format(temp_wav, final_path, format=input_data.output_format)
-                if not ok:
-                    final_path = temp_wav
+                import shutil
+                if input_data.output_format == "wav":
+                    if str(Path(temp_wav).absolute()) != str(Path(final_path).absolute()):
+                        shutil.copy(temp_wav, final_path)
+                else:
+                    ok, err = convert_audio_format(temp_wav, final_path, format=input_data.output_format)
+                    if not ok:
+                        return AgentResult(success=False, error=err or "Audio conversion failed")
 
             # 3. Add chapter markers (silence gaps between chapters)
             # TODO: implement chapter marker insertion using ffmpeg
