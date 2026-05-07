@@ -7,6 +7,8 @@ from typing import Optional
 from pathlib import Path
 import hashlib
 
+DEFAULT_XTTS_HF_REPO = "aiMy144/XTTSv2VietAudiobook"
+
 class CacheManager:
     """Manages audio cache for exact deterministic generation paths"""
     def __init__(self, cache_dir: str = "data/audio_cache"):
@@ -84,7 +86,7 @@ class RealXTTSEngine(XTTSEngine):
         if not self.voice_dir.exists():
             raise RuntimeError(f"XTTS reference voice directory not found: {self.voice_dir}")
         env_model = model_name_or_path or os.getenv("XTTS_MODEL_NAME_OR_PATH")
-        self.model_name_or_path = env_model or "tts_models/multilingual/multi-dataset/xtts_v2"
+        self.model_name_or_path = env_model or DEFAULT_XTTS_HF_REPO
         self.config_path = config_path or os.getenv("XTTS_CONFIG_PATH")
         self.vocab_path = vocab_path or os.getenv("XTTS_VOCAB_PATH")
         self.model_cache_key = "|".join(

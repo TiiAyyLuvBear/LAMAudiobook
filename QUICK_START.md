@@ -27,7 +27,7 @@ For production GPU XTTS:
 
 ```powershell
 $env:TTS_ENGINE="xtts_gpu"
-$env:XTTS_MODEL_NAME_OR_PATH="your-hf-user/your-finetuned-xttsv2-repo"
+$env:XTTS_MODEL_NAME_OR_PATH="aiMy144/XTTSv2VietAudiobook"
 ```
 
 The service expects CUDA, Coqui TTS, and reference WAV files in `data/voice_samples`.

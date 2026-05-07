@@ -27,11 +27,12 @@ $env:TTS_ENGINE="xtts_gpu"
 
 `xtts_gpu` fails clearly if CUDA, Coqui TTS, or a reference voice file is missing. Mock audio is only used when `TTS_ENGINE=mock`.
 
-Use a fine-tuned XTTSv2 model by setting `XTTS_MODEL_NAME_OR_PATH`:
+The default production model is the uploaded Hugging Face repo `aiMy144/XTTSv2VietAudiobook`.
+Override it by setting `XTTS_MODEL_NAME_OR_PATH`:
 
 ```env
 TTS_ENGINE=xtts_gpu
-XTTS_MODEL_NAME_OR_PATH=your-hf-user/your-finetuned-xttsv2-repo
+XTTS_MODEL_NAME_OR_PATH=aiMy144/XTTSv2VietAudiobook
 XTTS_VOICE_DIR=data/voice_samples
 ```
 
@@ -66,7 +67,7 @@ STORAGE_DIR=./storage
 MAX_UPLOAD_MB=200
 MAX_CONCURRENT_JOBS=1
 TTS_ENGINE=xtts_gpu
-XTTS_MODEL_NAME_OR_PATH=
+XTTS_MODEL_NAME_OR_PATH=aiMy144/XTTSv2VietAudiobook
 XTTS_CONFIG_PATH=
 XTTS_VOCAB_PATH=
 XTTS_VOICE_DIR=data/voice_samples
@@ -117,6 +118,7 @@ The notebook:
 - checks CUDA/GPU,
 - installs runtime dependencies and `ffmpeg`,
 - installs Coqui `TTS`,
+- downloads the fine-tuned XTTSv2 model from `aiMy144/XTTSv2VietAudiobook`,
 - starts FastAPI on port `8000`,
 - creates a Cloudflare quick tunnel for the API,
 - starts Streamlit on port `8501`,
