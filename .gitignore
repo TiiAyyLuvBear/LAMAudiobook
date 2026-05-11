@@ -72,3 +72,8 @@ audio_cache/
 storage/
 data/mock_output/
 data/audio_cache/
+
+# Ignore models
+model/
+models/
+scripts/model/

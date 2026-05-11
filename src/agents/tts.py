@@ -1,7 +1,13 @@
 import asyncio
+import importlib
+import os
+import sys
+import types
 import httpx
+import contextlib
+import wave
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from .base import BaseAgent, AgentResult
 from schema.audio import (
@@ -24,8 +30,14 @@ class TTSAgent(BaseAgent):
     def __init__(self, name: str = "tts", config: Optional[Dict[str, Any]] = None):
         super().__init__(name, config)
         self.service_url = config.get("tts_service_url", "http://localhost:8001") if config else "http://localhost:8001"
+        self.engine = (self.config.get("tts_engine") or os.getenv("TTS_ENGINE") or "http").lower()
+        self.progress_callback: Optional[Callable[[int, int, int], None]] = self.config.get("progress_callback")
+        self._xtts_engine = None
 
     async def run(self, input_data: TTSGeneratorInput) -> AgentResult:
+        if self.engine in {"xtts", "xtts_gpu", "direct_xtts"}:
+            return await asyncio.to_thread(self._run_direct_xtts_sync, input_data)
+
         try:
             segments = input_data.segments
             output_dir = Path(input_data.output_dir)
@@ -97,5 +109,111 @@ class TTSAgent(BaseAgent):
                         
                     await asyncio.sleep(2.0)
 
+        except Exception as e:
+            return AgentResult(success=False, error=str(e))
+
+    def _get_xtts_engine(self):
+        if self._xtts_engine is None:
+            service_app_dir = Path(__file__).resolve().parents[1] / "tts-service" / "app"
+            package_name = "_local_tts_service_app"
+            engines_package_name = f"{package_name}.engines"
+
+            if package_name not in sys.modules:
+                package = types.ModuleType(package_name)
+                package.__path__ = [str(service_app_dir)]
+                sys.modules[package_name] = package
+
+            if engines_package_name not in sys.modules:
+                engines_package = types.ModuleType(engines_package_name)
+                engines_package.__path__ = [str(service_app_dir / "engines")]
+                sys.modules[engines_package_name] = engines_package
+
+            xtts_module = importlib.import_module(f"{engines_package_name}.xtts")
+            XTTSEngine = xtts_module.XTTSEngine
+
+            self._xtts_engine = XTTSEngine(
+                voice_dir=self.config.get("xtts_voice_dir") or os.getenv("XTTS_VOICE_DIR", "data/voice_samples"),
+                model_name_or_path=self.config.get("xtts_model_name_or_path") or os.getenv("XTTS_MODEL_NAME_OR_PATH"),
+                config_path=self.config.get("xtts_config_path") or os.getenv("XTTS_CONFIG_PATH"),
+                vocab_path=self.config.get("xtts_vocab_path") or os.getenv("XTTS_VOCAB_PATH"),
+            )
+        return self._xtts_engine
+
+    def _run_direct_xtts_sync(self, input_data: TTSGeneratorInput) -> AgentResult:
+        try:
+            segments = input_data.segments
+            output_dir = Path(input_data.output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            engine = self._get_xtts_engine()
+            audio_segments: List[AudioSegment] = []
+            failed_segments: List[int] = []
+            failure_details: List[str] = []
+
+            total_segments = len(segments)
+            for position, seg in enumerate(segments, start=1):
+                try:
+                    intensity = getattr(seg, "intensity", 1.0)
+                    speed_mod, pitch = VoiceAgent.map_prosody(seg.emotion or "neutral", intensity)
+                    final_speed = speed_mod * getattr(seg, "speed", 1.0)
+                    output_path = output_dir / f"seg_{seg.segment_index:04d}_{seg.voice_id}.wav"
+
+                    engine.synthesize(
+                        text=seg.text,
+                        voice_id=seg.voice_id,
+                        speed=final_speed,
+                        pitch=pitch,
+                        output_path=str(output_path),
+                    )
+
+                    duration = 1.0
+                    try:
+                        with contextlib.closing(wave.open(str(output_path), "r")) as audio_file:
+                            frames = audio_file.getnframes()
+                            rate = audio_file.getframerate()
+                            duration = frames / float(rate) if rate > 0 else 1.0
+                    except Exception:
+                        pass
+
+                    audio_segments.append(
+                        AudioSegment(
+                            file_path=str(output_path),
+                            duration_seconds=duration,
+                            segment_index=seg.segment_index,
+                            chapter_index=seg.chapter_index,
+                            text=seg.text,
+                            voice_id=seg.voice_id,
+                        )
+                    )
+                except Exception as exc:
+                    failed_segments.append(seg.segment_index)
+                    detail = f"segment {seg.segment_index} voice={seg.voice_id}: {exc}"
+                    failure_details.append(detail)
+                    print(f"[TTSAgent] Failed to synthesize {detail}")
+                finally:
+                    if self.progress_callback:
+                        self.progress_callback(position, total_segments, seg.chapter_index)
+
+            if not audio_segments:
+                preview = "; ".join(failure_details[:5])
+                return AgentResult(
+                    success=False,
+                    error=f"No TTS segments were synthesized. First errors: {preview}",
+                )
+
+            total_duration = sum(segment.duration_seconds for segment in audio_segments)
+            return AgentResult(
+                success=True,
+                data=TTSGeneratorOutput(
+                    audio_segments=audio_segments,
+                    total_duration=total_duration,
+                    failed_segments=failed_segments,
+                    metadata={
+                        "engine": "xtts_gpu",
+                        "segment_count": len(segments),
+                        "succeeded_count": len(audio_segments),
+                    },
+                ),
+            )
         except Exception as e:
             return AgentResult(success=False, error=str(e))

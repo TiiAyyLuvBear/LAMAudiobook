@@ -26,6 +26,8 @@ class PipelineState:
     progress: float = 0.0
     current_chapter: int = 0
     total_chapters: int = 0
+    current_segment: int = 0
+    total_segments: int = 0
     status_message: str = ""
     error: Optional[str] = None
 
@@ -35,6 +37,8 @@ class PipelineState:
             "progress": self.progress,
             "current_chapter": self.current_chapter,
             "total_chapters": self.total_chapters,
+            "current_segment": self.current_segment,
+            "total_segments": self.total_segments,
             "status_message": self.status_message,
             "error": self.error,
         }

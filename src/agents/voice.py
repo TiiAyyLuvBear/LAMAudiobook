@@ -2,6 +2,7 @@
 Voice Agent — Assigns TTS voice IDs and prosody to speakers.
 """
 import hashlib
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
@@ -53,6 +54,7 @@ class VoiceAgent(BaseAgent):
         self.narrator_fallback = self.config.get("narrator_voice", "female_hn_01")
         self.db_path = "data/qdrant_voice_db"
         self.collection_name = "voices"
+        self.voice_dir = Path(self.config.get("voice_dir", "data/voice_samples"))
         self.qdrant = None
         
         if QdrantClient:
@@ -79,6 +81,32 @@ class VoiceAgent(BaseAgent):
             "female_hcm_01", "female_hn_02", 
             "male_hn_01", "male_hn_02"
         ])
+        self.available_voices = {
+            wav.stem for wav in self.voice_dir.glob("*.wav")
+        } if self.voice_dir.exists() else set()
+
+    def _voice_exists(self, voice_id: str) -> bool:
+        voice_name = Path(voice_id).stem
+        if self.available_voices:
+            return voice_name in self.available_voices
+        return (self.voice_dir / f"{voice_name}.wav").exists()
+
+    def _safe_voice(self, voice_id: str, fallback_voice: str) -> str:
+        voice_name = Path(voice_id).stem
+        if self._voice_exists(voice_name):
+            return voice_name
+
+        fallback_name = Path(fallback_voice).stem
+        if self._voice_exists(fallback_name):
+            print(f"[VoiceAgent] Voice '{voice_id}' has no WAV sample. Falling back to '{fallback_name}'.")
+            return fallback_name
+
+        if self.available_voices:
+            first_available = sorted(self.available_voices)[0]
+            print(f"[VoiceAgent] Voice '{voice_id}' has no WAV sample. Falling back to '{first_available}'.")
+            return first_available
+
+        return fallback_name
 
     def _load_model(self):
         if HAS_TORCH and self._model is None:
@@ -111,14 +139,23 @@ class VoiceAgent(BaseAgent):
             # emb is a tensor if HAS_TORCH is true, so we convert it to list
             query_vector = emb.squeeze().tolist() if hasattr(emb, "squeeze") else emb
             
-            search_result = self.qdrant.search(
-                collection_name=self.collection_name,
-                query_vector=query_vector,
-                limit=1
-            )
+            if hasattr(self.qdrant, "search"):
+                search_result = self.qdrant.search(
+                    collection_name=self.collection_name,
+                    query_vector=query_vector,
+                    limit=1,
+                )
+            else:
+                response = self.qdrant.query_points(
+                    collection_name=self.collection_name,
+                    query=query_vector,
+                    limit=1,
+                )
+                search_result = getattr(response, "points", response)
             if search_result:
                 voice_id = search_result[0].payload.get("voice_id", fallback_voice)
                 score = search_result[0].score
+                voice_id = self._safe_voice(voice_id, fallback_voice)
                 print(f"[VoiceAgent] Vector match: {voice_id} (score: {score:.3f}) for context: '{text_context[:50]}...'")
                 return voice_id
             else:
@@ -126,12 +163,12 @@ class VoiceAgent(BaseAgent):
         except Exception as e:
             print(f"[VoiceAgent] Search error: {e}")
         
-        return fallback_voice
+        return self._safe_voice(fallback_voice, self.narrator_fallback)
 
     def _map_speaker(self, speaker: Optional[str]) -> str:
         """Deterministic Voice ID assignment fallback using SHA-256 Modulo Map"""
         if not speaker or speaker.lower() == "narrator":
-            return self.narrator_fallback
+            return self._safe_voice(self.narrator_fallback, self.narrator_fallback)
             
         speaker_hash = hashlib.sha256(speaker.lower().encode("utf-8")).hexdigest()
         hash_int = int(speaker_hash, 16)
@@ -140,7 +177,7 @@ class VoiceAgent(BaseAgent):
             return self.narrator_fallback
             
         assigned_index = hash_int % len(self.voice_pool)
-        return self.voice_pool[assigned_index]
+        return self._safe_voice(self.voice_pool[assigned_index], self.narrator_fallback)
 
     @staticmethod
     def map_prosody(emotion: str, intensity: float) -> Tuple[float, float]:

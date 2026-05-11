@@ -40,6 +40,9 @@ class Job:
     stage: str = "queued"
     current_chapter: int = 0
     total_chapters: int = 0
+    current_segment: int = 0
+    total_segments: int = 0
+    status_message: str = ""
 
 
 class QueueService:
@@ -77,6 +80,9 @@ class QueueService:
                     stage TEXT NOT NULL DEFAULT 'queued',
                     current_chapter INTEGER NOT NULL DEFAULT 0,
                     total_chapters INTEGER NOT NULL DEFAULT 0,
+                    current_segment INTEGER NOT NULL DEFAULT 0,
+                    total_segments INTEGER NOT NULL DEFAULT 0,
+                    status_message TEXT NOT NULL DEFAULT '',
                     result TEXT,
                     error TEXT,
                     created_at TEXT NOT NULL,
@@ -85,6 +91,14 @@ class QueueService:
                 )
                 """
             )
+            conn.commit()
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+            if "current_segment" not in columns:
+                conn.execute("ALTER TABLE jobs ADD COLUMN current_segment INTEGER NOT NULL DEFAULT 0")
+            if "total_segments" not in columns:
+                conn.execute("ALTER TABLE jobs ADD COLUMN total_segments INTEGER NOT NULL DEFAULT 0")
+            if "status_message" not in columns:
+                conn.execute("ALTER TABLE jobs ADD COLUMN status_message TEXT NOT NULL DEFAULT ''")
             conn.commit()
 
     @staticmethod
@@ -106,6 +120,9 @@ class QueueService:
             stage=row["stage"],
             current_chapter=int(row["current_chapter"]),
             total_chapters=int(row["total_chapters"]),
+            current_segment=int(row["current_segment"]),
+            total_segments=int(row["total_segments"]),
+            status_message=row["status_message"] or "",
         )
 
     def _load_existing_jobs(self) -> None:
@@ -129,10 +146,11 @@ class QueueService:
                 """
                 INSERT INTO jobs (
                     id, job_type, payload, status, progress, stage,
-                    current_chapter, total_chapters, result, error,
+                    current_chapter, total_chapters, current_segment,
+                    total_segments, status_message, result, error,
                     created_at, started_at, completed_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     payload=excluded.payload,
                     status=excluded.status,
@@ -140,6 +158,9 @@ class QueueService:
                     stage=excluded.stage,
                     current_chapter=excluded.current_chapter,
                     total_chapters=excluded.total_chapters,
+                    current_segment=excluded.current_segment,
+                    total_segments=excluded.total_segments,
+                    status_message=excluded.status_message,
                     result=excluded.result,
                     error=excluded.error,
                     started_at=excluded.started_at,
@@ -154,6 +175,9 @@ class QueueService:
                     job.stage,
                     job.current_chapter,
                     job.total_chapters,
+                    job.current_segment,
+                    job.total_segments,
+                    job.status_message,
                     json.dumps(job.result, ensure_ascii=False) if job.result else None,
                     job.error,
                     job.created_at.isoformat(),
@@ -199,6 +223,9 @@ class QueueService:
             "stage": job.stage,
             "current_chapter": job.current_chapter,
             "total_chapters": job.total_chapters,
+            "current_segment": job.current_segment,
+            "total_segments": job.total_segments,
+            "status_message": job.status_message,
             "created_at": job.created_at.isoformat(),
             "started_at": job.started_at.isoformat() if job.started_at else None,
             "completed_at": job.completed_at.isoformat() if job.completed_at else None,
@@ -237,6 +264,9 @@ class QueueService:
         job.stage = state.get("stage") or job.stage
         job.current_chapter = int(state.get("current_chapter") or job.current_chapter or 0)
         job.total_chapters = int(state.get("total_chapters") or job.total_chapters or 0)
+        job.current_segment = int(state.get("current_segment") or job.current_segment or 0)
+        job.total_segments = int(state.get("total_segments") or job.total_segments or 0)
+        job.status_message = state.get("status_message") or job.status_message
         if state.get("error"):
             job.error = state["error"]
         self._persist_job(job)

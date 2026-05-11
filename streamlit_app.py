@@ -45,7 +45,7 @@ def create_job(uploaded_file, output_format: str, normalize_audio: bool, add_cha
 
 
 def get_job(job_id: str) -> dict:
-    response = requests.get(api_url(f"/api/v1/audiobook/jobs/{job_id}"), timeout=20)
+    response = requests.get(api_url(f"/api/v1/audiobook/jobs/{job_id}"), timeout=60)
     response.raise_for_status()
     return response.json()
 
@@ -69,14 +69,18 @@ def render_job(job: dict) -> None:
     progress = float(job.get("progress") or 0.0)
 
     render_stage(stage if stage in STAGES else status)
-    st.progress(min(1.0, max(0.0, progress)), text=f"{status} / {stage}")
+    status_message = job.get("status_message") or f"{status} / {stage}"
+    st.progress(min(1.0, max(0.0, progress)), text=status_message)
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Status", status)
     c2.metric("Stage", stage)
     total = int(job.get("total_chapters") or 0)
     current = int(job.get("current_chapter") or 0)
     c3.metric("Chapter", f"{current}/{total}" if total else "-")
+    segment_total = int(job.get("total_segments") or 0)
+    segment_current = int(job.get("current_segment") or 0)
+    c4.metric("Segment", f"{segment_current}/{segment_total}" if segment_total else "-")
 
     if job.get("error"):
         st.error(job["error"])

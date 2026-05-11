@@ -47,6 +47,15 @@ class StateManager:
     def update_chapter(self, current: int) -> None:
         self._state.current_chapter = current
 
+    def set_segments(self, total: int) -> None:
+        self._state.total_segments = total
+
+    def update_segment(self, current: int) -> None:
+        self._state.current_segment = current
+
+    def set_progress(self, progress: float) -> None:
+        self._state.progress = max(0.0, min(1.0, float(progress)))
+
     def set_status(self, message: str) -> None:
         self._state.status_message = message
 

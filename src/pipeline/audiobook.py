@@ -63,8 +63,18 @@ class AudiobookPipeline:
         self.summarizer = SummarizerAgent()
         # self.planner = PlannerAgent()
         self.splitter = SplitterAgent()
-        self.voice = VoiceAgent()
-        self.tts = TTSAgent(config={"tts_service_url": "http://localhost:8001"})
+        self.voice = VoiceAgent(config={"voice_dir": config.xtts_voice_dir})
+        self.tts = TTSAgent(
+            config={
+                "tts_engine": config.tts_engine,
+                "tts_service_url": "http://localhost:8001",
+                "xtts_model_name_or_path": config.xtts_model_name_or_path,
+                "xtts_config_path": config.xtts_config_path,
+                "xtts_vocab_path": config.xtts_vocab_path,
+                "xtts_voice_dir": config.xtts_voice_dir,
+                "progress_callback": self._on_tts_progress,
+            }
+        )
         self.audio = AudioAgent()
         self.qc = QCAgent()
         self.memory = MemoryAgent()
@@ -213,6 +223,20 @@ class AudiobookPipeline:
     # PHASE 3: Generate  (parallel)
     # ─────────────────────────────────────────────
 
+    def _on_tts_progress(self, current_segment: int, total_segments: int, chapter_index: int) -> None:
+        self.state.set_stage(PipelineStage.GENERATING)
+        self.state.set_segments(total_segments)
+        self.state.update_segment(current_segment)
+        self.state.update_chapter(chapter_index)
+        self.state.set_status(
+            f"Generating TTS segment {current_segment}/{total_segments} "
+            f"(chapter {chapter_index}/{self.state.state.total_chapters or '?'})"
+        )
+        # Keep stage-level progress between analyzing and finalizing while TTS runs.
+        base = 0.72
+        span = 0.18
+        self.state.set_progress(base + span * (current_segment / max(1, total_segments)))
+
     def _split_tts_text(self, text: str, max_chars: int = 280) -> List[str]:
         import re
 
@@ -282,8 +306,13 @@ class AudiobookPipeline:
         if not segments:
             raise RuntimeError("No TTS segments were produced from cleaned text")
 
-        # TODO: chunk into batches and run batched TTS in parallel
-        # For now: single TTS call with all segments
+        total_chapters = parse_data.get("chapter_count") or max((s.chapter_index for s in segments), default=0)
+        self.state.set_chapters(total_chapters)
+        self.state.set_segments(len(segments))
+        self.state.update_segment(0)
+        self.state.update_chapter(segments[0].chapter_index if segments else 0)
+        self.state.set_status(f"Preparing TTS for {len(segments)} segments across {total_chapters} chapters")
+
         tts_result = await self.executor.execute_single(
             "tts",
             self.tts,
