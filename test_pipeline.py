@@ -10,7 +10,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from agents.voice import VoiceAgent, VoiceInput
 from agents.tts import TTSAgent
 from schema.audio import TTSSegment, TTSGeneratorInput
-from utils.tts_engine import RealXTTSEngine
 
 async def run_test():
     print("--- STARTING PIPELINE TEST ---")
@@ -44,8 +43,8 @@ async def run_test():
         print(f"   VoiceAgent Multi failed: {v_out_multi.error}")
 
     # 2. Test TTSAgent
-    print("\n[2] Testing TTS Agent (RealXTTSEngine Linking & Caching)")
-    tts_agent = TTSAgent(engine=RealXTTSEngine(voice_dir="data/voice_samples"))
+    print("\n[2] Testing TTS Agent (Microservice Integration)")
+    tts_agent = TTSAgent(config={"tts_service_url": "http://localhost:8001"})
     
     # Simulating segments with different emotions
 
@@ -77,7 +76,7 @@ async def run_test():
         ),
     ]
     
-    tts_input = TTSGeneratorInput(segments=segments, output_dir="tests/mock_output")
+    tts_input = TTSGeneratorInput(segments=segments, output_dir="data/audio_cache/mock_output")
     tts_out = await tts_agent.run(tts_input)
     
     if tts_out.success:

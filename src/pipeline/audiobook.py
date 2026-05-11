@@ -36,7 +36,6 @@ from schema.pipeline import Chapter
 from .config import PipelineConfig, PipelineStage
 from .state import StateManager
 from .executor import ParallelExecutor
-from utils.tts_engine import MockXTTSEngine, RealXTTSEngine
 
 
 logger = logging.getLogger(__name__)
@@ -65,16 +64,7 @@ class AudiobookPipeline:
         # self.planner = PlannerAgent()
         self.splitter = SplitterAgent()
         self.voice = VoiceAgent()
-        if config.tts_engine.lower() in {"mock", "test"}:
-            tts_engine = MockXTTSEngine()
-        else:
-            tts_engine = RealXTTSEngine(
-                voice_dir=config.xtts_voice_dir,
-                model_name_or_path=config.xtts_model_name_or_path,
-                config_path=config.xtts_config_path,
-                vocab_path=config.xtts_vocab_path,
-            )
-        self.tts = TTSAgent(engine=tts_engine)
+        self.tts = TTSAgent(config={"tts_service_url": "http://localhost:8001"})
         self.audio = AudioAgent()
         self.qc = QCAgent()
         self.memory = MemoryAgent()

@@ -1,80 +1,14 @@
-"""
-TTS Engine and Cache abstractions for Audio generation.
-"""
-from abc import ABC, abstractmethod
 import os
 import sys
 from typing import Optional
 from pathlib import Path
-import hashlib
 import shutil
+from .base import BaseTTSEngine
 
 DEFAULT_XTTS_HF_REPO = "aiMy144/XTTSv2VietAudiobook"
 DEFAULT_XTTS_RUNTIME_DIR = "models/XTTSv2-Finetuning-for-New-Languages"
 
-class CacheManager:
-    """Manages audio cache for exact deterministic generation paths"""
-    def __init__(self, cache_dir: str = "data/audio_cache"):
-        self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
-    def _generate_key(self, text: str, voice_id: str, speed: float, pitch: float) -> str:
-        # Create deterministic key based on synthesis inputs
-        key_str = f"{text}|{voice_id}|{speed}|{pitch}"
-        return hashlib.sha256(key_str.encode("utf-8")).hexdigest()
-        
-    def get_audio_path(self, text: str, voice_id: str, speed: float, pitch: float) -> Optional[str]:
-        """Check if audio already exists in cache"""
-        key = self._generate_key(text, voice_id, speed, pitch)
-        path = self.cache_dir / f"{key}.wav"
-        if path.exists():
-            return str(path)
-        return None
-        
-    def get_cache_path_for_generation(self, text: str, voice_id: str, speed: float, pitch: float) -> str:
-        """Get the destination path to generate to"""
-        key = self._generate_key(text, voice_id, speed, pitch)
-        return str(self.cache_dir / f"{key}.wav")
-
-
-class XTTSEngine(ABC):
-    """Abstract interface for XTTS Core Model to prevent leakage"""
-    @abstractmethod
-    def synthesize(self, text: str, voice_id: str, speed: float, pitch: float, output_path: str) -> None:
-        pass
-
-
-class MockXTTSEngine(XTTSEngine):
-    """Stub engine for testing architecture without GPU"""
-    def synthesize(self, text: str, voice_id: str, speed: float, pitch: float, output_path: str) -> None:
-        self._write_mock_wav(output_path)
-        
-    def _write_mock_wav(self, output_path: str) -> None:
-        # Write 1 second of silence at 24kHz, 16-bit mono
-        sample_rate = 24000
-        duration = 1.0
-        num_samples = int(sample_rate * duration)
-        data_size = num_samples * 2
-        
-        with open(output_path, "wb") as f:
-            import struct
-            f.write(b'RIFF')
-            f.write(struct.pack('<L', 36 + data_size))
-            f.write(b'WAVE')
-            f.write(b'fmt ')
-            f.write(struct.pack('<L', 16))
-            f.write(struct.pack('<H', 1))  # PCM
-            f.write(struct.pack('<H', 1))  # Mono
-            f.write(struct.pack('<L', sample_rate))
-            f.write(struct.pack('<L', sample_rate * 2))
-            f.write(struct.pack('<H', 2))
-            f.write(struct.pack('<H', 16))
-            f.write(b'data')
-            f.write(struct.pack('<L', data_size))
-            # Write 1 second of zero-byte silence
-            f.write(b'\x00' * data_size)
-
-class RealXTTSEngine(XTTSEngine):
+class XTTSEngine(BaseTTSEngine):
     """Production XTTS Engine integrating with local reference wavs"""
     _tts_instances = {}
 
@@ -239,28 +173,21 @@ class RealXTTSEngine(XTTSEngine):
         return model
 
     def _load_tts(self):
-        if self.model_cache_key not in RealXTTSEngine._tts_instances:
+        if self.model_cache_key not in XTTSEngine._tts_instances:
             try:
                 import torch
                 if not torch.cuda.is_available():
-                    raise RuntimeError("CUDA is not available. Set TTS_ENGINE=mock for tests or install GPU runtime for XTTS.")
+                    raise RuntimeError("CUDA is not available. XTTS requires CUDA.")
                 print(f"[XTTS] Loading direct XTTS checkpoint to CUDA: {self.model_name_or_path}")
                 model_ref = Path(self.model_name_or_path)
                 if model_ref.exists():
                     tts = self._load_from_local_path(model_ref)
                 else:
                     tts = self._load_from_huggingface(self.model_name_or_path)
-                RealXTTSEngine._tts_instances[self.model_cache_key] = tts.to("cuda")
-            except ImportError as exc:
-                raise RuntimeError(
-                    "Direct XTTS imports failed. This runtime must match models/XTTSv2.ipynb and provide "
-                    "`TTS.tts.configs.xtts_config.XttsConfig` plus `TTS.tts.models.xtts.Xtts`. "
-                    f"Set XTTS_RUNTIME_DIR to the XTTSv2-Finetuning-for-New-Languages repo. "
-                    f"Original import error: {exc}"
-                ) from exc
+                XTTSEngine._tts_instances[self.model_cache_key] = tts.to("cuda")
             except Exception as e:
                 raise RuntimeError(f"Failed to load XTTS model: {e}") from e
-        self._tts_instance = RealXTTSEngine._tts_instances[self.model_cache_key]
+        self._tts_instance = XTTSEngine._tts_instances[self.model_cache_key]
 
     def synthesize(self, text: str, voice_id: str, speed: float, pitch: float, output_path: str) -> None:
         speaker_wav = self.voice_dir / f"{voice_id}.wav"

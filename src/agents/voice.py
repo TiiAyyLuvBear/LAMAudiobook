@@ -142,7 +142,8 @@ class VoiceAgent(BaseAgent):
         assigned_index = hash_int % len(self.voice_pool)
         return self.voice_pool[assigned_index]
 
-    def map_prosody(self, emotion: str, intensity: float) -> Tuple[float, float]:
+    @staticmethod
+    def map_prosody(emotion: str, intensity: float) -> Tuple[float, float]:
         """Calculates (speed, pitch) modifiers from emotion and intensity"""
         speed, pitch = 1.0, 1.0
         emotion = emotion.lower() if emotion else "neutral"

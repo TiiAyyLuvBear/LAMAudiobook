@@ -1,10 +1,7 @@
-"""
-TTS Agent — Converts annotated text segments into audio.
-"""
+import asyncio
+import httpx
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import wave
-import contextlib
 
 from .base import BaseAgent, AgentResult
 from schema.audio import (
@@ -13,102 +10,92 @@ from schema.audio import (
     TTSGeneratorInput,
     TTSGeneratorOutput,
 )
-from utils.tts_engine import CacheManager, XTTSEngine, MockXTTSEngine
 from .voice import VoiceAgent
 
 
 class TTSAgent(BaseAgent):
     """
-    Generates speech audio using XTTS engine combined with Caching.
-    Dynamically maps emotions to final speed and pitch.
+    TTS Agent that delegates synthesis to a dedicated TTS Microservice
+    using HTTP and an async polling mechanism.
     """
 
     name = "tts"
 
-    def __init__(self, name: str = "tts", config: Optional[Dict[str, Any]] = None, 
-                 engine: Optional[XTTSEngine] = None, cache_manager: Optional[CacheManager] = None):
+    def __init__(self, name: str = "tts", config: Optional[Dict[str, Any]] = None):
         super().__init__(name, config)
-        self.engine = engine or MockXTTSEngine()
-        self.cache_manager = cache_manager or CacheManager()
+        self.service_url = config.get("tts_service_url", "http://localhost:8001") if config else "http://localhost:8001"
 
     async def run(self, input_data: TTSGeneratorInput) -> AgentResult:
         try:
             segments = input_data.segments
             output_dir = Path(input_data.output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
-
-            audio_segments: List[AudioSegment] = []
-            failed: List[int] = []
             
-            # Temporary voice agent core to calculate prosody per segment
-            voice_agent_core = VoiceAgent()
-
+            payload_segments = []
+            
             for seg in segments:
-                try:
-                    # 1. Dynamic Prosody inference
-                    intensity = getattr(seg, 'intensity', 1.0) 
-                    speed_mod, pitch = voice_agent_core.map_prosody(seg.emotion or "neutral", intensity)
-                    final_speed = speed_mod * getattr(seg, 'speed', 1.0)
-
-                    # 2. Cache Checking
-                    cached_path = self.cache_manager.get_audio_path(
-                        text=seg.text, 
-                        voice_id=seg.voice_id, 
-                        speed=final_speed, 
-                        pitch=pitch
-                    )
+                intensity = getattr(seg, 'intensity', 1.0) 
+                speed_mod, pitch = VoiceAgent.map_prosody(seg.emotion or "neutral", intensity)
+                final_speed = speed_mod * getattr(seg, 'speed', 1.0)
+                
+                # Shared volume mounted at same path in worker container
+                final_path = output_dir / f"seg_{seg.segment_index:04d}_{seg.voice_id}.wav"
+                
+                payload_segments.append({
+                    "text": seg.text,
+                    "voice_id": seg.voice_id,
+                    "speed": final_speed,
+                    "pitch": pitch,
+                    "output_path": str(final_path),
+                    "segment_index": seg.segment_index,
+                    "chapter_index": seg.chapter_index
+                })
+                
+            payload = {
+                "segments": payload_segments,
+                "output_dir": str(output_dir)
+            }
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                # 1. Enqueue job
+                resp = await client.post(f"{self.service_url}/api/tts/batch", json=payload)
+                resp.raise_for_status()
+                job_id = resp.json()["job_id"]
+                
+                # 2. Poll for job completion
+                while True:
+                    status_resp = await client.get(f"{self.service_url}/api/tts/job/{job_id}")
+                    status_resp.raise_for_status()
+                    status = status_resp.json()
                     
-                    if cached_path:
-                        final_path = cached_path
-                    else:
-                        # 3. Cache Miss -> Synthesize
-                        final_path = self.cache_manager.get_cache_path_for_generation(
-                            text=seg.text, 
-                            voice_id=seg.voice_id, 
-                            speed=final_speed, 
-                            pitch=pitch
+                    if status["state"] == "finished":
+                        result = status["result"]
+                        audio_segments_raw = result.get("audio_segments", [])
+                        
+                        audio_segments = []
+                        for s in audio_segments_raw:
+                            audio_segments.append(AudioSegment(
+                                file_path=s["file_path"],
+                                duration_seconds=s["duration_seconds"],
+                                segment_index=s["segment_index"],
+                                chapter_index=s["chapter_index"],
+                                text=s["text"],
+                                voice_id=s["voice_id"]
+                            ))
+                            
+                        return AgentResult(
+                            success=True,
+                            data=TTSGeneratorOutput(
+                                audio_segments=audio_segments,
+                                total_duration=result.get("total_duration", 0),
+                                failed_segments=result.get("failed_segments", []),
+                                metadata=result.get("metadata", {}),
+                            ),
                         )
-                        self.engine.synthesize(
-                            text=seg.text, 
-                            voice_id=seg.voice_id, 
-                            speed=final_speed, 
-                            pitch=pitch, 
-                            output_path=str(final_path)
-                        )
+                    elif status["state"] == "failed":
+                        return AgentResult(success=False, error=status.get("error", "TTS Job Failed"))
+                        
+                    await asyncio.sleep(2.0)
 
-                    # 4. Measure duration and compile output
-                    duration = 0.0
-                    try:
-                        with contextlib.closing(wave.open(str(final_path),'r')) as f:
-                            frames = f.getnframes()
-                            rate = f.getframerate()
-                            duration = frames / float(rate) if rate > 0 else 1.0
-                    except Exception:
-                        duration = 1.0
-                    
-                    audio_segments.append(AudioSegment(
-                        file_path=str(final_path),
-                        duration_seconds=duration,
-                        segment_index=seg.segment_index,
-                        chapter_index=seg.chapter_index,
-                        text=seg.text[:50],
-                        voice_id=seg.voice_id
-                    ))
-
-                except Exception as e:
-                    failed.append(seg.segment_index)
-
-            total_duration = sum(s.duration_seconds for s in audio_segments)
-            success_rate = (len(segments) - len(failed)) / len(segments) if segments else 0.0
-
-            return AgentResult(
-                success=True,
-                data=TTSGeneratorOutput(
-                    audio_segments=audio_segments,
-                    total_duration=total_duration,
-                    failed_segments=failed,
-                    metadata={"segment_count": len(segments), "success_rate": success_rate},
-                ),
-            )
         except Exception as e:
             return AgentResult(success=False, error=str(e))
