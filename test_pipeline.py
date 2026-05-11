@@ -83,7 +83,8 @@ async def run_test():
         print(">> TTS Agent Output:")
         for a in tts_out.data.audio_segments:
             print(f"   [Ch{a.chapter_index}-Seg{a.segment_index}] File: {a.file_path} | Text: '{a.text}' | Duration: {a.duration_seconds:.2f}s")
-        print(f"   Total Duration: {tts_out.data.total_duration:.2f}s | Success Rate: {tts_out.data.metadata['success_rate']*100}%")
+        success_rate = (len(segments) - len(tts_out.data.failed_segments)) / len(segments) if segments else 0
+        print(f"   Total Duration: {tts_out.data.total_duration:.2f}s | Success Rate: {success_rate*100:.1f}%")
     else:
         print(f"   [!] TTSAgent failed: {tts_out.error}")
 

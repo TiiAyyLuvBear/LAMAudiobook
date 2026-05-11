@@ -41,8 +41,13 @@ class VieNeuEngine(BaseTTSEngine):
             if os.path.isfile(voice_id):
                 voice_data = self.tts.encode_reference(voice_id)
             else:
-                # Retrieve preset voice data
-                voice_data = self.tts.get_preset_voice(voice_id)
+                # Check if it matches a .wav file in the mounted voice_samples directory
+                sample_path = os.path.join("data/voice_samples", f"{voice_id}.wav")
+                if os.path.isfile(sample_path):
+                    voice_data = self.tts.encode_reference(sample_path)
+                else:
+                    # Retrieve preset voice data
+                    voice_data = self.tts.get_preset_voice(voice_id)
                 
             self._voices_cache[voice_id] = voice_data
             return voice_data
