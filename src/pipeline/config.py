@@ -1,8 +1,8 @@
 """
 Pipeline configuration and state types.
 """
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 
@@ -28,6 +28,7 @@ class PipelineState:
     total_chapters: int = 0
     current_segment: int = 0
     total_segments: int = 0
+    artifacts: List[Dict[str, Any]] = field(default_factory=list)
     status_message: str = ""
     error: Optional[str] = None
 
@@ -39,6 +40,7 @@ class PipelineState:
             "total_chapters": self.total_chapters,
             "current_segment": self.current_segment,
             "total_segments": self.total_segments,
+            "artifacts": self.artifacts or [],
             "status_message": self.status_message,
             "error": self.error,
         }
@@ -55,10 +57,16 @@ class PipelineConfig:
     add_chapters: bool = True
     analysis_enabled: bool = True
     tts_engine: str = "xtts_gpu"
+    tts_device: str = "auto"
     xtts_model_name_or_path: Optional[str] = None
     xtts_config_path: Optional[str] = None
     xtts_vocab_path: Optional[str] = None
     xtts_voice_dir: str = "data/voice_samples"
+    vieneu_model_name: str = "pnnbao-ump/VieNeu-TTS-v2"
+    vieneu_mode: str = "standard"
+    vieneu_emotion: str = "storytelling"
+    vieneu_api_base: Optional[str] = None
+    vieneu_device: str = "auto"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -70,8 +78,14 @@ class PipelineConfig:
             "add_chapters": self.add_chapters,
             "analysis_enabled": self.analysis_enabled,
             "tts_engine": self.tts_engine,
+            "tts_device": self.tts_device,
             "xtts_model_name_or_path": self.xtts_model_name_or_path,
             "xtts_config_path": self.xtts_config_path,
             "xtts_vocab_path": self.xtts_vocab_path,
             "xtts_voice_dir": self.xtts_voice_dir,
+            "vieneu_model_name": self.vieneu_model_name,
+            "vieneu_mode": self.vieneu_mode,
+            "vieneu_emotion": self.vieneu_emotion,
+            "vieneu_api_base": self.vieneu_api_base,
+            "vieneu_device": self.vieneu_device,
         }

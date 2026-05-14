@@ -33,10 +33,13 @@ class TTSAgent(BaseAgent):
         self.engine = (self.config.get("tts_engine") or os.getenv("TTS_ENGINE") or "http").lower()
         self.progress_callback: Optional[Callable[[int, int, int], None]] = self.config.get("progress_callback")
         self._xtts_engine = None
+        self._vieneu_engine = None
 
     async def run(self, input_data: TTSGeneratorInput) -> AgentResult:
-        if self.engine in {"xtts", "xtts_gpu", "direct_xtts"}:
-            return await asyncio.to_thread(self._run_direct_xtts_sync, input_data)
+        if self.engine in {"xtts", "xtts_gpu", "xtts_cpu", "direct_xtts"}:
+            return await asyncio.to_thread(self._run_direct_engine_sync, input_data, self._get_xtts_engine, self.engine)
+        if self.engine in {"vieneu", "vieneu_tts", "direct_vieneu"}:
+            return await asyncio.to_thread(self._run_direct_engine_sync, input_data, self._get_vieneu_engine, "vieneu")
 
         try:
             segments = input_data.segments
@@ -136,16 +139,51 @@ class TTSAgent(BaseAgent):
                 model_name_or_path=self.config.get("xtts_model_name_or_path") or os.getenv("XTTS_MODEL_NAME_OR_PATH"),
                 config_path=self.config.get("xtts_config_path") or os.getenv("XTTS_CONFIG_PATH"),
                 vocab_path=self.config.get("xtts_vocab_path") or os.getenv("XTTS_VOCAB_PATH"),
+                device=self.config.get("tts_device") or os.getenv("XTTS_DEVICE") or os.getenv("TTS_DEVICE", "auto"),
             )
         return self._xtts_engine
 
-    def _run_direct_xtts_sync(self, input_data: TTSGeneratorInput) -> AgentResult:
+    def _get_vieneu_engine(self):
+        if self._vieneu_engine is None:
+            service_app_dir = Path(__file__).resolve().parents[1] / "tts-service" / "app"
+            package_name = "_local_tts_service_app"
+            engines_package_name = f"{package_name}.engines"
+
+            if package_name not in sys.modules:
+                package = types.ModuleType(package_name)
+                package.__path__ = [str(service_app_dir)]
+                sys.modules[package_name] = package
+
+            if engines_package_name not in sys.modules:
+                engines_package = types.ModuleType(engines_package_name)
+                engines_package.__path__ = [str(service_app_dir / "engines")]
+                sys.modules[engines_package_name] = engines_package
+
+            vieneu_module = importlib.import_module(f"{engines_package_name}.vieneu")
+            VieNeuEngine = vieneu_module.VieNeuEngine
+
+            self._vieneu_engine = VieNeuEngine(
+                mode=self.config.get("vieneu_mode") or os.getenv("VIENEU_MODE", "standard"),
+                model_name=self.config.get("vieneu_model_name") or os.getenv("VIENEU_MODEL_NAME", "pnnbao-ump/VieNeu-TTS-v2"),
+                emotion=self.config.get("vieneu_emotion") or os.getenv("VIENEU_EMOTION", "storytelling"),
+                api_base=self.config.get("vieneu_api_base") or os.getenv("VIENEU_API_BASE") or None,
+                voice_dir=self.config.get("xtts_voice_dir") or os.getenv("XTTS_VOICE_DIR", "data/voice_samples"),
+                device=self.config.get("vieneu_device") or os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE", "auto"),
+            )
+        return self._vieneu_engine
+
+    def _run_direct_engine_sync(
+        self,
+        input_data: TTSGeneratorInput,
+        engine_factory: Callable[[], Any],
+        engine_name: str,
+    ) -> AgentResult:
         try:
             segments = input_data.segments
             output_dir = Path(input_data.output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            engine = self._get_xtts_engine()
+            engine = engine_factory()
             audio_segments: List[AudioSegment] = []
             failed_segments: List[int] = []
             failure_details: List[str] = []
@@ -209,7 +247,7 @@ class TTSAgent(BaseAgent):
                     total_duration=total_duration,
                     failed_segments=failed_segments,
                     metadata={
-                        "engine": "xtts_gpu",
+                        "engine": engine_name,
                         "segment_count": len(segments),
                         "succeeded_count": len(audio_segments),
                     },

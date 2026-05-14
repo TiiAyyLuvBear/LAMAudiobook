@@ -9,6 +9,7 @@ from .base import BaseAgent, AgentResult
 from schema.pipeline import TextBlock
 from ebooklib import epub
 from bs4 import BeautifulSoup
+import re
 
 
 class ParserInput:
@@ -129,10 +130,17 @@ class ParserAgent(BaseAgent):
 
         # Files to skip entirely
         _SKIP_NAMES = {"nav", "cover", "titlepage", "toc", "colophon",
-                        "appendix", "footnote", "endnote", "bibliography"}
+                        "appendix", "footnote", "endnote", "bibliography",
+                        "copyright", "credits", "imprint"}
         # HTML tags to ignore (not useful for TTS)
         _SKIP_TAGS = {"aside", "footer", "figcaption", "table", "nav",
-                       "script", "style", "sup", "sub"}
+                       "script", "style", "sup", "sub", "form", "iframe",
+                       "noscript", "svg", "metadata"}
+        skip_attr_re = re.compile(
+            r"(header|footer|footnote|endnote|note|annotation|copyright|"
+            r"breadcrumb|nav|toc|pagebreak|pagenum|advert|ads|share|social)",
+            re.IGNORECASE,
+        )
 
         for item in book.get_items():
             if item.get_type() not in text_types:
@@ -152,9 +160,27 @@ class ParserAgent(BaseAgent):
                 # Remove unwanted tags before extracting text
                 for tag in soup.find_all(_SKIP_TAGS):
                     tag.decompose()
+                for tag in soup.find_all(attrs={"epub:type": skip_attr_re}):
+                    tag.decompose()
+                for tag in soup.find_all(attrs={"role": skip_attr_re}):
+                    tag.decompose()
+                for tag in soup.find_all(attrs={"class": skip_attr_re}):
+                    tag.decompose()
+                for tag in soup.find_all(attrs={"id": skip_attr_re}):
+                    tag.decompose()
+                for tag in soup.find_all("a"):
+                    href = tag.get("href", "")
+                    link_text = tag.get_text(" ", strip=True)
+                    if href.startswith(("http://", "https://", "mailto:")):
+                        if not link_text or link_text == href:
+                            tag.decompose()
+                        else:
+                            tag.unwrap()
 
-                tags = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "span"]
+                tags = ["h1", "h2", "h3", "h4", "h5", "h6", "p", "blockquote", "li"]
                 for tag in soup.find_all(tags):
+                    if tag.find(tags):
+                        continue
                     text = tag.get_text(separator=" ", strip=True)
                     if not text:
                         continue

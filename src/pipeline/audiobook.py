@@ -33,6 +33,7 @@ from agents import (
 )
 from schema.audio import TTSSegment, AudioSegment
 from schema.pipeline import Chapter
+from utils.epub3_packager import package_chapter_epub
 from .config import PipelineConfig, PipelineStage
 from .state import StateManager
 from .executor import ParallelExecutor
@@ -55,6 +56,7 @@ class AudiobookPipeline:
         self.config = config
         self.state = StateManager()
         self.executor = ParallelExecutor()
+        self._cancel_requested = False
 
         # Initialize agents
         self.parser = ParserAgent()
@@ -67,17 +69,31 @@ class AudiobookPipeline:
         self.tts = TTSAgent(
             config={
                 "tts_engine": config.tts_engine,
+                "tts_device": config.tts_device,
                 "tts_service_url": "http://localhost:8001",
                 "xtts_model_name_or_path": config.xtts_model_name_or_path,
                 "xtts_config_path": config.xtts_config_path,
                 "xtts_vocab_path": config.xtts_vocab_path,
                 "xtts_voice_dir": config.xtts_voice_dir,
+                "vieneu_model_name": config.vieneu_model_name,
+                "vieneu_mode": config.vieneu_mode,
+                "vieneu_emotion": config.vieneu_emotion,
+                "vieneu_api_base": config.vieneu_api_base,
+                "vieneu_device": config.vieneu_device,
                 "progress_callback": self._on_tts_progress,
             }
         )
         self.audio = AudioAgent()
         self.qc = QCAgent()
         self.memory = MemoryAgent()
+
+    def request_cancel(self) -> None:
+        self._cancel_requested = True
+        self.state.set_status("Cancellation requested")
+
+    def _raise_if_cancelled(self) -> None:
+        if self._cancel_requested:
+            raise asyncio.CancelledError()
 
     # ─────────────────────────────────────────────
     # PHASE 1: Parse  (sequential)
@@ -86,6 +102,7 @@ class AudiobookPipeline:
     async def _phase1_parse(self) -> Dict[str, Any]:
         """Parser → Cleaner → Summarizer → Classifier (sequential)."""
         self.state.set_stage(PipelineStage.PARSING)
+        self._raise_if_cancelled()
 
         # Step 1: Parser
         parse_result = await self.executor.execute_single(
@@ -102,6 +119,7 @@ class AudiobookPipeline:
 
         parse_data = parse_result.data
         self.state.set_stage(PipelineStage.CLEANING)
+        self._raise_if_cancelled()
 
         # Step 2: Cleaner
         clean_result = await self.executor.execute_single(
@@ -114,6 +132,7 @@ class AudiobookPipeline:
 
         clean_data = clean_result.data
         self.state.set_stage(PipelineStage.ANALYZING)
+        self._raise_if_cancelled()
 
         def _summarizer_status(msg: str, current: int, total: int):
             self.state.set_status(msg)
@@ -137,6 +156,7 @@ class AudiobookPipeline:
                 raise RuntimeError(f"Summarizer failed: {summarize_result.error}")
 
             ctx = summarize_result.data
+            self._raise_if_cancelled()
 
             # Step 4: Classifier samples the book for metadata only.
             class_result = await self.executor.execute_single(
@@ -151,6 +171,7 @@ class AudiobookPipeline:
             if not class_result.success:
                 raise RuntimeError(f"Classifier failed: {class_result.error}")
             class_data = class_result.data
+            self._raise_if_cancelled()
 
         return {
             "parse": parse_data,
@@ -170,6 +191,7 @@ class AudiobookPipeline:
     async def _phase2_analyze(self, parse_data: Dict[str, Any]) -> Dict[str, Any]:
         """Voice + Memory run concurrently using data from Phase 1."""
         self.state.set_stage(PipelineStage.ANALYZING)
+        self._raise_if_cancelled()
         
         ctx = parse_data["summarize"]
         classifier_data = parse_data["classify"]
@@ -225,6 +247,7 @@ class AudiobookPipeline:
 
     def _on_tts_progress(self, current_segment: int, total_segments: int, chapter_index: int) -> None:
         self.state.set_stage(PipelineStage.GENERATING)
+        self._raise_if_cancelled()
         self.state.set_segments(total_segments)
         self.state.update_segment(current_segment)
         self.state.update_chapter(chapter_index)
@@ -237,26 +260,35 @@ class AudiobookPipeline:
         span = 0.18
         self.state.set_progress(base + span * (current_segment / max(1, total_segments)))
 
-    def _split_tts_text(self, text: str, max_chars: int = 280) -> List[str]:
+    def _split_tts_text(self, text: str, max_chars: int = 420) -> List[str]:
         import re
+
+        def split_long_sentence(sentence: str) -> List[str]:
+            if len(sentence) <= max_chars:
+                return [sentence]
+            parts = re.split(r"(?<=[,;:])\s+", sentence)
+            chunks: List[str] = []
+            current = ""
+            for part in [p.strip() for p in parts if p.strip()]:
+                if current and len(current) + len(part) + 1 > max_chars:
+                    chunks.append(current.strip())
+                    current = ""
+                if len(part) > max_chars:
+                    if current:
+                        chunks.append(current.strip())
+                        current = ""
+                    for i in range(0, len(part), max_chars):
+                        chunks.append(part[i : i + max_chars].strip())
+                    continue
+                current = f"{current} {part}".strip()
+            if current:
+                chunks.append(current.strip())
+            return chunks or [sentence]
 
         sentences = re.split(r"(?<=[.!?])\s+", text.strip())
         chunks: List[str] = []
-        current: List[str] = []
-        current_len = 0
         for sentence in [s.strip() for s in sentences if s.strip()]:
-            if current and current_len + len(sentence) + 1 > max_chars:
-                chunks.append(" ".join(current))
-                current = []
-                current_len = 0
-            if len(sentence) > max_chars:
-                for i in range(0, len(sentence), max_chars):
-                    chunks.append(sentence[i : i + max_chars].strip())
-                continue
-            current.append(sentence)
-            current_len += len(sentence) + 1
-        if current:
-            chunks.append(" ".join(current))
+            chunks.extend(split_long_sentence(sentence))
         return chunks
 
     def _build_tts_segments(self, parse_data: Dict[str, Any], analyze_data: Dict[str, Any]) -> List[TTSSegment]:
@@ -299,7 +331,7 @@ class AudiobookPipeline:
         return segments
 
     async def _phase3_generate(self, parse_data: Dict[str, Any], analyze_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Build TTS segments from the full cleaned book, then synthesize them."""
+        """Build TTS segments, synthesize chapter by chapter, and publish chapter EPUBs early."""
         self.state.set_stage(PipelineStage.GENERATING)
 
         segments = self._build_tts_segments(parse_data, analyze_data)
@@ -313,16 +345,108 @@ class AudiobookPipeline:
         self.state.update_chapter(segments[0].chapter_index if segments else 0)
         self.state.set_status(f"Preparing TTS for {len(segments)} segments across {total_chapters} chapters")
 
-        tts_result = await self.executor.execute_single(
-            "tts",
-            self.tts,
-            TTSGeneratorInput(segments=segments, output_dir=self.config.output_dir),
-        )
+        chapters_by_index = {
+            int(getattr(chapter, "index", 0)) + 1: chapter
+            for chapter in parse_data.get("chapters") or []
+        }
+        segments_by_chapter: Dict[int, List[TTSSegment]] = {}
+        for segment in segments:
+            segments_by_chapter.setdefault(segment.chapter_index, []).append(segment)
 
-        if not tts_result.success:
-            raise RuntimeError(f"TTS generation failed: {tts_result.error}")
+        all_audio_segments: List[AudioSegment] = []
+        all_failed_segments: List[int] = []
+        chapter_epubs: List[Dict[str, Any]] = []
+        completed_segment_count = 0
 
-        return {"tts": tts_result.data, "segments": segments}
+        for chapter_index in sorted(segments_by_chapter):
+            self._raise_if_cancelled()
+            chapter_segments = sorted(segments_by_chapter[chapter_index], key=lambda s: s.segment_index)
+            self.state.update_chapter(chapter_index)
+            self.state.set_status(
+                f"Generating chapter {chapter_index}/{total_chapters} "
+                f"({len(chapter_segments)} segments)"
+            )
+
+            tts_result = await self.executor.execute_single(
+                "tts",
+                self.tts,
+                TTSGeneratorInput(segments=chapter_segments, output_dir=self.config.output_dir),
+            )
+
+            if not tts_result.success:
+                raise RuntimeError(f"TTS generation failed for chapter {chapter_index}: {tts_result.error}")
+            self._raise_if_cancelled()
+
+            tts_data = tts_result.data
+            chapter_audio_segments = (
+                tts_data.audio_segments if hasattr(tts_data, "audio_segments") else []
+            )
+            all_audio_segments.extend(chapter_audio_segments)
+            all_failed_segments.extend(getattr(tts_data, "failed_segments", []) or [])
+            completed_segment_count += len(chapter_segments)
+            self.state.update_segment(completed_segment_count)
+
+            generated_indexes = {segment.segment_index for segment in chapter_audio_segments}
+            expected_indexes = {segment.segment_index for segment in chapter_segments}
+            if generated_indexes >= expected_indexes:
+                chapter = chapters_by_index.get(chapter_index)
+                title = (
+                    getattr(chapter, "title", None)
+                    or getattr(chapter, "chapter_title", None)
+                    or f"Chapter {chapter_index}"
+                )
+                paragraphs = getattr(chapter, "paragraphs", []) if chapter else []
+                artifact = package_chapter_epub(
+                    output_dir=self.config.output_dir,
+                    chapter_index=chapter_index,
+                    title=title,
+                    paragraphs=paragraphs,
+                    audio_segments=chapter_audio_segments,
+                )
+                artifact_data = {
+                    "type": "chapter_epub",
+                    "chapter_index": artifact.chapter_index,
+                    "title": artifact.title,
+                    "path": artifact.epub_path,
+                    "chapter_audio_path": artifact.chapter_audio_path,
+                    "segment_count": artifact.segment_count,
+                }
+                chapter_epubs.append(artifact_data)
+                self.state.add_artifact(artifact_data)
+                self.state.set_status(
+                    f"Chapter {chapter_index}/{total_chapters} EPUB ready: {Path(artifact.epub_path).name}"
+                )
+            else:
+                missing = sorted(expected_indexes - generated_indexes)
+                all_failed_segments.extend(missing)
+                self.state.set_status(
+                    f"Chapter {chapter_index}/{total_chapters} has missing audio segments: {missing}"
+                )
+
+            base = 0.72
+            span = 0.18
+            self.state.set_progress(base + span * (completed_segment_count / max(1, len(segments))))
+
+        total_duration = sum(segment.duration_seconds for segment in all_audio_segments)
+        tts_output = type(
+            "ChapteredTTSOutput",
+            (),
+            {
+                "audio_segments": all_audio_segments,
+                "total_duration": total_duration,
+                "failed_segments": all_failed_segments,
+                "metadata": {
+                    "chapter_epubs": chapter_epubs,
+                    "segment_count": len(segments),
+                },
+            },
+        )()
+
+        return {
+            "tts": tts_output,
+            "segments": segments,
+            "chapter_epubs": chapter_epubs,
+        }
 
     # ─────────────────────────────────────────────
     # PHASE 4: Finalize  (sequential)
@@ -331,6 +455,7 @@ class AudiobookPipeline:
     async def _phase4_finalize(self, gen_data: Dict[str, Any]) -> Dict[str, Any]:
         """QC → Audio concat (sequential)."""
         self.state.set_stage(PipelineStage.FINALIZING)
+        self._raise_if_cancelled()
 
         tts_data = gen_data["tts"]
         segments = gen_data["segments"]
@@ -375,10 +500,12 @@ class AudiobookPipeline:
 
         if not audio_result.success:
             raise RuntimeError(f"Audio finalization failed: {audio_result.error}")
+        self._raise_if_cancelled()
 
         return {
             "qc": qc_result.data if qc_result else None,
             "audio": audio_result.data,
+            "chapter_epubs": gen_data.get("chapter_epubs", []),
         }
 
     async def run_analysis(self) -> Dict[str, Any]:
@@ -408,15 +535,19 @@ class AudiobookPipeline:
         """Execute the full 4-phase pipeline."""
         try:
             # PHASE 1: Parse (sequential)
+            self._raise_if_cancelled()
             parse_data = await self._phase1_parse()
 
             # PHASE 2: Analyze (parallel)
+            self._raise_if_cancelled()
             analyze_data = await self._phase2_analyze(parse_data)
 
             # PHASE 3: Generate (parallel)
+            self._raise_if_cancelled()
             gen_data = await self._phase3_generate(parse_data, analyze_data)
 
             # PHASE 4: Finalize (sequential)
+            self._raise_if_cancelled()
             finalize_data = await self._phase4_finalize(gen_data)
 
             self.state.set_stage(PipelineStage.COMPLETED)
@@ -434,12 +565,22 @@ class AudiobookPipeline:
                     if hasattr(audio_out, "total_duration")
                     else 0
                 ),
+                "chapter_epubs": finalize_data.get("chapter_epubs", []),
                 "chapters": parse_data["chapters"],
                 "classify": analyze_data["classifier"],
                 "summarize": analyze_data["context"],
                 "chapter_count": parse_data["chapter_count"],
             }
 
+        except asyncio.CancelledError:
+            self.state.set_stage(PipelineStage.FAILED)
+            self.state.set_status("Cancelled")
+            return {
+                "success": False,
+                "cancelled": True,
+                "error": "Cancelled",
+                "stage": "cancelled",
+            }
         except Exception as e:
             logger.exception("Pipeline failed")
             self.state.set_error(str(e))

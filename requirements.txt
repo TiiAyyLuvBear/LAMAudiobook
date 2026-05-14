@@ -6,14 +6,20 @@ python-dotenv>=1.0.0
 asyncio>=3.4.3
 
 # --- AI & NLP ---
-torch>=2.0.0
-torchcodec>=0.1.0
+# Keep torch, torchaudio, and torchcodec on the same compatibility line.
+# For the CUDA 13.0 runner in scripts/colab_runner.ipynb, use:
+#   pip install --index-url https://download.pytorch.org/whl/cu130 \
+#     torch==2.11.0+cu130 torchaudio==2.11.0+cu130 torchcodec==0.11.1
+torch>=2.11,<2.12
+torchaudio>=2.11,<2.12
+torchcodec>=0.11,<0.12
 transformers>=4.36.0
 sentence-transformers>=2.2.2
 huggingface_hub>=0.23.0
 qdrant-client>=1.7.0
 numpy>=1.24.0
 scipy>=1.10.0
+# Optional for TTS_ENGINE=vieneu: pip install vieneu
 
 # --- Document Parsing ---
 ebooklib>=0.18

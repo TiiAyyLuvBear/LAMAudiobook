@@ -84,11 +84,17 @@ class CleanerAgent(BaseAgent):
         super().__init__(name=self.name, config=config)
 
     def _clean_text(self, text: str) -> str:
-        text = re.sub(r"https?://\S+", "", text)
-        text = re.sub(r"<[^>]+>", "", text)
-        text = re.sub(r"\S+@\S+\.\S+", "", text)
+        text = re.sub(r"<(script|style|nav|footer|header|aside)\b[^>]*>.*?</\1>", " ", text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"https?://\S+", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bwww\.[^\s]+", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b", " ", text)
+        text = re.sub(r"\b(?:bit\.ly|tinyurl\.com|t\.me|facebook\.com|fb\.com|youtube\.com|youtu\.be|zalo\.me|x\.com|twitter\.com|instagram\.com|tiktok\.com|github\.com)/\S+", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"\[[^\]]*(?:http|www\.|\.com|\.vn)[^\]]*\]", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"\([^)]*(?:http|www\.|\.com|\.vn)[^)]*\)", " ", text, flags=re.IGNORECASE)
         text = re.sub(r"[ \t]+", " ", text)
         text = re.sub(r"\u200b", "", text)
+        text = re.sub(r"\s+([,.;:!?])", r"\1", text)
         text = self._normalize_for_tts(text)
         return text.strip()
 
@@ -108,9 +114,13 @@ class CleanerAgent(BaseAgent):
         return text
 
     def _is_noise_line(self, text: str) -> bool:
-        if re.search(r"https?://", text):
+        lowered = text.lower().strip()
+        if re.search(r"https?://|www\.", text, re.IGNORECASE):
             return True
-        if re.search(r"www\.|\.com|\.org|\.net", text) and len(text) > 20:
+        if re.search(r"\b\S+\.(?:com|org|net|vn|io|edu|gov|info|me|co)\b", text, re.IGNORECASE):
+            if len(text.split()) <= 12 or re.search(r"/|@", text):
+                return True
+        if re.search(r"\b(?:website|trang web|fanpage|facebook|youtube|zalo|tiktok|instagram|twitter|telegram)\b", lowered):
             return True
         if re.fullmatch(r"[-–—_=~]{3,}", text):
             return True
@@ -118,7 +128,13 @@ class CleanerAgent(BaseAgent):
             return True
         if re.search(r"\.{3,}\s*\d+\s*$", text):
             return True
-        if text.lower().strip() in ("trang", "page"):
+        if lowered in ("trang", "page", "home", "next", "previous", "back", "menu", "contents"):
+            return True
+        if re.fullmatch(r"(?:trang|page)\s*\d+", lowered):
+            return True
+        if re.fullmatch(r"\d+\s*/\s*\d+", lowered):
+            return True
+        if re.fullmatch(r"(?:[ivxlcdm]+|\d+)", lowered):
             return True
         # --- TTS-unfriendly patterns for Vietnamese books ---
         if re.search(r"ISBN[\s:\-]*[\d\-X]{10,}", text, re.IGNORECASE):
@@ -126,6 +142,8 @@ class CleanerAgent(BaseAgent):
         if re.search(r"Nhà xuất bản|NXB|In\s+\d+\s+bản|Khổ\s+\d+", text, re.IGNORECASE):
             return True
         if re.search(r"Bản quyền|Copyright|©|All rights reserved", text, re.IGNORECASE):
+            return True
+        if re.search(r"đọc\s+sách\s+online|ebook|e-book|scan|pdf|epub|download|tải\s+sách|nguồn\s*:", text, re.IGNORECASE):
             return True
         if re.search(r"Liên hệ.*\d{4,}|Điện thoại|Fax\s*:", text, re.IGNORECASE):
             return True
@@ -212,6 +230,12 @@ class CleanerAgent(BaseAgent):
 
         return self._merge_paragraph(sentences), i
 
+    @staticmethod
+    def _dedupe_key(text: str) -> str:
+        text = re.sub(r"\d+", "#", text.lower())
+        text = re.sub(r"\s+", " ", text)
+        return text.strip(" -–—_|•·\t\r\n")[:120]
+
     def _remove_duplicate_headers(
         self,
         blocks: List[TextBlock],
@@ -222,27 +246,36 @@ class CleanerAgent(BaseAgent):
             return blocks, 0
 
         header_counts: Dict[str, int] = {}
-        page_last_seen: Dict[str, int] = {}
         result: List[TextBlock] = []
         removed = 0
 
         for block in blocks:
-            text_key = block.text[:50].strip().lower()
+            text_key = self._dedupe_key(block.text)
             if not text_key:
                 result.append(block)
                 continue
 
             header_counts[text_key] = header_counts.get(text_key, 0) + 1
-            page_last_seen[text_key] = block.page or 0
-
-            if header_counts[text_key] > 3:
-                if block.page and page_last_seen[text_key] != block.page:
-                    removed += 1
-                    continue
-
             result.append(block)
 
-        return result, removed
+        repeated = {
+            key
+            for key, count in header_counts.items()
+            if count > 2 and len(key.split()) <= 14
+        }
+
+        if not repeated:
+            return result, removed
+
+        filtered: List[TextBlock] = []
+        for block in result:
+            text_key = self._dedupe_key(block.text)
+            if text_key in repeated and block.block_type != "heading":
+                removed += 1
+                continue
+            filtered.append(block)
+
+        return filtered, removed
 
     def _to_plain_text(self, blocks: List[TextBlock]) -> str:
         lines: List[str] = []

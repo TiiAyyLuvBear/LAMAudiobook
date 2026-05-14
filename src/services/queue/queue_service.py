@@ -43,6 +43,7 @@ class Job:
     current_segment: int = 0
     total_segments: int = 0
     status_message: str = ""
+    cancel_requested: bool = False
 
 
 class QueueService:
@@ -99,6 +100,8 @@ class QueueService:
                 conn.execute("ALTER TABLE jobs ADD COLUMN total_segments INTEGER NOT NULL DEFAULT 0")
             if "status_message" not in columns:
                 conn.execute("ALTER TABLE jobs ADD COLUMN status_message TEXT NOT NULL DEFAULT ''")
+            if "cancel_requested" not in columns:
+                conn.execute("ALTER TABLE jobs ADD COLUMN cancel_requested INTEGER NOT NULL DEFAULT 0")
             conn.commit()
 
     @staticmethod
@@ -123,6 +126,7 @@ class QueueService:
             current_segment=int(row["current_segment"]),
             total_segments=int(row["total_segments"]),
             status_message=row["status_message"] or "",
+            cancel_requested=bool(row["cancel_requested"]) if "cancel_requested" in row.keys() else False,
         )
 
     def _load_existing_jobs(self) -> None:
@@ -147,10 +151,10 @@ class QueueService:
                 INSERT INTO jobs (
                     id, job_type, payload, status, progress, stage,
                     current_chapter, total_chapters, current_segment,
-                    total_segments, status_message, result, error,
+                    total_segments, status_message, cancel_requested, result, error,
                     created_at, started_at, completed_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     payload=excluded.payload,
                     status=excluded.status,
@@ -161,6 +165,7 @@ class QueueService:
                     current_segment=excluded.current_segment,
                     total_segments=excluded.total_segments,
                     status_message=excluded.status_message,
+                    cancel_requested=excluded.cancel_requested,
                     result=excluded.result,
                     error=excluded.error,
                     started_at=excluded.started_at,
@@ -178,6 +183,7 @@ class QueueService:
                     job.current_segment,
                     job.total_segments,
                     job.status_message,
+                    1 if job.cancel_requested else 0,
                     json.dumps(job.result, ensure_ascii=False) if job.result else None,
                     job.error,
                     job.created_at.isoformat(),
@@ -216,6 +222,9 @@ class QueueService:
         job = self._jobs.get(job_id)
         if not job:
             return None
+        return self._job_to_status(job)
+
+    def _job_to_status(self, job: Job) -> Dict[str, Any]:
         return {
             "job_id": job.id,
             "status": job.status.value,
@@ -226,6 +235,7 @@ class QueueService:
             "current_segment": job.current_segment,
             "total_segments": job.total_segments,
             "status_message": job.status_message,
+            "cancel_requested": job.cancel_requested,
             "created_at": job.created_at.isoformat(),
             "started_at": job.started_at.isoformat() if job.started_at else None,
             "completed_at": job.completed_at.isoformat() if job.completed_at else None,
@@ -233,19 +243,33 @@ class QueueService:
             "result": job.result,
         }
 
+    async def list_job_statuses(self, limit: int = 50) -> list[Dict[str, Any]]:
+        jobs = sorted(self._jobs.values(), key=lambda job: job.created_at, reverse=True)
+        return [self._job_to_status(job) for job in jobs[: max(1, limit)]]
+
     async def cancel_job(self, job_id: str) -> bool:
         job = self._jobs.get(job_id)
-        if not job or job.status != JobStatus.PENDING:
+        if not job or job.status not in {JobStatus.PENDING, JobStatus.RUNNING}:
             return False
-        job.status = JobStatus.CANCELLED
-        job.stage = "cancelled"
-        job.completed_at = datetime.utcnow()
+        if job.status == JobStatus.PENDING:
+            job.status = JobStatus.CANCELLED
+            job.stage = "cancelled"
+            job.status_message = "Cancelled before execution"
+            job.completed_at = datetime.utcnow()
+            try:
+                self._queue.remove(job_id)
+            except ValueError:
+                pass
+        else:
+            job.cancel_requested = True
+            job.stage = "cancelling"
+            job.status_message = "Cancellation requested. Waiting for the current step to stop."
         self._persist_job(job)
-        try:
-            self._queue.remove(job_id)
-        except ValueError:
-            pass
         return True
+
+    def is_cancel_requested(self, job_id: str) -> bool:
+        job = self._jobs.get(job_id)
+        return bool(job and job.cancel_requested)
 
     async def update_progress(self, job_id: str, progress: float, stage: Optional[str] = None) -> None:
         job = self._jobs.get(job_id)
@@ -261,12 +285,16 @@ class QueueService:
         if not job:
             return
         job.progress = max(0.0, min(1.0, float(state.get("progress", job.progress))))
-        job.stage = state.get("stage") or job.stage
+        job.stage = "cancelling" if job.cancel_requested else (state.get("stage") or job.stage)
         job.current_chapter = int(state.get("current_chapter") or job.current_chapter or 0)
         job.total_chapters = int(state.get("total_chapters") or job.total_chapters or 0)
         job.current_segment = int(state.get("current_segment") or job.current_segment or 0)
         job.total_segments = int(state.get("total_segments") or job.total_segments or 0)
-        job.status_message = state.get("status_message") or job.status_message
+        job.status_message = (
+            "Cancellation requested. Waiting for the current step to stop."
+            if job.cancel_requested
+            else (state.get("status_message") or job.status_message)
+        )
         if state.get("error"):
             job.error = state["error"]
         self._persist_job(job)
@@ -296,7 +324,15 @@ class QueueService:
                 job.payload,
                 lambda progress, stage=None: self.update_progress(job.id, progress, stage),
                 lambda state: self.update_state(job.id, state),
+                lambda: self.is_cancel_requested(job.id),
             )
+            if job.cancel_requested:
+                job.status = JobStatus.CANCELLED
+                job.stage = "cancelled"
+                job.status_message = "Cancelled"
+                job.cancel_requested = False
+                job.result = result if result else None
+                return
             if not result or not result.get("success"):
                 raise RuntimeError((result or {}).get("error") or "Job failed")
 

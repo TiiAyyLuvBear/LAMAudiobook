@@ -53,6 +53,9 @@ class StateManager:
     def update_segment(self, current: int) -> None:
         self._state.current_segment = current
 
+    def add_artifact(self, artifact: dict) -> None:
+        self._state.artifacts.append(artifact)
+
     def set_progress(self, progress: float) -> None:
         self._state.progress = max(0.0, min(1.0, float(progress)))
 

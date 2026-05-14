@@ -18,6 +18,7 @@ class XTTSEngine(BaseTTSEngine):
         model_name_or_path: Optional[str] = None,
         config_path: Optional[str] = None,
         vocab_path: Optional[str] = None,
+        device: Optional[str] = None,
     ):
         self.voice_dir = Path(voice_dir)
         if not self.voice_dir.exists():
@@ -26,6 +27,7 @@ class XTTSEngine(BaseTTSEngine):
         self.model_name_or_path = env_model or DEFAULT_XTTS_HF_REPO
         self.config_path = config_path or os.getenv("XTTS_CONFIG_PATH")
         self.vocab_path = vocab_path or os.getenv("XTTS_VOCAB_PATH")
+        self.device_request = (device or os.getenv("XTTS_DEVICE") or os.getenv("TTS_DEVICE") or "auto").lower()
         self.runtime_dir = Path(os.getenv("XTTS_RUNTIME_DIR", DEFAULT_XTTS_RUNTIME_DIR))
         self.model_cache_key = "|".join(
             [
@@ -33,9 +35,24 @@ class XTTSEngine(BaseTTSEngine):
                 self.config_path or "",
                 self.vocab_path or "",
                 str(self.runtime_dir),
+                self.device_request,
             ]
         )
         self._load_tts()
+
+    def _resolve_device(self) -> str:
+        import torch
+
+        request = self.device_request
+        if request in {"gpu", "cuda:0"}:
+            request = "cuda"
+        if request == "auto":
+            return "cuda" if torch.cuda.is_available() else "cpu"
+        if request == "cuda" and not torch.cuda.is_available():
+            raise RuntimeError("XTTS_DEVICE=cuda was requested but CUDA is not available.")
+        if request not in {"cuda", "cpu"}:
+            raise RuntimeError("XTTS_DEVICE must be one of: auto, cuda, cpu.")
+        return request
 
     @staticmethod
     def _find_first_existing(base_dir: Path, candidates: list[str]) -> Optional[Path]:
@@ -132,23 +149,7 @@ class XTTSEngine(BaseTTSEngine):
         except Exception:
             sentences = [text]
 
-        chunks = []
-        chunk = ""
-        word_count = 0
-        for sentence in sentences:
-            chunk += " " + sentence
-            word_count += len(sentence.split())
-            if word_count > 30:
-                chunks.append(chunk.strip())
-                chunk = ""
-                word_count = 0
-
-        if chunk.strip():
-            if chunks and word_count < 15:
-                chunks[-1] += " " + chunk.strip()
-            else:
-                chunks.append(chunk.strip())
-        return chunks or [text]
+        return [sentence.strip() for sentence in sentences if sentence.strip()] or [text]
 
     def _load_xtts_checkpoint(self, checkpoint: Path, config_path: Path, vocab_path: Optional[Path]):
         search_dirs = [self.runtime_dir, config_path.parent]
@@ -175,16 +176,14 @@ class XTTSEngine(BaseTTSEngine):
     def _load_tts(self):
         if self.model_cache_key not in XTTSEngine._tts_instances:
             try:
-                import torch
-                if not torch.cuda.is_available():
-                    raise RuntimeError("CUDA is not available. XTTS requires CUDA.")
-                print(f"[XTTS] Loading direct XTTS checkpoint to CUDA: {self.model_name_or_path}")
+                device = self._resolve_device()
+                print(f"[XTTS] Loading direct XTTS checkpoint to {device}: {self.model_name_or_path}")
                 model_ref = Path(self.model_name_or_path)
                 if model_ref.exists():
                     tts = self._load_from_local_path(model_ref)
                 else:
                     tts = self._load_from_huggingface(self.model_name_or_path)
-                XTTSEngine._tts_instances[self.model_cache_key] = tts.to("cuda")
+                XTTSEngine._tts_instances[self.model_cache_key] = tts.to(device)
             except Exception as e:
                 raise RuntimeError(f"Failed to load XTTS model: {e}") from e
         self._tts_instance = XTTSEngine._tts_instances[self.model_cache_key]
