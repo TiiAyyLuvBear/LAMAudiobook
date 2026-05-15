@@ -1,134 +1,73 @@
 # Audiobook AI Service
 
-Multiagent audiobook runtime:
+Audiobook AI Service là hệ thống sinh audiobook từ sách điện tử bằng pipeline nhiều agent. Luồng demo chính hiện tại:
 
-`Streamlit UI -> FastAPI API -> SQLite job queue -> Audiobook pipeline -> audio + EPUB3 chapter artifacts`
+```text
+Streamlit frontend -> FastAPI backend -> SQLite job queue
+-> Audiobook pipeline -> TTS -> audio + EPUB3 chapter artifacts
+```
 
-V1 accepts EPUB uploads through the API/UI and outputs `mp3` or `wav` audio files. As each chapter finishes, the pipeline also packages a minimal EPUB3 chapter artifact with clickable sentence audio.
+Đầu ra gồm file audio tổng (`mp3` hoặc `wav`) và các artifact EPUB3 theo chương, trong đó mỗi câu/segment có audio riêng để nghe trong trình đọc hỗ trợ EPUB3.
 
-## Quick Start
+## Thành Phần Chính
+
+- **Frontend**: Streamlit UI tại `src/frontend/streamlit_app.py`, dùng để upload EPUB, theo dõi job, nghe/tải audio và tải EPUB3 theo chương.
+- **Backend**: FastAPI app tại `src/backend/app.py`, cung cấp API tạo job, theo dõi trạng thái, hủy job và tải output.
+- **Pipeline**: `src/pipeline/` điều phối parse/clean/summarize/classify/voice/TTS/QC/audio/package.
+- **Agents**: `src/agents/` chứa các agent xử lý văn bản, mood/voice, TTS, QC và audio finalize.
+- **TTS engines**: direct XTTS/VieNeu chạy trong pipeline; `src/tts-service/` được giữ cho hướng microservice/worker.
+- **Colab runner**: `scripts/colab_runner.ipynb` tự cài dependency, chuẩn bị model, chạy FastAPI + Streamlit và mở tunnel.
+
+## Cấu Trúc Rút Gọn
+
+```text
+src/
+  backend/          FastAPI entrypoint
+  frontend/         Streamlit entrypoint
+  api/              Audiobook HTTP routes
+  pipeline/         Pipeline orchestration
+  agents/           Parser, cleaner, summarizer, classifier, voice, TTS, QC, audio
+  schema/           Shared data models
+  services/         Queue, storage, logging helpers
+  utils/            Audio and EPUB3 packaging utilities
+  tts-service/      Optional Redis/RQ TTS microservice
+scripts/
+  colab_runner.ipynb
+data/
+  voice_samples/
+  qdrant_voice_db/
+```
+
+## Chạy Nhanh Local
 
 ```powershell
 .\.venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-For local smoke tests without GPU:
-
-```powershell
 $env:TTS_ENGINE="mock"
+uvicorn src.backend.app:app --host 0.0.0.0 --port 8000
 ```
 
-For production XTTS, keep the default:
+Mở terminal khác:
 
 ```powershell
-$env:TTS_ENGINE="xtts_gpu"
+$env:API_BASE_URL="http://localhost:8000"
+streamlit run src/frontend/streamlit_app.py --server.port 8501
 ```
 
-`xtts_gpu` fails clearly if CUDA, the direct XTTS runtime used by `models/XTTSv2.ipynb`, or a reference voice file is missing. Mock audio is only used when `TTS_ENGINE=mock`.
+Mở `http://localhost:8501`, upload EPUB, đợi job hoàn tất rồi tải audio hoặc EPUB3 chapter artifact.
 
-The default production model is the uploaded Hugging Face repo `aiMy144/XTTSv2VietAudiobook`.
-Override it by setting `XTTS_MODEL_NAME_OR_PATH`:
+## Tài Liệu Theo Component
 
-```env
-TTS_ENGINE=xtts_gpu
-XTTS_MODEL_NAME_OR_PATH=aiMy144/XTTSv2VietAudiobook
-XTTS_RUNTIME_DIR=models/XTTSv2-Finetuning-for-New-Languages
-XTTS_VOICE_DIR=data/voice_samples
-```
+Xem hướng dẫn chi tiết tại [docs/COMPONENTS.md](docs/COMPONENTS.md):
 
-For a local model folder:
+- Cài đặt dependency và biến môi trường.
+- Chạy frontend/backend/pipeline CLI.
+- Chạy Colab GPU.
+- Chạy TTS microservice.
+- API endpoints và layout output.
 
-```env
-XTTS_MODEL_NAME_OR_PATH=models/model
-```
+## Lưu Ý Hiện Trạng
 
-The folder should contain at least `config.json` and a checkpoint such as `model.pth` or `best_model*.pth`. If the checkpoint is managed by DVC, run `dvc pull` first or point `XTTS_MODEL_NAME_OR_PATH` directly to the downloaded `.pth`.
-
-Start the API:
-
-```powershell
-uvicorn src.app:app --host 0.0.0.0 --port 8000
-```
-
-Start the UI:
-
-```powershell
-streamlit run streamlit_app.py --server.port 8501
-```
-
-## Environment
-
-Create or update `.env`:
-
-```env
-API_BASE_URL=http://localhost:8000
-CORS_ORIGINS=http://localhost:8501,http://127.0.0.1:8501
-STORAGE_DIR=./storage
-MAX_UPLOAD_MB=200
-MAX_CONCURRENT_JOBS=1
-TTS_ENGINE=xtts_gpu
-XTTS_MODEL_NAME_OR_PATH=aiMy144/XTTSv2VietAudiobook
-XTTS_CONFIG_PATH=
-XTTS_VOCAB_PATH=
-XTTS_RUNTIME_DIR=models/XTTSv2-Finetuning-for-New-Languages
-XTTS_VOICE_DIR=data/voice_samples
-HF_TOKEN=
-```
-
-## API
-
-- `POST /api/v1/audiobook/jobs` uploads an EPUB and returns `job_id`.
-- `GET /api/v1/audiobook/jobs/{job_id}` returns status, progress, stage, chapter counters, errors, and recent logs.
-- `GET /api/v1/audiobook/jobs/{job_id}/download` downloads the completed audio file.
-- `GET /api/v1/audiobook/jobs/{job_id}/chapters/{chapter_index}/download` downloads a completed chapter EPUB3 artifact.
-- `DELETE /api/v1/audiobook/jobs/{job_id}` cancels pending jobs.
-- `GET /health` checks service health and queue stats.
-
-Each job is stored under:
-
-```text
-storage/jobs/{job_id}/input/book.epub
-storage/jobs/{job_id}/output/audiobook.mp3
-storage/jobs/{job_id}/output/chapters/
-storage/jobs/{job_id}/metadata.json
-storage/jobs/{job_id}/logs/logs.txt
-```
-
-Job metadata is persisted in `storage/jobs.sqlite`.
-
-## Cloudflare Tunnel
-
-Typical public routing:
-
-```text
-audiobook.example.com     -> http://localhost:8501
-api-audiobook.example.com -> http://localhost:8000
-```
-
-Set:
-
-```env
-API_BASE_URL=https://api-audiobook.example.com
-CORS_ORIGINS=https://audiobook.example.com
-```
-
-## Colab GPU Runner
-
-Use [scripts/colab_runner.ipynb](scripts/colab_runner.ipynb) when you want Colab GPU for XTTS.
-
-The notebook:
-
-- checks CUDA/GPU,
-- installs runtime dependencies and `ffmpeg`,
-- clones `XTTSv2-Finetuning-for-New-Languages` so the direct `TTS/` source exists,
-- installs the dependency set from that runtime repo,
-- downloads the fine-tuned XTTSv2 model from `aiMy144/XTTSv2VietAudiobook`,
-- starts FastAPI on port `8000`,
-- creates a Cloudflare quick tunnel for the API,
-- starts Streamlit on port `8501`,
-- creates a second Cloudflare quick tunnel for the UI.
-
-Open the Streamlit tunnel URL printed by the final setup cell, upload an EPUB, and download the completed audio.
-
-The Colab runner follows `models/XTTSv2.ipynb`: it loads `model.pth`, `config.json`, and `vocab.json` through `XttsConfig`/`Xtts` directly instead of using the `TTS.api.TTS` wrapper.
+- API upload hiện validate file `.epub`. Pipeline có parser cho PDF/EPUB/TXT, nhưng PDF qua API cần mở rộng route upload trước khi dùng như production path.
+- XTTS production cần CUDA, checkpoint/config/vocab hợp lệ và runtime `XTTSv2-Finetuning-for-New-Languages`.
+- `ffmpeg`/`ffprobe` là dependency hệ điều hành, không được cài bằng `pip`.

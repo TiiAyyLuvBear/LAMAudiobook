@@ -1,42 +1,32 @@
 # Quick Start
 
-Install dependencies:
+## Local Smoke Test
 
 ```powershell
 .\.venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-Run locally with mock TTS:
-
-```powershell
 $env:TTS_ENGINE="mock"
-uvicorn src.app:app --host 0.0.0.0 --port 8000
+uvicorn src.backend.app:app --host 0.0.0.0 --port 8000
 ```
 
-In another terminal:
+Terminal khác:
 
 ```powershell
 $env:API_BASE_URL="http://localhost:8000"
-streamlit run streamlit_app.py --server.port 8501
+streamlit run src/frontend/streamlit_app.py --server.port 8501
 ```
 
-Open `http://localhost:8501`, upload an EPUB, and wait for the queued job to complete. The completed job exposes the final audio file and per-chapter EPUB3 artifacts when chapter packaging succeeds.
+Mở `http://localhost:8501`, upload EPUB, đợi job hoàn tất rồi tải audio hoặc EPUB3 chapter artifact.
 
-For production GPU XTTS:
+## Production XTTS
 
 ```powershell
 $env:TTS_ENGINE="xtts_gpu"
 $env:XTTS_MODEL_NAME_OR_PATH="aiMy144/XTTSv2VietAudiobook"
 $env:XTTS_RUNTIME_DIR="models/XTTSv2-Finetuning-for-New-Languages"
+$env:XTTS_VOICE_DIR="data/voice_samples"
 ```
 
-The service expects CUDA, the direct XTTS runtime used by `models/XTTSv2.ipynb`, and reference WAV files in `data/voice_samples`.
+XTTS cần CUDA, runtime XTTS theo `models/XTTSv2.ipynb`, checkpoint/config/vocab hợp lệ và ít nhất một reference WAV trong `data/voice_samples`.
 
-For a local checkpoint folder:
-
-```powershell
-$env:XTTS_MODEL_NAME_OR_PATH="models/model"
-```
-
-That folder needs `config.json` plus a `.pth` checkpoint. If the weight is still a DVC pointer, run `dvc pull` first.
+Chi tiết từng component nằm ở [docs/COMPONENTS.md](docs/COMPONENTS.md).
