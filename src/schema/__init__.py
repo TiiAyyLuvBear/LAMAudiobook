@@ -19,12 +19,6 @@ from .audio import (
     AudioFinalizeInput,
     AudioFinalizeOutput,
 )
-from .text import (
-    TextType,
-    AnnotatedSegment,
-    ClassifierInput,
-    ClassifierOutput,
-)
 
 __all__ = [
     # pipeline
@@ -43,9 +37,4 @@ __all__ = [
     "TTSGeneratorOutput",
     "AudioFinalizeInput",
     "AudioFinalizeOutput",
-    # text
-    "TextType",
-    "AnnotatedSegment",
-    "ClassifierInput",
-    "ClassifierOutput",
 ]

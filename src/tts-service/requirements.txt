@@ -1,11 +1,18 @@
-fastapi>=0.109.0
-uvicorn>=0.27.0
-redis>=5.0.1
-rq>=1.15.0
-pydantic>=2.5.0
-# Core TTS dependencies
-torch>=2.0.0
-torchaudio>=2.0.0
-transformers>=4.36.0
-# Vieneu dependencies
-vieneu
+# TTS microservice requirements.
+# Keep this aligned with the root requirements for shared dependencies.
+
+fastapi>=0.109,<1.0
+uvicorn>=0.27,<1.0
+pydantic>=2.5,<3.0
+redis>=5.0,<6.0
+rq>=1.15,<2.0
+
+torch>=2.11,<2.12
+torchaudio>=2.11,<2.12
+transformers>=4.36,<5.0
+huggingface_hub>=0.23,<1.0
+underthesea>=6.8,<7.0
+vinorm>=2.0,<3.0
+
+# Optional default service engine. Requires espeak-ng system dependency.
+vieneu>=1.2

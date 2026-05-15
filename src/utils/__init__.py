@@ -1,18 +1,18 @@
-"""
-Utils Module - Shared utility functions
+"""Shared utility functions for the audiobook pipeline."""
 
-General utilities used across the application.
-"""
-
-from .text_utils import normalize_text, split_sentences
-from .audio_utils import get_audio_duration, convert_audio_format
-from .file_utils import ensure_dir, get_file_hash
+from .audio_utils import (
+    concatenate_audio,
+    convert_audio_format,
+    get_audio_duration,
+    normalize_audio,
+)
+from .epub3_packager import ChapterEpubResult, package_chapter_epub
 
 __all__ = [
-    "normalize_text",
-    "split_sentences",
+    "concatenate_audio",
     "get_audio_duration",
     "convert_audio_format",
-    "ensure_dir",
-    "get_file_hash"
+    "normalize_audio",
+    "ChapterEpubResult",
+    "package_chapter_epub",
 ]

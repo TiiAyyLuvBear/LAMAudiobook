@@ -64,6 +64,8 @@ secrets.yaml
 
 # Node modules
 node_modules/
+src/frontend/node_modules/
+*.tsbuildinfo
 
 # LLM cache
 .claude/
@@ -72,6 +74,9 @@ audio_cache/
 storage/
 data/mock_output/
 data/audio_cache/
+*.db
+/*.wav
+/*.mp3
 
 # Ignore models
 model/

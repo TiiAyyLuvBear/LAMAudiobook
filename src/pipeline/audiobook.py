@@ -8,14 +8,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from agents import (
-    PlannerAgent,
-    PlannerInput,
     ParserAgent,
     ParserInput,
     CleanerAgent,
     CleanerInput,
-    SplitterAgent,
-    SplitterInput,
     ClassifierAgent,
     ClassifierInput,
     VoiceAgent,
@@ -46,7 +42,7 @@ class AudiobookPipeline:
     """
     Main audiobook generation pipeline with 4-phase execution.
 
-    PHASE 1 — Parse  (sequential): Planner → Parser → Cleaner → Splitter
+    PHASE 1 — Parse  (sequential): Parser → Cleaner → Summarizer → Classifier
     PHASE 2 — Analyze (parallel): Classifier + Voice + Memory
     PHASE 3 — Generate (parallel): TTS segment batches
     PHASE 4 — Finalize (sequential): QC → Audio concat
@@ -63,8 +59,6 @@ class AudiobookPipeline:
         self.cleaner = CleanerAgent()
         self.classifier = ClassifierAgent()
         self.summarizer = SummarizerAgent()
-        # self.planner = PlannerAgent()
-        self.splitter = SplitterAgent()
         self.voice = VoiceAgent(config={"voice_dir": config.xtts_voice_dir})
         self.tts = TTSAgent(
             config={

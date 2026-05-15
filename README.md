@@ -2,9 +2,9 @@
 
 Multiagent audiobook runtime:
 
-`Streamlit UI -> FastAPI API -> SQLite job queue -> Audiobook pipeline -> audio download`
+`Streamlit UI -> FastAPI API -> SQLite job queue -> Audiobook pipeline -> audio + EPUB3 chapter artifacts`
 
-V1 outputs `mp3` or `wav` audio files. EPUB3 audiobook packaging is left for a later phase.
+V1 accepts EPUB uploads through the API/UI and outputs `mp3` or `wav` audio files. As each chapter finishes, the pipeline also packages a minimal EPUB3 chapter artifact with clickable sentence audio.
 
 ## Quick Start
 
@@ -81,6 +81,7 @@ HF_TOKEN=
 - `POST /api/v1/audiobook/jobs` uploads an EPUB and returns `job_id`.
 - `GET /api/v1/audiobook/jobs/{job_id}` returns status, progress, stage, chapter counters, errors, and recent logs.
 - `GET /api/v1/audiobook/jobs/{job_id}/download` downloads the completed audio file.
+- `GET /api/v1/audiobook/jobs/{job_id}/chapters/{chapter_index}/download` downloads a completed chapter EPUB3 artifact.
 - `DELETE /api/v1/audiobook/jobs/{job_id}` cancels pending jobs.
 - `GET /health` checks service health and queue stats.
 
@@ -89,6 +90,7 @@ Each job is stored under:
 ```text
 storage/jobs/{job_id}/input/book.epub
 storage/jobs/{job_id}/output/audiobook.mp3
+storage/jobs/{job_id}/output/chapters/
 storage/jobs/{job_id}/metadata.json
 storage/jobs/{job_id}/logs/logs.txt
 ```

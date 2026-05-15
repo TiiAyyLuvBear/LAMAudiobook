@@ -1,48 +1,54 @@
-# 🎧 AudioBook AI - Unified Requirements
+# Audiobook AI - unified project requirements
+#
+# Runtime path:
+#   Streamlit UI -> FastAPI API -> SQLite queue -> audiobook pipeline
+#   -> direct TTS engine -> audio + EPUB3 chapter artifacts
+#
+# System dependencies:
+#   - ffmpeg / ffprobe for audio concatenation, normalization, and conversion
+#   - For TTS_ENGINE=xtts_gpu, install the XTTS runtime repo requirements from
+#     models/XTTSv2-Finetuning-for-New-Languages as done by scripts/colab_runner.ipynb.
 
-# --- Core Framework & UI ---
-streamlit>=1.44.0
-python-dotenv>=1.0.0
-asyncio>=3.4.3
+# --- API, UI, and configuration ---
+fastapi>=0.109,<1.0
+uvicorn>=0.27,<1.0
+streamlit>=1.44,<2.0
+python-dotenv>=1.0,<2.0
+python-multipart>=0.0.9,<1.0
+pydantic>=2.5,<3.0
+requests>=2.31,<3.0
+httpx>=0.26,<1.0
 
-# --- AI & NLP ---
+# --- Document parsing and text cleanup ---
+ebooklib>=0.18,<1.0
+beautifulsoup4>=4.12,<5.0
+lxml>=4.9,<6.0
+PyMuPDF>=1.23,<2.0
+underthesea>=6.8,<7.0
+vinorm>=2.0,<3.0
+
+# --- ML/NLP and voice matching ---
 # Keep torch, torchaudio, and torchcodec on the same compatibility line.
-# For the CUDA 13.0 runner in scripts/colab_runner.ipynb, use:
+# Colab CUDA install is handled explicitly in scripts/colab_runner.ipynb, e.g.:
 #   pip install --index-url https://download.pytorch.org/whl/cu130 \
 #     torch==2.11.0+cu130 torchaudio==2.11.0+cu130 torchcodec==0.11.1
 torch>=2.11,<2.12
 torchaudio>=2.11,<2.12
 torchcodec>=0.11,<0.12
-transformers>=4.36.0
-sentence-transformers>=2.2.2
-huggingface_hub>=0.23.0
-qdrant-client>=1.7.0
-numpy>=1.24.0
-scipy>=1.10.0
-# Optional for TTS_ENGINE=vieneu: pip install vieneu
+transformers>=4.36,<5.0
+sentence-transformers>=2.2,<4.0
+huggingface_hub>=0.23,<1.0
+qdrant-client>=1.7,<2.0
+numpy>=1.24,<3.0
+scipy>=1.10,<2.0
 
-# --- Document Parsing ---
-ebooklib>=0.18
-beautifulsoup4>=4.12.0
-lxml>=4.9.0
-PyMuPDF>=1.23.0
+# --- Optional TTS service / worker mode ---
+redis>=5.0,<6.0
+rq>=1.15,<2.0
 
-# --- Audio Processing ---
-# System dependency: ffmpeg must be installed (apt install ffmpeg / brew install ffmpeg)
-pydub>=0.25.1
-# Direct XTTS runtime follows models/XTTSv2.ipynb. Clone XTTSv2-Finetuning-for-New-Languages
-# and install that repo's requirements for production GPU inference.
+# --- Audio helpers ---
+pydub>=0.25,<1.0
 
-# --- Backend API (Audiobook Service) ---
-fastapi>=0.109.0
-uvicorn>=0.27.0
-pydantic>=2.5.0
-python-multipart>=0.0.9
-
-# --- Utilities & Testing ---
-httpx>=0.26.0
-pytest>=7.4.0
-tqdm>=4.66.0
-pathlib>=1.0.1
-requests>=2.31.0
-python-magic>=0.4.27  # Useful for file type detection
+# --- Testing and notebooks ---
+pytest>=7.4,<10.0
+tqdm>=4.66,<5.0
