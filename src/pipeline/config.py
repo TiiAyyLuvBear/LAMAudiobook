@@ -62,7 +62,7 @@ class PipelineConfig:
     xtts_config_path: Optional[str] = None
     xtts_vocab_path: Optional[str] = None
     xtts_voice_dir: str = "data/voice_samples"
-    vieneu_model_name: str = "pnnbao-ump/VieNeu-TTS-v2"
+    vieneu_model_name: str = "pnnbao-ump/VieNeu-TTS-0.3B"
     vieneu_mode: str = "standard"
     vieneu_emotion: str = "storytelling"
     vieneu_api_base: Optional[str] = None

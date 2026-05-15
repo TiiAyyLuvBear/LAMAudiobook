@@ -9,6 +9,7 @@ class VieNeuEngine(BaseTTSEngine):
     Automatically downloads the model from HuggingFace via the `vieneu` package.
     """
     _instance = None
+    _instance_key = None
     _voices_cache = {}
     _preset_voice_map = {
         "female_hn_01": "Ngoc",
@@ -25,7 +26,7 @@ class VieNeuEngine(BaseTTSEngine):
     def __init__(
         self,
         mode: str = "standard",
-        model_name: str = "pnnbao-ump/VieNeu-TTS-v2",
+        model_name: str = "pnnbao-ump/VieNeu-TTS-0.3B",
         emotion: str = "storytelling",
         api_base: Optional[str] = None,
         voice_dir: str = "data/voice_samples",
@@ -36,7 +37,7 @@ class VieNeuEngine(BaseTTSEngine):
         self.emotion = emotion
         self.api_base = api_base
         self.voice_dir = Path(voice_dir)
-        self.device = (device or os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE") or "auto").lower()
+        self.device = self._normalize_device(device or os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE") or "auto")
         self.enable_voice_cloning = os.getenv("VIENEU_ENABLE_VOICE_CLONING", "0").lower() in {"1", "true", "yes"}
         self.reference_text = os.getenv(
             "VIENEU_REFERENCE_TEXT",
@@ -44,18 +45,43 @@ class VieNeuEngine(BaseTTSEngine):
         )
         self._load_tts()
 
+    @staticmethod
+    def _normalize_device(device: str) -> str:
+        requested = (device or "auto").strip().lower()
+        if requested in {"gpu", "cuda:0"}:
+            return "cuda"
+        return requested
+
+    @staticmethod
+    def _cuda_available() -> bool:
+        try:
+            import torch
+
+            return torch.cuda.is_available()
+        except Exception:
+            return False
+
     def _load_tts(self):
-        if VieNeuEngine._instance is None:
+        instance_key = (self.mode, self.model_name, self.emotion, self.api_base, self.device)
+        if VieNeuEngine._instance is None or VieNeuEngine._instance_key != instance_key:
             try:
                 from vieneu import Vieneu
+                if self.device == "cuda" and not self._cuda_available():
+                    raise RuntimeError("VIENEU_DEVICE=cuda was requested but CUDA is not available.")
                 print(
                     f"[VieNeu] Initializing VieNeu TTS engine mode={self.mode} "
-                    f"model={self.model_name} emotion={self.emotion}..."
+                    f"model={self.model_name} emotion={self.emotion} device={self.device}..."
                 )
-                # The SDK automatically downloads models from HuggingFace on first use.
-                base_variants = [{"emotion": self.emotion}]
+                # VieNeu SDK >=1.2 uses backbone_repo/backbone_device. Older builds used
+                # model_name/device, so keep those as fallbacks after the preferred forms.
+                base_variants = [
+                    {"emotion": self.emotion, "backbone_device": self.device},
+                    {"emotion": self.emotion, "device": self.device},
+                ]
                 if self.device != "auto":
-                    base_variants.insert(0, {"emotion": self.emotion, "device": self.device})
+                    base_variants.append({"emotion": self.emotion})
+                else:
+                    base_variants = [{"emotion": self.emotion}]
 
                 candidate_kwargs = []
                 for base in base_variants:
@@ -66,10 +92,10 @@ class VieNeuEngine(BaseTTSEngine):
                         candidate_kwargs.append(remote_kwargs)
                     candidate_kwargs.extend(
                         [
-                            {**base, "mode": self.mode, "model_name": self.model_name},
                             {**base, "mode": self.mode, "backbone_repo": self.model_name},
-                            {**base, "model_name": self.model_name},
                             {**base, "backbone_repo": self.model_name},
+                            {**base, "mode": self.mode, "model_name": self.model_name},
+                            {**base, "model_name": self.model_name},
                             base,
                         ]
                     )
@@ -78,6 +104,8 @@ class VieNeuEngine(BaseTTSEngine):
                 for kwargs in candidate_kwargs:
                     try:
                         VieNeuEngine._instance = Vieneu(**kwargs)
+                        VieNeuEngine._instance_key = instance_key
+                        print(f"[VieNeu] Constructor kwargs: {kwargs}")
                         break
                     except TypeError as exc:
                         last_type_error = exc

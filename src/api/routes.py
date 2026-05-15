@@ -71,7 +71,7 @@ async def audiobook_generation_handler(
             xtts_config_path=os.getenv("XTTS_CONFIG_PATH") or None,
             xtts_vocab_path=os.getenv("XTTS_VOCAB_PATH") or None,
             xtts_voice_dir=os.getenv("XTTS_VOICE_DIR", "data/voice_samples"),
-            vieneu_model_name=os.getenv("VIENEU_MODEL_NAME", "pnnbao-ump/VieNeu-TTS-v2"),
+            vieneu_model_name=os.getenv("VIENEU_MODEL_NAME", "pnnbao-ump/VieNeu-TTS-0.3B"),
             vieneu_mode=os.getenv("VIENEU_MODE", "standard"),
             vieneu_emotion=os.getenv("VIENEU_EMOTION", "storytelling"),
             vieneu_api_base=os.getenv("VIENEU_API_BASE") or None,

@@ -164,7 +164,7 @@ class TTSAgent(BaseAgent):
 
             self._vieneu_engine = VieNeuEngine(
                 mode=self.config.get("vieneu_mode") or os.getenv("VIENEU_MODE", "standard"),
-                model_name=self.config.get("vieneu_model_name") or os.getenv("VIENEU_MODEL_NAME", "pnnbao-ump/VieNeu-TTS-v2"),
+                model_name=self.config.get("vieneu_model_name") or os.getenv("VIENEU_MODEL_NAME", "pnnbao-ump/VieNeu-TTS-0.3B"),
                 emotion=self.config.get("vieneu_emotion") or os.getenv("VIENEU_EMOTION", "storytelling"),
                 api_base=self.config.get("vieneu_api_base") or os.getenv("VIENEU_API_BASE") or None,
                 voice_dir=self.config.get("xtts_voice_dir") or os.getenv("XTTS_VOICE_DIR", "data/voice_samples"),
