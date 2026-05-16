@@ -36,6 +36,8 @@ class TTSAgent(BaseAgent):
         self._vieneu_engine = None
 
     async def run(self, input_data: TTSGeneratorInput) -> AgentResult:
+        if self.engine in {"mock", "dummy"}:
+            return await asyncio.to_thread(self._run_mock_sync, input_data)
         if self.engine in {"xtts", "xtts_gpu", "xtts_cpu", "direct_xtts"}:
             return await asyncio.to_thread(self._run_direct_engine_sync, input_data, self._get_xtts_engine, self.engine)
         if self.engine in {"vieneu", "vieneu_tts", "direct_vieneu"}:
@@ -112,6 +114,48 @@ class TTSAgent(BaseAgent):
                         
                     await asyncio.sleep(2.0)
 
+        except Exception as e:
+            return AgentResult(success=False, error=str(e))
+
+    def _run_mock_sync(self, input_data: TTSGeneratorInput) -> AgentResult:
+        try:
+            output_dir = Path(input_data.output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            audio_segments: List[AudioSegment] = []
+            sample_rate = 16000
+            duration_seconds = 0.1
+            frame_count = int(sample_rate * duration_seconds)
+            silence = b"\x00\x00" * frame_count
+
+            for current, seg in enumerate(input_data.segments, start=1):
+                output_path = output_dir / f"seg_{seg.segment_index:04d}_{seg.voice_id}.wav"
+                with wave.open(str(output_path), "wb") as audio_file:
+                    audio_file.setnchannels(1)
+                    audio_file.setsampwidth(2)
+                    audio_file.setframerate(sample_rate)
+                    audio_file.writeframes(silence)
+                audio_segments.append(
+                    AudioSegment(
+                        file_path=str(output_path),
+                        duration_seconds=duration_seconds,
+                        segment_index=seg.segment_index,
+                        chapter_index=seg.chapter_index,
+                        text=seg.text,
+                        voice_id=seg.voice_id,
+                    )
+                )
+                if self.progress_callback:
+                    self.progress_callback(current, len(input_data.segments), seg.chapter_index)
+
+            return AgentResult(
+                success=True,
+                data=TTSGeneratorOutput(
+                    audio_segments=audio_segments,
+                    total_duration=sum(segment.duration_seconds for segment in audio_segments),
+                    failed_segments=[],
+                    metadata={"engine": "mock"},
+                ),
+            )
         except Exception as e:
             return AgentResult(success=False, error=str(e))
 

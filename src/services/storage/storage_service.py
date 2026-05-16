@@ -34,8 +34,11 @@ class StorageService:
             path.mkdir(parents=True, exist_ok=True)
         return paths
 
-    def input_path(self, job_id: str) -> Path:
-        return self.job_dir(job_id) / "input" / "book.epub"
+    def input_path(self, job_id: str, suffix: str = ".epub") -> Path:
+        suffix = suffix.lower() if suffix else ".epub"
+        if suffix not in {".epub", ".pdf", ".txt"}:
+            suffix = ".epub"
+        return self.job_dir(job_id) / "input" / f"book{suffix}"
 
     def output_path(self, job_id: str, output_format: str = "mp3") -> Path:
         return self.job_dir(job_id) / "output" / f"audiobook.{output_format}"
@@ -46,9 +49,10 @@ class StorageService:
     def log_path(self, job_id: str) -> Path:
         return self.job_dir(job_id) / "logs" / "logs.txt"
 
-    def save_input_file(self, job_id: str, content: bytes) -> str:
+    def save_input_file(self, job_id: str, content: bytes, filename: Optional[str] = None) -> str:
         self.create_job_dirs(job_id)
-        path = self.input_path(job_id)
+        suffix = Path(filename or "").suffix.lower() or ".epub"
+        path = self.input_path(job_id, suffix)
         path.write_bytes(content)
         return str(path)
 

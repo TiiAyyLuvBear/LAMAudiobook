@@ -23,6 +23,7 @@ router = APIRouter(prefix="/api/v1/audiobook", tags=["audiobook"])
 
 queue_service = QueueService()
 storage_service = StorageService()
+SUPPORTED_INPUT_EXTENSIONS = {".epub", ".pdf", ".txt"}
 
 
 class CreateJobResponse(BaseModel):
@@ -126,8 +127,10 @@ async def create_audiobook_job(
     add_chapters: bool = True,
     analysis_enabled: bool = True,
 ):
-    if not file.filename or not file.filename.lower().endswith(".epub"):
-        raise HTTPException(status_code=400, detail="Only .epub uploads are supported")
+    source_filename = Path(file.filename or "").name
+    source_extension = Path(source_filename).suffix.lower()
+    if not source_filename or source_extension not in SUPPORTED_INPUT_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Only .epub, .pdf, and .txt uploads are supported")
     if output_format not in {"mp3", "wav"}:
         raise HTTPException(status_code=400, detail="output_format must be mp3 or wav")
 
@@ -138,17 +141,19 @@ async def create_audiobook_job(
         raise HTTPException(status_code=413, detail="Uploaded file is too large")
 
     job_id = str(uuid.uuid4())
-    input_file = storage_service.save_input_file(job_id, content)
+    input_file = storage_service.save_input_file(job_id, content, filename=source_filename)
     output_dir = str(storage_service.job_dir(job_id) / "output")
     storage_service.save_metadata(
         job_id,
         {
-            "source_filename": Path(file.filename).name,
+            "source_filename": source_filename,
+            "source_extension": source_extension,
+            "detected_input_type": source_extension.lstrip("."),
             "output_format": output_format,
             "status": "pending",
         },
     )
-    storage_service.append_log(job_id, f"Queued upload: {Path(file.filename).name}")
+    storage_service.append_log(job_id, f"Queued upload: {source_filename}")
 
     await queue_service.enqueue(
         "audiobook_generation",

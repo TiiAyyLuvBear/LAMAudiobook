@@ -20,6 +20,11 @@ MAX_FILE_SIZE_MB = int(os.getenv("MAX_UPLOAD_MB", "200"))
 
 STAGES = ["queued", "running", "parsing", "cleaning", "analyzing", "generating", "finalizing", "cancelling", "completed", "failed"]
 STATUS_FILTERS = ["all", "pending", "running", "failed", "completed", "cancelled"]
+UPLOAD_MIME_TYPES = {
+    ".epub": "application/epub+zip",
+    ".pdf": "application/pdf",
+    ".txt": "text/plain",
+}
 
 
 def api_url(path: str) -> str:
@@ -27,11 +32,12 @@ def api_url(path: str) -> str:
 
 
 def create_job(uploaded_file, output_format: str, normalize_audio: bool, add_chapters: bool) -> dict:
+    suffix = Path(uploaded_file.name).suffix.lower()
     files = {
         "file": (
             uploaded_file.name,
             uploaded_file.getvalue(),
-            "application/epub+zip",
+            UPLOAD_MIME_TYPES.get(suffix, "application/octet-stream"),
         )
     }
     params = {
@@ -250,7 +256,7 @@ def main() -> None:
         if remembered:
             st.session_state["job_id"] = remembered.strip()
 
-    uploaded = st.file_uploader("Upload Vietnamese EPUB", type=["epub"])
+    uploaded = st.file_uploader("Upload Vietnamese EPUB/PDF/TXT", type=["epub", "pdf", "txt"])
     if uploaded:
         size_mb = len(uploaded.getvalue()) / 1024 / 1024
         st.info(f"{uploaded.name} - {size_mb:.2f} MB")

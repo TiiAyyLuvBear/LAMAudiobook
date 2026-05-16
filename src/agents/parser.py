@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from .base import BaseAgent, AgentResult
 from schema.pipeline import TextBlock
+from preprocessing.chapter_detector import SourcePage, clean_lines, detect_chapters, text_to_pages
 from ebooklib import epub
 from bs4 import BeautifulSoup
 import re
@@ -49,30 +50,50 @@ class ParserAgent(BaseAgent):
             )
         raise ValueError("ParserInput must be ParserInput or dict")
 
-    def _parse_txt(self, file_path: str) -> List[TextBlock]:
+    def _chapters_to_blocks(self, chapters: List[Any]) -> List[TextBlock]:
+        blocks: List[TextBlock] = []
+        for chapter in chapters:
+            title = getattr(chapter, "title", None) or chapter.get("chapter_title", "")
+            page_start = int(getattr(chapter, "page_start", None) or chapter.get("page_start", 1))
+            if title:
+                blocks.append(TextBlock(text=title, page=page_start, block_type="heading"))
+            paragraphs = getattr(chapter, "paragraphs", None) or chapter.get("paragraphs", [])
+            for paragraph in paragraphs:
+                if isinstance(paragraph, dict):
+                    text = paragraph.get("text", "")
+                    page = int(paragraph.get("page_start", page_start))
+                else:
+                    text = str(paragraph)
+                    page = page_start
+                text = text.strip()
+                if text:
+                    blocks.append(TextBlock(text=text, page=page, block_type="paragraph"))
+        return blocks
+
+    def _parse_txt(self, file_path: str) -> List[Dict[str, Any]]:
         path = Path(file_path)
         text = path.read_text(encoding="utf-8", errors="ignore")
-        paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-        return [TextBlock(text=p, page=1, block_type="paragraph") for p in paragraphs]
+        chapters = detect_chapters(text_to_pages(text), source_type="txt", drop_supplementary=True)
+        return [chapter.to_dict() for chapter in chapters]
 
     def _parse_pdf(self, file_path: str) -> List[Dict[str, Any]]:
         try:
-            from agents.document.parser.pdf_preprocess import preprocess_pdf
+            import fitz
+        except Exception as exc:
+            raise RuntimeError("PyMuPDF is required to parse PDF inputs") from exc
 
-            return preprocess_pdf(file_path)
-        except Exception:
-            # fallback: minimal TXT parse
-            return self._parse_txt_as_chapters(file_path)
+        pages: List[SourcePage] = []
+        with fitz.open(file_path) as document:
+            for page_index, page in enumerate(document, start=1):
+                lines: List[str] = []
+                for block in page.get_text("blocks"):
+                    lines.extend(str(block[4]).splitlines())
+                pages.append(SourcePage(page_number=page_index, lines=clean_lines(lines)))
 
-    def _parse_txt_as_chapters(self, file_path: str) -> List[Dict]:
-        path = Path(file_path)
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        return [
-            {
-                "chapter_title": "Chapter 1",
-                "paragraphs": [{"text": text, "page_start": 1, "page_end": 1}],
-            }
-        ]
+        chapters = detect_chapters(pages, source_type="pdf", drop_supplementary=True)
+        if not chapters:
+            raise RuntimeError("No extractable text found. This PDF may be scanned and needs OCR first.")
+        return [chapter.to_dict() for chapter in chapters]
 
     async def run(self, input_data: ParserInput) -> AgentResult:
         try:
@@ -87,27 +108,25 @@ class ParserAgent(BaseAgent):
 
             if file_type == "pdf":
                 chapters = self._parse_pdf(parsed.file_path)
-                for chapter in chapters:
-                    title = chapter.get("chapter_title", "")
-                    for para in chapter.get("paragraphs", []):
-                        p_text = para.get("text", "").strip()
-                        if not p_text:
-                            continue
-                        page = int(para.get("page_start", 1))
-                        block_type = "heading" if p_text == title else "paragraph"
-                        blocks.append(
-                            TextBlock(text=p_text, page=page, block_type=block_type)
-                        )
+                blocks = self._chapters_to_blocks(chapters)
                 metadata["chapters"] = chapters
                 metadata["total_chapters"] = len(chapters)
+                metadata["source_type"] = "pdf"
+                metadata["chapter_detection"] = "heuristic"
 
             elif file_type in ("txt", "text"):
-                blocks = self._parse_txt(parsed.file_path)
-                metadata["total_chapters"] = 1
+                chapters = self._parse_txt(parsed.file_path)
+                blocks = self._chapters_to_blocks(chapters)
+                metadata["chapters"] = chapters
+                metadata["total_chapters"] = len(chapters)
+                metadata["source_type"] = "txt"
+                metadata["chapter_detection"] = "heuristic"
 
             elif file_type == "epub":
                 blocks = self._extract_epub_blocks(parsed.file_path)
                 metadata["total_chapters"] = 1  # Simplified for now
+                metadata["source_type"] = "epub"
+                metadata["chapter_detection"] = "epub_blocks"
 
             else:
                 raise ValueError(f"Unsupported file_type: {file_type}")
