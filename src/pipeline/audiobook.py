@@ -4,6 +4,8 @@ Audiobook Pipeline — 4-phase parallel pipeline orchestrator.
 
 import logging
 import asyncio
+from dataclasses import asdict, is_dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -89,6 +91,82 @@ class AudiobookPipeline:
         if self._cancel_requested:
             raise asyncio.CancelledError()
 
+    def _to_jsonable(self, value: Any) -> Any:
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, Enum):
+            return value.value
+        if is_dataclass(value):
+            return self._to_jsonable(asdict(value))
+        if isinstance(value, dict):
+            return {str(k): self._to_jsonable(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple, set)):
+            return [self._to_jsonable(item) for item in value]
+        if hasattr(value, "__dict__"):
+            return {
+                key: self._to_jsonable(item)
+                for key, item in vars(value).items()
+                if not key.startswith("_")
+            }
+        return str(value)
+
+    def _record_stage_output(self, stage: str, filename: str, data: Any) -> None:
+        callback = self.config.stage_output_callback
+        if not callback:
+            return
+        try:
+            payload = data if isinstance(data, str) else self._to_jsonable(data)
+            callback(stage, filename, payload)
+        except Exception as exc:
+            logger.warning("Failed to record %s/%s debug output: %s", stage, filename, exc)
+
+    @staticmethod
+    def _blocks_to_text(blocks: List[Any]) -> str:
+        lines: List[str] = []
+        for index, block in enumerate(blocks, start=1):
+            page = getattr(block, "page", "?")
+            block_type = getattr(block, "block_type", "block")
+            text = getattr(block, "text", str(block)).strip()
+            lines.append(f"[{index:04d}] page={page} type={block_type}\n{text}")
+        return "\n\n".join(lines)
+
+    @staticmethod
+    def _chapter_summary(chapter: Any) -> Dict[str, Any]:
+        paragraphs = getattr(chapter, "paragraphs", []) or []
+        plain_text = getattr(chapter, "plain_text", "\n".join(paragraphs))
+        return {
+            "index": getattr(chapter, "index", None),
+            "title": getattr(chapter, "title", None) or getattr(chapter, "chapter_title", None),
+            "paragraph_count": len(paragraphs),
+            "word_count": len(plain_text.split()),
+        }
+
+    @staticmethod
+    def _tts_segment_summary(segment: TTSSegment) -> Dict[str, Any]:
+        return {
+            "segment_index": segment.segment_index,
+            "chapter_index": segment.chapter_index,
+            "voice_id": segment.voice_id,
+            "speaker": segment.speaker,
+            "emotion": segment.emotion,
+            "intensity": segment.intensity,
+            "speed": segment.speed,
+            "text": segment.text,
+        }
+
+    @staticmethod
+    def _audio_segment_summary(segment: AudioSegment) -> Dict[str, Any]:
+        return {
+            "segment_index": segment.segment_index,
+            "chapter_index": segment.chapter_index,
+            "voice_id": segment.voice_id,
+            "duration_seconds": segment.duration_seconds,
+            "file_path": segment.file_path,
+            "text": segment.text,
+        }
+
     # ─────────────────────────────────────────────
     # PHASE 1: Parse  (sequential)
     # ─────────────────────────────────────────────
@@ -112,6 +190,20 @@ class AudiobookPipeline:
             raise RuntimeError(f"Parser failed: {parse_result.error}")
 
         parse_data = parse_result.data
+        self._record_stage_output(
+            "parse",
+            "parser.json",
+            {
+                "metadata": getattr(parse_data, "metadata", {}),
+                "total_pages": getattr(parse_data, "total_pages", 0),
+                "block_count": len(getattr(parse_data, "blocks", []) or []),
+            },
+        )
+        self._record_stage_output(
+            "parse",
+            "blocks.txt",
+            self._blocks_to_text(getattr(parse_data, "blocks", []) or []),
+        )
         self.state.set_stage(PipelineStage.CLEANING)
         self._raise_if_cancelled()
 
@@ -125,6 +217,22 @@ class AudiobookPipeline:
             raise RuntimeError(f"Cleaner failed: {clean_result.error}")
 
         clean_data = clean_result.data
+        self._record_stage_output(
+            "clean",
+            "cleaner.json",
+            {
+                "removed_count": getattr(clean_data, "removed_count", 0),
+                "metadata": getattr(clean_data, "metadata", {}),
+                "cleaned_block_count": len(getattr(clean_data, "cleaned_blocks", []) or []),
+                "chapter_count": len(getattr(clean_data, "chapters", []) or []),
+            },
+        )
+        self._record_stage_output("clean", "plain_text.txt", getattr(clean_data, "plain_text", "") or "")
+        self._record_stage_output(
+            "clean",
+            "chapters.json",
+            [self._chapter_summary(chapter) for chapter in getattr(clean_data, "chapters", []) or []],
+        )
         self.state.set_stage(PipelineStage.ANALYZING)
         self._raise_if_cancelled()
 
@@ -150,6 +258,18 @@ class AudiobookPipeline:
                 raise RuntimeError(f"Summarizer failed: {summarize_result.error}")
 
             ctx = summarize_result.data
+            self._record_stage_output(
+                "summarize",
+                "summarizer.json",
+                {
+                    "keywords": getattr(ctx, "keywords", []),
+                    "entities": getattr(ctx, "entities", []),
+                    "chapter_summaries": getattr(ctx, "chapter_summaries", []),
+                    "primary_mood": getattr(ctx, "primary_mood", ""),
+                    "summary_word_count": len((getattr(ctx, "summary", "") or "").split()),
+                },
+            )
+            self._record_stage_output("summarize", "summary.txt", getattr(ctx, "summary", "") or "")
             self._raise_if_cancelled()
 
             # Step 4: Classifier samples the book for metadata only.
@@ -165,6 +285,17 @@ class AudiobookPipeline:
             if not class_result.success:
                 raise RuntimeError(f"Classifier failed: {class_result.error}")
             class_data = class_result.data
+            self._record_stage_output(
+                "classify",
+                "classifier.json",
+                {
+                    "genre": getattr(class_data, "genre", None),
+                    "mood": getattr(class_data, "mood", None),
+                    "dialogue_ratio": getattr(class_data, "dialogue_ratio", 0.0),
+                    "recommended_voice_style": getattr(class_data, "recommended_voice_style", None),
+                    "sentences": getattr(class_data, "sentences", []),
+                },
+            )
             self._raise_if_cancelled()
 
         return {
@@ -227,10 +358,20 @@ class AudiobookPipeline:
 
         voice_result = results.get("voice")
         memory_result = results.get("memory")
+        voice_data = voice_result.data if voice_result and voice_result.success else None
+        self._record_stage_output(
+            "voice",
+            "voice.json",
+            {
+                "narrator_voice": getattr(voice_data, "narrator_voice", None),
+                "voice_assignments": getattr(voice_data, "voice_assignments", []),
+                "character_emotions": char_emotions,
+            },
+        )
 
         return {
             "classifier": classifier_data,
-            "voice": voice_result.data if voice_result and voice_result.success else None,
+            "voice": voice_data,
             "memory": memory_result.data if memory_result and memory_result.success else None,
             "context": ctx,
         }
@@ -331,6 +472,11 @@ class AudiobookPipeline:
         segments = self._build_tts_segments(parse_data, analyze_data)
         if not segments:
             raise RuntimeError("No TTS segments were produced from cleaned text")
+        self._record_stage_output(
+            "tts",
+            "segments.json",
+            [self._tts_segment_summary(segment) for segment in segments],
+        )
 
         total_chapters = parse_data.get("chapter_count") or max((s.chapter_index for s in segments), default=0)
         self.state.set_chapters(total_chapters)
@@ -422,6 +568,20 @@ class AudiobookPipeline:
             self.state.set_progress(base + span * (completed_segment_count / max(1, len(segments))))
 
         total_duration = sum(segment.duration_seconds for segment in all_audio_segments)
+        self._record_stage_output(
+            "tts",
+            "audio_segments.json",
+            [self._audio_segment_summary(segment) for segment in all_audio_segments],
+        )
+        self._record_stage_output(
+            "tts",
+            "failed_segments.json",
+            {
+                "failed_segments": sorted(set(all_failed_segments)),
+                "chapter_epubs": chapter_epubs,
+                "total_duration": total_duration,
+            },
+        )
         tts_output = type(
             "ChapteredTTSOutput",
             (),
@@ -473,6 +633,16 @@ class AudiobookPipeline:
         if qc_result.success and qc_result.data:
             qc_out = qc_result.data
             retry_segments = list(getattr(qc_out, "retry_segments", []) or [])
+            self._record_stage_output(
+                "qc",
+                "qc.json",
+                {
+                    "passed": getattr(qc_out, "passed", None),
+                    "issues": getattr(qc_out, "issues", []),
+                    "retry_segments": retry_segments,
+                    "quality_score": getattr(qc_out, "quality_score", None),
+                },
+            )
 
         # Step 4.2: Audio finalization
         Path(self.config.output_dir).mkdir(parents=True, exist_ok=True)
@@ -495,6 +665,17 @@ class AudiobookPipeline:
         if not audio_result.success:
             raise RuntimeError(f"Audio finalization failed: {audio_result.error}")
         self._raise_if_cancelled()
+        self._record_stage_output(
+            "audio",
+            "audio.json",
+            {
+                "final_audio_path": getattr(audio_result.data, "final_audio_path", None),
+                "total_duration": getattr(audio_result.data, "total_duration", None),
+                "chapters": getattr(audio_result.data, "chapters", []),
+                "metadata": getattr(audio_result.data, "metadata", {}),
+                "chapter_epubs": gen_data.get("chapter_epubs", []),
+            },
+        )
 
         return {
             "qc": qc_result.data if qc_result else None,

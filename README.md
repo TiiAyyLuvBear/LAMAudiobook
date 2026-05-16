@@ -8,6 +8,7 @@ Streamlit frontend -> FastAPI backend -> SQLite job queue
 ```
 
 Đầu ra gồm file audio tổng (`mp3` hoặc `wav`) và các artifact EPUB3 theo chương, trong đó mỗi câu/segment có audio riêng để nghe trong trình đọc hỗ trợ EPUB3.
+Mỗi job cũng ghi debug outputs theo stage vào `storage/jobs/{job_id}/outputs/` để quan sát dữ liệu các agent tạo ra trong pipeline.
 
 ## Thành Phần Chính
 

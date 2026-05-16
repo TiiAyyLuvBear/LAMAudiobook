@@ -10,6 +10,18 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 
+STAGE_OUTPUT_DIRS = {
+    "parse": "01_parse",
+    "clean": "02_clean",
+    "summarize": "03_summarize",
+    "classify": "04_classify",
+    "voice": "05_voice",
+    "tts": "06_tts",
+    "qc": "07_qc",
+    "audio": "08_audio",
+}
+
+
 class StorageService:
     """Filesystem layout for queued audiobook jobs."""
 
@@ -28,6 +40,7 @@ class StorageService:
             "input": root / "input",
             "segments": root / "segments",
             "output": root / "output",
+            "outputs": root / "outputs",
             "logs": root / "logs",
         }
         for path in paths.values():
@@ -48,6 +61,15 @@ class StorageService:
 
     def log_path(self, job_id: str) -> Path:
         return self.job_dir(job_id) / "logs" / "logs.txt"
+
+    def outputs_dir(self, job_id: str) -> Path:
+        return self.job_dir(job_id) / "outputs"
+
+    def stage_output_dir(self, job_id: str, stage: str) -> Path:
+        stage_dir = STAGE_OUTPUT_DIRS.get(stage, stage)
+        path = self.outputs_dir(job_id) / stage_dir
+        path.mkdir(parents=True, exist_ok=True)
+        return path
 
     def save_input_file(self, job_id: str, content: bytes, filename: Optional[str] = None) -> str:
         self.create_job_dirs(job_id)
@@ -73,6 +95,19 @@ class StorageService:
         self.create_job_dirs(job_id)
         with self.log_path(job_id).open("a", encoding="utf-8") as fh:
             fh.write(message.rstrip() + "\n")
+
+    def save_stage_json(self, job_id: str, stage: str, filename: str, data: Any) -> str:
+        path = self.stage_output_dir(job_id, stage) / filename
+        path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return str(path)
+
+    def save_stage_text(self, job_id: str, stage: str, filename: str, text: str) -> str:
+        path = self.stage_output_dir(job_id, stage) / filename
+        path.write_text(text, encoding="utf-8")
+        return str(path)
 
     def read_logs(self, job_id: str, max_lines: int = 200) -> str:
         path = self.log_path(job_id)

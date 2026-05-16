@@ -83,9 +83,32 @@ Output mỗi job:
 storage/jobs/{job_id}/input/book.epub
 storage/jobs/{job_id}/output/audiobook.mp3
 storage/jobs/{job_id}/output/chapters/
+storage/jobs/{job_id}/outputs/
 storage/jobs/{job_id}/metadata.json
 storage/jobs/{job_id}/logs/logs.txt
 ```
+
+Debug outputs theo stage:
+
+```text
+outputs/
+  01_parse/parser.json
+  01_parse/blocks.txt
+  02_clean/cleaner.json
+  02_clean/plain_text.txt
+  02_clean/chapters.json
+  03_summarize/summarizer.json
+  03_summarize/summary.txt
+  04_classify/classifier.json
+  05_voice/voice.json
+  06_tts/segments.json
+  06_tts/audio_segments.json
+  06_tts/failed_segments.json
+  07_qc/qc.json
+  08_audio/audio.json
+```
+
+Các file này chỉ phục vụ debug/quan sát pipeline nội bộ; API/UI hiện không expose riêng chúng.
 
 ## 4. Frontend Streamlit
 

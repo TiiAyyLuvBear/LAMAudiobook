@@ -58,6 +58,18 @@ async def audiobook_generation_handler(
     output_format = payload.get("output_format", "mp3")
     storage_service.append_log(job_id, "Starting audiobook pipeline")
 
+    def _record_stage_output(stage: str, filename: str, data: Any) -> None:
+        try:
+            if filename.lower().endswith(".txt"):
+                storage_service.save_stage_text(job_id, stage, filename, str(data))
+            else:
+                storage_service.save_stage_json(job_id, stage, filename, data)
+        except Exception as exc:
+            storage_service.append_log(
+                job_id,
+                f"Warning: failed to write debug output {stage}/{filename}: {exc}",
+            )
+
     pipeline = AudiobookPipeline(
         PipelineConfig(
             input_file=payload["input_file"],
@@ -77,6 +89,7 @@ async def audiobook_generation_handler(
             vieneu_emotion=os.getenv("VIENEU_EMOTION", "storytelling"),
             vieneu_api_base=os.getenv("VIENEU_API_BASE") or None,
             vieneu_device=os.getenv("VIENEU_DEVICE", os.getenv("TTS_DEVICE", "auto")),
+            stage_output_callback=_record_stage_output,
         )
     )
 

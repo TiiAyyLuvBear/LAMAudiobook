@@ -2,7 +2,7 @@
 Pipeline configuration and state types.
 """
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 from enum import Enum
 
 
@@ -67,6 +67,7 @@ class PipelineConfig:
     vieneu_emotion: str = "storytelling"
     vieneu_api_base: Optional[str] = None
     vieneu_device: str = "auto"
+    stage_output_callback: Optional[Callable[[str, str, Any], None]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -88,4 +89,5 @@ class PipelineConfig:
             "vieneu_emotion": self.vieneu_emotion,
             "vieneu_api_base": self.vieneu_api_base,
             "vieneu_device": self.vieneu_device,
+            "stage_output_callback": bool(self.stage_output_callback),
         }
