@@ -51,6 +51,7 @@ class PipelineConfig:
     """Configuration for the audiobook pipeline"""
     input_file: str
     output_dir: str
+    source_filename: Optional[str] = None
     output_format: str = "mp3"
     max_retries: int = 3
     normalize_audio: bool = True
@@ -58,6 +59,7 @@ class PipelineConfig:
     analysis_enabled: bool = True
     tts_engine: str = "xtts_gpu"
     tts_device: str = "auto"
+    tts_speaker_mode: str = "single"
     xtts_model_name_or_path: Optional[str] = None
     xtts_config_path: Optional[str] = None
     xtts_vocab_path: Optional[str] = None
@@ -69,10 +71,16 @@ class PipelineConfig:
     vieneu_device: str = "auto"
     stage_output_callback: Optional[Callable[[str, str, Any], None]] = None
 
+    def __post_init__(self) -> None:
+        self.tts_speaker_mode = (self.tts_speaker_mode or "single").strip().lower()
+        if self.tts_speaker_mode not in {"single", "multi"}:
+            raise ValueError("tts_speaker_mode must be 'single' or 'multi'.")
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "input_file": self.input_file,
             "output_dir": self.output_dir,
+            "source_filename": self.source_filename,
             "output_format": self.output_format,
             "max_retries": self.max_retries,
             "normalize_audio": self.normalize_audio,
@@ -80,6 +88,7 @@ class PipelineConfig:
             "analysis_enabled": self.analysis_enabled,
             "tts_engine": self.tts_engine,
             "tts_device": self.tts_device,
+            "tts_speaker_mode": self.tts_speaker_mode,
             "xtts_model_name_or_path": self.xtts_model_name_or_path,
             "xtts_config_path": self.xtts_config_path,
             "xtts_vocab_path": self.xtts_vocab_path,

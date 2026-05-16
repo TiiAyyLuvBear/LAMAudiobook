@@ -11,6 +11,7 @@ DEFAULT_XTTS_RUNTIME_DIR = "models/XTTSv2-Finetuning-for-New-Languages"
 class XTTSEngine(BaseTTSEngine):
     """Production XTTS Engine integrating with local reference wavs"""
     _tts_instances = {}
+    _conditioning_cache = {}
 
     def __init__(
         self,
@@ -38,6 +39,7 @@ class XTTSEngine(BaseTTSEngine):
                 self.device_request,
             ]
         )
+        self._conditioning_cache_key = self.model_cache_key
         self._load_tts()
 
     def _resolve_device(self) -> str:
@@ -199,26 +201,30 @@ class XTTSEngine(BaseTTSEngine):
             import torchaudio
 
             print(f"Synthesizing direct XTTS [Voice: {voice_id}] [Speed: {speed:.1f}]...")
-            gpt_cond_latent, speaker_embedding = self._tts_instance.get_conditioning_latents(
-                audio_path=str(speaker_wav),
-                gpt_cond_len=self._tts_instance.config.gpt_cond_len,
-                max_ref_length=self._tts_instance.config.max_ref_len,
-                sound_norm_refs=self._tts_instance.config.sound_norm_refs,
-            )
+            conditioning_key = (self._conditioning_cache_key, voice_id, str(speaker_wav.resolve()))
+            if conditioning_key not in XTTSEngine._conditioning_cache:
+                XTTSEngine._conditioning_cache[conditioning_key] = self._tts_instance.get_conditioning_latents(
+                    audio_path=str(speaker_wav),
+                    gpt_cond_len=self._tts_instance.config.gpt_cond_len,
+                    max_ref_length=self._tts_instance.config.max_ref_len,
+                    sound_norm_refs=self._tts_instance.config.sound_norm_refs,
+                )
+            gpt_cond_latent, speaker_embedding = XTTSEngine._conditioning_cache[conditioning_key]
             wav_chunks = []
             for chunk in self._preprocess_text(text, "vi"):
                 if not chunk.strip():
                     continue
-                wav_chunk = self._tts_instance.inference(
-                    text=chunk,
-                    language="vi",
-                    gpt_cond_latent=gpt_cond_latent,
-                    speaker_embedding=speaker_embedding,
-                    length_penalty=1.0,
-                    repetition_penalty=10.0,
-                    top_k=10,
-                    top_p=0.5,
-                )
+                with torch.inference_mode():
+                    wav_chunk = self._tts_instance.inference(
+                        text=chunk,
+                        language="vi",
+                        gpt_cond_latent=gpt_cond_latent,
+                        speaker_embedding=speaker_embedding,
+                        length_penalty=1.0,
+                        repetition_penalty=10.0,
+                        top_k=10,
+                        top_p=0.5,
+                    )
                 wav_chunks.append(torch.tensor(wav_chunk["wav"]))
 
             if not wav_chunks:

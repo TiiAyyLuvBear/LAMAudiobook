@@ -40,7 +40,11 @@ def _attach_job_metadata(job_status: Dict[str, Any], include_logs: bool = False)
     metadata = storage_service.load_metadata(job_id) or {}
     result = job_status.get("result") or metadata.get("result") or {}
     job_status["result"] = result or job_status.get("result")
-    job_status["artifacts"] = metadata.get("artifacts", result.get("chapter_epubs", []))
+    artifacts = list(metadata.get("artifacts") or result.get("chapter_epubs", []))
+    book_epub = result.get("book_epub") if isinstance(result, dict) else None
+    if isinstance(book_epub, dict) and not any(artifact.get("type") == "book_epub" for artifact in artifacts):
+        artifacts.append(book_epub)
+    job_status["artifacts"] = artifacts
     job_status["source_filename"] = metadata.get("source_filename")
     job_status["output_format"] = metadata.get("output_format")
     if include_logs:
@@ -74,12 +78,14 @@ async def audiobook_generation_handler(
         PipelineConfig(
             input_file=payload["input_file"],
             output_dir=payload["output_dir"],
+            source_filename=payload.get("source_filename"),
             output_format=output_format,
             normalize_audio=bool(payload.get("normalize_audio", True)),
             add_chapters=bool(payload.get("add_chapters", True)),
             analysis_enabled=bool(payload.get("analysis_enabled", True)),
             tts_engine=os.getenv("TTS_ENGINE", "xtts_gpu"),
             tts_device=os.getenv("TTS_DEVICE", "auto"),
+            tts_speaker_mode=os.getenv("TTS_SPEAKER_MODE", "single"),
             xtts_model_name_or_path=os.getenv("XTTS_MODEL_NAME_OR_PATH") or None,
             xtts_config_path=os.getenv("XTTS_CONFIG_PATH") or None,
             xtts_vocab_path=os.getenv("XTTS_VOCAB_PATH") or None,
@@ -108,6 +114,7 @@ async def audiobook_generation_handler(
         "success": bool(result.get("success")),
         "output_path": result.get("output_path"),
         "chapter_epubs": result.get("chapter_epubs", []),
+        "book_epub": result.get("book_epub"),
         "duration": result.get("duration", 0),
         "chapter_count": result.get("chapter_count", 0),
         "error": result.get("error"),
@@ -174,6 +181,7 @@ async def create_audiobook_job(
             "job_id": job_id,
             "input_file": input_file,
             "output_dir": output_dir,
+            "source_filename": source_filename,
             "output_format": output_format,
             "normalize_audio": normalize_audio,
             "add_chapters": add_chapters,
@@ -226,6 +234,34 @@ async def download_audiobook(job_id: str):
         output_path,
         media_type=media_type,
         filename=Path(output_path).name,
+    )
+
+
+@router.get("/jobs/{job_id}/epub/download")
+async def download_book_epub(job_id: str):
+    job = await queue_service.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != JobStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Job is not completed")
+
+    metadata = storage_service.load_metadata(job_id) or {}
+    artifacts = metadata.get("artifacts", [])
+    match = next((artifact for artifact in artifacts if artifact.get("type") == "book_epub"), None)
+    if not match:
+        result = (job.result or {}) or metadata.get("result") or {}
+        match = result.get("book_epub") if isinstance(result.get("book_epub"), dict) else None
+    if not match:
+        raise HTTPException(status_code=404, detail="Book EPUB3 is not ready")
+
+    epub_path = match.get("path")
+    if not epub_path or not Path(epub_path).exists():
+        raise HTTPException(status_code=404, detail="Book EPUB3 file not found")
+
+    return FileResponse(
+        epub_path,
+        media_type="application/epub+zip",
+        filename=Path(epub_path).name,
     )
 
 

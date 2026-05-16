@@ -21,32 +21,38 @@ VOICES = [
         "voice_id": "female_hn_01",
         "gender": "female",
         "name": "Giọng nữ Hà Nội nhẹ nhàng",
-        "description": "Giọng nữ Hà Nội nhẹ nhàng, dịu dàng, lãng mạn. Rất phù hợp cho truyện ngôn tình, tình cảm, nhẹ nhàng và ấm áp."
+        "description": "Giọng nữ Hà Nội nhẹ nhàng, dịu dàng, lãng mạn, ấm áp. Phù hợp ngôn tình, tình cảm, đời thường, sách có nhịp kể mềm mại."
+    },
+    {
+        "voice_id": "female_hn_02",
+        "gender": "female",
+        "name": "Giọng nữ Hà Nội kể chuyện",
+        "description": "Giọng nữ Hà Nội rõ ràng, trung tính, nhẹ nhàng, phù hợp sách phổ thông, tự sự, tản văn, tri thức nhẹ và kể chuyện dài."
+    },
+    {
+        "voice_id": "female_hcm_01",
+        "gender": "female",
+        "name": "Giọng nữ Sài Gòn tự nhiên",
+        "description": "Giọng nữ Sài Gòn tự nhiên, gần gũi, linh hoạt. Phù hợp sách hiện đại, hội thoại đời thường, nội dung trẻ trung."
     },
     {
         "voice_id": "female_hcm_02",
         "gender": "female",
         "name": "Giọng nữ Sài Gòn vui tươi",
-        "description": "Giọng nữ Sài Gòn trẻ trung, vui vẻ, hào hứng, nhẹ nhàng và vui tươi. Thích hợp truyện thanh xuân, hài hước."
+        "description": "Giọng nữ Sài Gòn trẻ trung, vui vẻ, hào hứng, vui tươi. Thích hợp truyện thanh xuân, hài hước, tích cực."
     },
     {
         "voice_id": "male_hn_01",
         "gender": "male",
         "name": "Giọng nam Hà Nội trầm",
-        "description": "Giọng nam Hà Nội trầm ấm, trang nghiêm, u buồn. Thích hợp đọc truyện chiến tranh, lịch sử, kiếm hiệp, chiêm nghiệm suy ngẫm."
+        "description": "Giọng nam Hà Nội trầm ấm, trang nghiêm, u buồn, chiêm nghiệm. Thích hợp sách chiến tranh, lịch sử, kiếm hiệp, suy ngẫm."
     },
     {
-        "voice_id": "male_hcm_02",
+        "voice_id": "male_hn_02",
         "gender": "male",
-        "name": "Giọng nam Sài Gòn mạnh mẽ",
-        "description": "Giọng nam Sài Gòn mạnh mẽ, kịch tính, huyền bí và căng thẳng. Tuyệt vời cho truyện trinh thám, kinh dị, bí ẩn, hồi hộp."
+        "name": "Giọng nam Hà Nội mạnh mẽ",
+        "description": "Giọng nam Hà Nội mạnh mẽ, kịch tính, căng thẳng, huyền bí. Phù hợp truyện trinh thám, kinh dị, bí ẩn, hồi hộp, hành động."
     },
-    {
-        "voice_id": "child_voice_01",
-        "gender": "child",
-        "name": "Giọng trẻ em",
-        "description": "Giọng trẻ em trong trẻo, ngây thơ, nhẹ nhàng và vui tươi. Phù hợp truyện cổ tích, thiếu nhi."
-    }
 ]
 
 def main():

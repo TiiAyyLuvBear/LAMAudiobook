@@ -126,8 +126,39 @@ class VoiceAgent(BaseAgent):
             outputs = self._model(**inputs)
         return outputs.last_hidden_state.mean(dim=1)
 
+    def _select_voice_by_rules(self, text_context: str) -> Optional[str]:
+        """Pick a narrator voice from explicit genre/mood hints before vector fallback."""
+        normalized = (text_context or "").lower()
+        rules = [
+            (
+                ("trinh thám", "kinh dị", "bí ẩn", "hồi hộp", "kịch tính", "căng thẳng", "mạnh mẽ"),
+                "male_hn_02",
+            ),
+            (
+                ("chiến tranh", "lịch sử", "trang nghiêm", "u buồn", "chiêm nghiệm", "suy ngẫm", "kiếm hiệp"),
+                "male_hn_01",
+            ),
+            (
+                ("hài hước", "vui", "vui tươi", "thanh xuân", "hào hứng", "trẻ trung"),
+                "female_hcm_02",
+            ),
+            (
+                ("ngôn tình", "tình cảm", "lãng mạn", "ấm áp", "dịu dàng"),
+                "female_hn_01",
+            ),
+            (
+                ("nhẹ nhàng", "trung tính", "kể chuyện"),
+                "female_hn_02",
+            ),
+        ]
+        for keywords, voice_id in rules:
+            if any(keyword in normalized for keyword in keywords):
+                return self._safe_voice(voice_id, self.narrator_fallback)
+        return None
+
     def _select_voice_by_vector(self, text_context: str, fallback_voice: str) -> str:
         """Sử dụng Qdrant để tìm voice phù hợp nhất từ Voice DB."""
+        fallback_voice = self._safe_voice(fallback_voice, self.narrator_fallback)
         if self.qdrant is None:
             return fallback_voice
             
@@ -200,9 +231,13 @@ class VoiceAgent(BaseAgent):
         try:
             assignments: List[VoiceAssignment] = []
             
-            # 1. Chọn giọng Narrator dựa trên book_summary và book_mood
+            # 1. Chọn giọng Narrator dựa trên mood/genre trước, rồi mới dùng vector fallback.
             narrator_context = f"Tóm tắt: {input_data.book_summary}. Cảm xúc: {input_data.book_mood}"
-            narrator_voice = self._select_voice_by_vector(narrator_context, self.narrator_fallback)
+            narrator_voice = self._select_voice_by_rules(narrator_context)
+            if narrator_voice:
+                print(f"[VoiceAgent] Rule narrator match: {narrator_voice} for context: '{narrator_context[:80]}...'")
+            else:
+                narrator_voice = self._select_voice_by_vector(narrator_context, self.narrator_fallback)
 
             for speaker in input_data.speakers:
                 if input_data.speaker_mode == "single" or speaker.lower() == "narrator":

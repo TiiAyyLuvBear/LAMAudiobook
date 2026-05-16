@@ -31,7 +31,7 @@ from agents import (
 )
 from schema.audio import TTSSegment, AudioSegment
 from schema.pipeline import Chapter
-from utils.epub3_packager import package_chapter_epub
+from utils.epub3_packager import package_book_epub, package_chapter_epub
 from .config import PipelineConfig, PipelineStage
 from .state import StateManager
 from .executor import ParallelExecutor
@@ -346,7 +346,7 @@ class AudiobookPipeline:
             input_data={
                 "voice": VoiceInput(
                     speakers=(ctx.entities if ctx else ["narrator"]),
-                    speaker_mode="multi",
+                    speaker_mode=self.config.tts_speaker_mode,
                     book_summary=(ctx.summary if ctx else ""),
                     book_mood=(getattr(classifier_data, "recommended_voice_style", None) if classifier_data else None) or (ctx.primary_mood if ctx else "neutral"),
                     character_emotions=char_emotions
@@ -365,6 +365,7 @@ class AudiobookPipeline:
             {
                 "narrator_voice": getattr(voice_data, "narrator_voice", None),
                 "voice_assignments": getattr(voice_data, "voice_assignments", []),
+                "speaker_mode": self.config.tts_speaker_mode,
                 "character_emotions": char_emotions,
             },
         )
@@ -395,8 +396,13 @@ class AudiobookPipeline:
         span = 0.18
         self.state.set_progress(base + span * (current_segment / max(1, total_segments)))
 
-    def _split_tts_text(self, text: str, max_chars: int = 420) -> List[str]:
+    def _split_tts_text(self, text: str, max_chars: Optional[int] = None) -> List[str]:
+        import os
         import re
+
+        if max_chars is None:
+            max_chars = int(os.getenv("TTS_SEGMENT_MAX_CHARS", "420"))
+        pack_sentences = os.getenv("TTS_PACK_SENTENCES", "0").strip().lower() in {"1", "true", "yes", "on"}
 
         def split_long_sentence(sentence: str) -> List[str]:
             if len(sentence) <= max_chars:
@@ -421,10 +427,23 @@ class AudiobookPipeline:
             return chunks or [sentence]
 
         sentences = re.split(r"(?<=[.!?])\s+", text.strip())
-        chunks: List[str] = []
+        sentence_chunks: List[str] = []
         for sentence in [s.strip() for s in sentences if s.strip()]:
-            chunks.extend(split_long_sentence(sentence))
-        return chunks
+            sentence_chunks.extend(split_long_sentence(sentence))
+
+        if not pack_sentences:
+            return sentence_chunks
+
+        packed_chunks: List[str] = []
+        current = ""
+        for chunk in sentence_chunks:
+            if current and len(current) + len(chunk) + 1 > max_chars:
+                packed_chunks.append(current.strip())
+                current = ""
+            current = f"{current} {chunk}".strip()
+        if current:
+            packed_chunks.append(current.strip())
+        return packed_chunks
 
     def _build_tts_segments(self, parse_data: Dict[str, Any], analyze_data: Dict[str, Any]) -> List[TTSSegment]:
         voice_data = analyze_data["voice"]
@@ -450,10 +469,11 @@ class AudiobookPipeline:
                 for chunk in self._split_tts_text(paragraph):
                     meta = classifier_lookup.get(chunk, {})
                     speaker = meta.get("speaker") or "narrator"
+                    voice_id = narrator_voice if self.config.tts_speaker_mode == "single" else voice_map.get(speaker, narrator_voice)
                     segments.append(
                         TTSSegment(
                             text=chunk,
-                            voice_id=voice_map.get(speaker, narrator_voice),
+                            voice_id=voice_id,
                             emotion=meta.get("emotion", "neutral"),
                             intensity=float(meta.get("intensity", 1.0) or 1.0),
                             speed=1.0,
@@ -599,6 +619,8 @@ class AudiobookPipeline:
         return {
             "tts": tts_output,
             "segments": segments,
+            "chapters": parse_data.get("chapters") or [],
+            "book_title": (parse_data.get("metadata") or {}).get("title") or Path(self.config.input_file).stem,
             "chapter_epubs": chapter_epubs,
         }
 
@@ -665,6 +687,24 @@ class AudiobookPipeline:
         if not audio_result.success:
             raise RuntimeError(f"Audio finalization failed: {audio_result.error}")
         self._raise_if_cancelled()
+
+        book_title = gen_data.get("book_title") or Path(self.config.input_file).stem or "Audiobook"
+        source_filename = self.config.source_filename or Path(self.config.input_file).name
+        book_epub = package_book_epub(
+            output_dir=self.config.output_dir,
+            title=book_title,
+            chapters=gen_data.get("chapters", []),
+            audio_segments=audio_segments,
+            output_filename=source_filename,
+        )
+        book_epub_data = {
+            "type": "book_epub",
+            "path": book_epub.epub_path,
+            "chapter_count": book_epub.chapter_count,
+            "segment_count": book_epub.segment_count,
+        }
+        self.state.add_artifact(book_epub_data)
+        self._cleanup_temp_segment_audio(audio_segments, keep_paths=set())
         self._record_stage_output(
             "audio",
             "audio.json",
@@ -674,6 +714,7 @@ class AudiobookPipeline:
                 "chapters": getattr(audio_result.data, "chapters", []),
                 "metadata": getattr(audio_result.data, "metadata", {}),
                 "chapter_epubs": gen_data.get("chapter_epubs", []),
+                "book_epub": book_epub_data,
             },
         )
 
@@ -681,7 +722,22 @@ class AudiobookPipeline:
             "qc": qc_result.data if qc_result else None,
             "audio": audio_result.data,
             "chapter_epubs": gen_data.get("chapter_epubs", []),
+            "book_epub": book_epub_data,
         }
+
+    def _cleanup_temp_segment_audio(self, audio_segments: List[AudioSegment], keep_paths: set[str]) -> None:
+        keep_resolved = {str(Path(path).resolve()) for path in keep_paths}
+        for segment in audio_segments:
+            path = Path(segment.file_path)
+            try:
+                if not path.exists() or str(path.resolve()) in keep_resolved:
+                    continue
+                if path.parent.resolve() != Path(self.config.output_dir).resolve():
+                    continue
+                if path.name.startswith("seg_") and path.suffix.lower() == ".wav":
+                    path.unlink()
+            except Exception as exc:
+                logger.warning("Failed to clean temp audio %s: %s", path, exc)
 
     async def run_analysis(self) -> Dict[str, Any]:
         """Run only the analysis stages (Parse + Clean + Summarize + Classify). Useful for demos."""
@@ -741,6 +797,7 @@ class AudiobookPipeline:
                     else 0
                 ),
                 "chapter_epubs": finalize_data.get("chapter_epubs", []),
+                "book_epub": finalize_data.get("book_epub"),
                 "chapters": parse_data["chapters"],
                 "classify": analyze_data["classifier"],
                 "summarize": analyze_data["context"],

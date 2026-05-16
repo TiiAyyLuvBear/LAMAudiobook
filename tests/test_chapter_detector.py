@@ -2,6 +2,8 @@ import asyncio
 from pathlib import Path
 import sys
 
+from ebooklib import epub
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
 if str(SRC_DIR) not in sys.path:
@@ -94,3 +96,42 @@ def test_parser_detects_chapters_from_sample_pdf():
     assert result.data.metadata["total_chapters"] > 1
     assert any(block.block_type == "heading" for block in result.data.blocks)
     assert any(block.block_type == "paragraph" for block in result.data.blocks)
+
+
+
+def test_parser_epub_skips_frontmatter_and_toc(tmp_path):
+    epub_path = tmp_path / "sample.epub"
+    book = epub.EpubBook()
+    book.set_identifier("sample")
+    book.set_title("Sample")
+    book.set_language("vi")
+
+    toc = epub.EpubHtml(title="Mục lục", file_name="toc.xhtml", lang="vi")
+    toc.set_content(
+        """<html><body><h1>MỤC LỤC</h1><p>Chương 1 ........ 5</p><p>Chương 2 ........ 20</p><p>Chương 3 ........ 40</p><p>Chương 4 ........ 60</p></body></html>""".encode("utf-8")
+    )
+    intro = epub.EpubHtml(title="Giới thiệu", file_name="intro.xhtml", lang="vi")
+    intro.set_content(
+        """<html><body><h1>GIỚI THIỆU</h1><p>Đoạn giới thiệu này không nên đưa vào audiobook.</p></body></html>""".encode("utf-8")
+    )
+    chapter = epub.EpubHtml(title="Chương 1", file_name="chapter1.xhtml", lang="vi")
+    chapter.set_content(
+        """<html><body><h1>Chương 1: Bắt đầu</h1><p>Nội dung chương đầu tiên cần được đọc.</p></body></html>""".encode("utf-8")
+    )
+
+    for item in (toc, intro, chapter):
+        book.add_item(item)
+    book.toc = (chapter,)
+    book.add_item(epub.EpubNcx())
+    book.add_item(epub.EpubNav())
+    book.spine = [toc, intro, chapter]
+    epub.write_epub(str(epub_path), book)
+
+    result = asyncio.run(ParserAgent().run(ParserInput(str(epub_path), "epub")))
+
+    assert result.success
+    parsed_text = "\n".join(block.text for block in result.data.blocks)
+    assert "MỤC LỤC" not in parsed_text
+    assert "Đoạn giới thiệu" not in parsed_text
+    assert "Nội dung chương đầu tiên" in parsed_text
+    assert result.data.metadata["epub_frontmatter_skipped"] >= 2
