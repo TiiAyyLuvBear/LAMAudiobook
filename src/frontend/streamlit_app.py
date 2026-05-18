@@ -8,13 +8,14 @@ import io
 import os
 import re
 import time
+import unicodedata
 import zipfile
 from pathlib import Path
 
 import requests
 import streamlit as st
 import streamlit.components.v1 as components
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from dotenv import load_dotenv
 
 
@@ -366,8 +367,16 @@ def _epub_chapter_entries(epub_bytes: bytes) -> list[tuple[str, str]]:
             soup = BeautifulSoup(zf.read(name), "html.parser")
             title_node = soup.find(["h1", "title"])
             title = title_node.get_text(" ", strip=True) if title_node else Path(name).stem
-            entries.append((title or Path(name).stem, name))
+            entries.append((unicodedata.normalize("NFC", title or Path(name).stem), name))
     return entries
+
+
+def _normalize_soup_text(soup: BeautifulSoup) -> None:
+    for node in soup.find_all(string=True):
+        if isinstance(node, NavigableString):
+            normalized = unicodedata.normalize("NFC", str(node))
+            if normalized != str(node):
+                node.replace_with(normalized)
 
 
 def _chapter_audio_from_epub(zf: zipfile.ZipFile, soup: BeautifulSoup, chapter_path: str) -> tuple[bytes, str] | None:
@@ -391,6 +400,7 @@ def _chapter_audio_from_epub(zf: zipfile.ZipFile, soup: BeautifulSoup, chapter_p
 def _preview_html_from_epub(epub_bytes: bytes, chapter_path: str) -> tuple[str, tuple[bytes, str] | None]:
     with zipfile.ZipFile(io.BytesIO(epub_bytes)) as zf:
         soup = BeautifulSoup(zf.read(chapter_path), "html.parser")
+        _normalize_soup_text(soup)
         audio = _chapter_audio_from_epub(zf, soup, chapter_path)
         for tag in soup.find_all(["script", "audio"]):
             tag.decompose()
@@ -400,15 +410,40 @@ def _preview_html_from_epub(epub_bytes: bytes, chapter_path: str) -> tuple[str, 
             tag.name = "span"
             tag.attrs = {"class": "sentence"}
         body = soup.body.decode_contents() if soup.body else str(soup)
+        body = unicodedata.normalize("NFC", body)
     html_doc = f"""
     <html>
     <head>
       <meta charset="utf-8" />
       <style>
-        body {{ font-family: ui-serif, Georgia, serif; line-height: 1.7; color: #202124; padding: 0 0.25rem; }}
-        h1, h2, h3 {{ font-family: ui-sans-serif, system-ui, sans-serif; line-height: 1.25; }}
-        p {{ margin: 0 0 0.85rem; }}
-        .sentence {{ border-bottom: 1px dotted #b8b8b8; }}
+        :root {{ color-scheme: light; }}
+        body {{
+          margin: 0;
+          padding: 0.25rem 0.5rem 2rem;
+          color: #172033;
+          font-family: "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
+          font-size: 18px;
+          line-height: 1.78;
+          letter-spacing: 0;
+          text-rendering: optimizeLegibility;
+          -webkit-font-smoothing: antialiased;
+        }}
+        h1, h2, h3 {{
+          margin: 0 0 1rem;
+          color: #101828;
+          font-family: "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
+          font-weight: 750;
+          line-height: 1.22;
+          letter-spacing: 0;
+        }}
+        p {{
+          max-width: 72ch;
+          margin: 0 0 1rem;
+        }}
+        .sentence {{
+          border-bottom: 1px dotted #c5cad3;
+          text-decoration: none;
+        }}
       </style>
     </head>
     <body>{body}</body>

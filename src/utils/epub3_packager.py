@@ -7,6 +7,7 @@ from __future__ import annotations
 import html
 import re
 import shutil
+import unicodedata
 import uuid
 import zipfile
 from dataclasses import dataclass
@@ -34,6 +35,14 @@ class BookEpubResult:
     chapter_count: int
     segment_count: int
     audio_files: List[str]
+
+
+def _nfc(value: object) -> str:
+    return unicodedata.normalize("NFC", str(value or ""))
+
+
+def _escape_text(value: object) -> str:
+    return html.escape(_nfc(value).strip())
 
 
 def _sentence_player_script() -> str:
@@ -77,7 +86,8 @@ def _chapter_xhtml(
     chapter_audio_name: str,
     paragraphs: Iterable[str],
 ) -> str:
-    escaped_title = html.escape(title.strip() or f"Chapter {chapter_index}")
+    safe_title = _nfc(title).strip() or f"Chapter {chapter_index}"
+    escaped_title = html.escape(safe_title)
     sentence_spans: List[str] = []
     for segment in sorted(audio_segments, key=lambda s: s.segment_index):
         audio_name = f"seg_{segment.segment_index:04d}.wav"
@@ -85,12 +95,12 @@ def _chapter_xhtml(
         sentence_spans.append(
             f'<a class="sentence" href="{html.escape(href)}" '
             f'data-audio="{html.escape(href)}">'
-            f"{html.escape(segment.text)}</a>"
+            f"{_escape_text(segment.text)}</a>"
         )
     text_blocks = (
         f"<p>{' '.join(sentence_spans)}</p>"
         if sentence_spans
-        else "\n".join(f"<p>{html.escape(p)}</p>" for p in paragraphs if p.strip())
+        else "\n".join(f"<p>{_escape_text(p)}</p>" for p in paragraphs if _nfc(p).strip())
     )
     return f'''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
@@ -153,7 +163,7 @@ def package_book_epub(
     if not segments_by_chapter:
         raise RuntimeError("No audio segments available for full EPUB3")
 
-    book_title = title.strip() or "Audiobook"
+    book_title = _nfc(title).strip() or "Audiobook"
     escaped_book_title = html.escape(book_title)
     book_id = f"urn:uuid:{uuid.uuid4()}"
     manifest_items = ['    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>']
@@ -198,7 +208,7 @@ def package_book_epub(
         chapter_id = f"chapter-{chapter_index:04d}"
         manifest_items.append(f'    <item id="{chapter_id}" href="{chapter_file}" media-type="application/xhtml+xml"/>')
         spine_items.append(f'    <itemref idref="{chapter_id}"/>')
-        nav_items.append(f'      <li><a href="{chapter_file}">{html.escape(str(chapter_title))}</a></li>')
+        nav_items.append(f'      <li><a href="{chapter_file}">{_escape_text(chapter_title)}</a></li>')
         xhtml_files[chapter_file] = _chapter_xhtml(
             title=str(chapter_title),
             chapter_index=chapter_index,
@@ -348,10 +358,10 @@ def package_chapter_epub(
         sentence_spans.append(
             f'<a class="sentence" href="audio/{html.escape(audio_name)}" '
             f'data-audio="audio/{html.escape(audio_name)}">'
-            f"{html.escape(segment.text)}</a>"
+            f"{_escape_text(segment.text)}</a>"
         )
 
-    safe_title = title.strip() or f"Chapter {chapter_index}"
+    safe_title = _nfc(title).strip() or f"Chapter {chapter_index}"
     escaped_title = html.escape(safe_title)
     chapter_audio_name = f"chapter_{chapter_index:04d}.wav"
     chapter_audio_path = audio_dir / chapter_audio_name
@@ -367,7 +377,7 @@ def package_chapter_epub(
     if sentence_spans:
         text_blocks = f"<p>{' '.join(sentence_spans)}</p>"
     else:
-        text_blocks = "\n".join(f"<p>{html.escape(p)}</p>" for p in paragraphs if p.strip())
+        text_blocks = "\n".join(f"<p>{_escape_text(p)}</p>" for p in paragraphs if _nfc(p).strip())
 
     chapter_xhtml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>

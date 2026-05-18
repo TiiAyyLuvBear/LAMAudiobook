@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import unicodedata
 import zipfile
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -40,3 +41,31 @@ def test_package_chapter_epub_uses_windows_safe_chapter_paths(tmp_path):
 
     with zipfile.ZipFile(epub_path) as zf:
         assert "OEBPS/audio/seg_0001.wav" in zf.namelist()
+
+
+def test_package_chapter_epub_normalizes_vietnamese_text_to_nfc(tmp_path):
+    source_audio = tmp_path / "segment.wav"
+    source_audio.write_bytes(b"not-a-real-wav")
+    decomposed_text = unicodedata.normalize("NFD", "Mình chạy đến cây cầu.")
+
+    result = package_chapter_epub(
+        output_dir=tmp_path,
+        chapter_index=1,
+        title=unicodedata.normalize("NFD", "Chương 1: Gặp gỡ"),
+        paragraphs=[decomposed_text],
+        audio_segments=[
+            AudioSegment(
+                file_path=str(source_audio),
+                duration_seconds=1.0,
+                segment_index=1,
+                chapter_index=1,
+                text=decomposed_text,
+            )
+        ],
+    )
+
+    with zipfile.ZipFile(result.epub_path) as zf:
+        chapter_html = zf.read("OEBPS/chapter.xhtml").decode("utf-8")
+
+    assert "Mình chạy đến cây cầu." in chapter_html
+    assert decomposed_text not in chapter_html
