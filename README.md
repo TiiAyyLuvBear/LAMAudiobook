@@ -57,6 +57,33 @@ streamlit run src/frontend/streamlit_app.py --server.port 8501
 
 Mở `http://localhost:8501`, upload EPUB, đợi job hoàn tất rồi tải audio hoặc EPUB3 chapter artifact.
 
+### Local CPU Với VieNeu
+
+Nếu muốn kiểm tra TTS thật bằng CPU, cấu hình `.env` hoặc biến môi trường:
+
+```env
+TTS_ENGINE=vieneu
+TTS_DEVICE=cpu
+VIENEU_DEVICE=cpu
+VIENEU_MODEL_NAME=pnnbao-ump/VieNeu-TTS-v2
+VIENEU_MODE=standard
+VIENEU_EMOTION=storytelling
+VIENEU_ENABLE_VOICE_CLONING=0
+```
+
+Khi chưa cài `ffmpeg`, trong Streamlit nên chọn:
+
+- Định dạng âm thanh: `wav`
+- Tắt `Chuẩn hóa âm lượng`
+
+EPUB3 theo chương và EPUB3 tổng vẫn được tạo từ các audio segment đã sinh. File audio tổng cũng tạo được ở dạng WAV nếu không bật normalize.
+
+### Normalize Audio
+
+Tùy chọn `Chuẩn hóa âm lượng` chạy hậu xử lý bằng `ffmpeg` sau khi TTS đã sinh xong các file WAV segment. Pipeline sẽ ghép segment thành `audiobook_concat.wav`, chuẩn hóa âm lượng, rồi xuất file cuối theo định dạng đã chọn.
+
+Mục đích là làm âm lượng giữa các đoạn/chương đều hơn. Nếu bật normalize hoặc chọn xuất `mp3`, máy local phải có `ffmpeg`/`ffprobe` trong `PATH`; nếu thiếu, job có thể fail ở bước audio finalization với lỗi `ffmpeg not found`.
+
 ## Tài Liệu Theo Component
 
 Xem hướng dẫn chi tiết tại [docs/COMPONENTS.md](docs/COMPONENTS.md):

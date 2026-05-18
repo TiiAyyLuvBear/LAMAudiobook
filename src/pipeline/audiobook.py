@@ -638,6 +638,23 @@ class AudiobookPipeline:
         audio_segments = (
             tts_data.audio_segments if hasattr(tts_data, "audio_segments") else []
         )
+        book_title = gen_data.get("book_title") or Path(self.config.input_file).stem or "Audiobook"
+        source_filename = self.config.source_filename or Path(self.config.input_file).name
+        book_epub = package_book_epub(
+            output_dir=self.config.output_dir,
+            title=book_title,
+            chapters=gen_data.get("chapters", []),
+            audio_segments=audio_segments,
+            output_filename=source_filename,
+        )
+        book_epub_data = {
+            "type": "book_epub",
+            "path": book_epub.epub_path,
+            "chapter_count": book_epub.chapter_count,
+            "segment_count": book_epub.segment_count,
+        }
+        self.state.add_artifact(book_epub_data)
+        self.state.set_status(f"Full EPUB3 ready: {Path(book_epub.epub_path).name}")
 
         # Step 4.1: QC
         qc_result = await self.executor.execute_single(
@@ -688,22 +705,6 @@ class AudiobookPipeline:
             raise RuntimeError(f"Audio finalization failed: {audio_result.error}")
         self._raise_if_cancelled()
 
-        book_title = gen_data.get("book_title") or Path(self.config.input_file).stem or "Audiobook"
-        source_filename = self.config.source_filename or Path(self.config.input_file).name
-        book_epub = package_book_epub(
-            output_dir=self.config.output_dir,
-            title=book_title,
-            chapters=gen_data.get("chapters", []),
-            audio_segments=audio_segments,
-            output_filename=source_filename,
-        )
-        book_epub_data = {
-            "type": "book_epub",
-            "path": book_epub.epub_path,
-            "chapter_count": book_epub.chapter_count,
-            "segment_count": book_epub.segment_count,
-        }
-        self.state.add_artifact(book_epub_data)
         self._cleanup_temp_segment_audio(audio_segments, keep_paths=set())
         self._record_stage_output(
             "audio",

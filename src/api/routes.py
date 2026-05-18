@@ -52,6 +52,20 @@ def _attach_job_metadata(job_status: Dict[str, Any], include_logs: bool = False)
     return job_status
 
 
+def _save_job_metadata(job_id: str, metadata: Dict[str, Any]) -> None:
+    existing = storage_service.load_metadata(job_id) or {}
+    storage_service.save_metadata(job_id, {**existing, **metadata})
+
+
+def _state_log_line(state: Dict[str, Any]) -> str:
+    stage = state.get("stage") or "unknown"
+    message = state.get("status_message") or ""
+    chapter = f"{state.get('current_chapter') or 0}/{state.get('total_chapters') or 0}"
+    segment = f"{state.get('current_segment') or 0}/{state.get('total_segments') or 0}"
+    progress = round(float(state.get("progress") or 0.0) * 100, 1)
+    return f"[{stage}] {progress}% | chapter {chapter} | segment {segment} | {message}".rstrip()
+
+
 async def audiobook_generation_handler(
     payload: Dict[str, Any],
     progress_callback: Callable[[float, Optional[str]], Awaitable[None]],
@@ -61,6 +75,16 @@ async def audiobook_generation_handler(
     job_id = payload["job_id"]
     output_format = payload.get("output_format", "mp3")
     storage_service.append_log(job_id, "Starting audiobook pipeline")
+    storage_service.append_log(
+        job_id,
+        (
+            "Config: "
+            f"TTS_ENGINE={os.getenv('TTS_ENGINE', 'xtts_gpu')}, "
+            f"TTS_DEVICE={os.getenv('TTS_DEVICE', 'auto')}, "
+            f"VIENEU_DEVICE={os.getenv('VIENEU_DEVICE', os.getenv('TTS_DEVICE', 'auto'))}, "
+            f"output_format={output_format}"
+        ),
+    )
 
     def _record_stage_output(stage: str, filename: str, data: Any) -> None:
         try:
@@ -100,16 +124,25 @@ async def audiobook_generation_handler(
     )
 
     task = asyncio.create_task(pipeline.run())
+    last_log_line = ""
     while not task.done():
         if should_cancel():
             pipeline.request_cancel()
         state = pipeline.get_state()
         await state_callback(state)
-        storage_service.save_metadata(job_id, state)
+        _save_job_metadata(job_id, state)
+        log_line = _state_log_line(state)
+        if log_line and log_line != last_log_line:
+            storage_service.append_log(job_id, log_line)
+            last_log_line = log_line
         await asyncio.sleep(0.5)
 
     result = await task
-    await state_callback(pipeline.get_state())
+    final_state = pipeline.get_state()
+    await state_callback(final_state)
+    final_log_line = _state_log_line(final_state)
+    if final_log_line and final_log_line != last_log_line:
+        storage_service.append_log(job_id, final_log_line)
     safe_result = {
         "success": bool(result.get("success")),
         "output_path": result.get("output_path"),
@@ -120,7 +153,7 @@ async def audiobook_generation_handler(
         "error": result.get("error"),
         "stage": result.get("stage"),
     }
-    storage_service.save_metadata(job_id, {**pipeline.get_state(), "result": safe_result})
+    _save_job_metadata(job_id, {**pipeline.get_state(), "result": safe_result})
 
     if result.get("success"):
         output_path = result.get("output_path")
@@ -242,8 +275,6 @@ async def download_book_epub(job_id: str):
     job = await queue_service.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.status != JobStatus.COMPLETED:
-        raise HTTPException(status_code=400, detail="Job is not completed")
 
     metadata = storage_service.load_metadata(job_id) or {}
     artifacts = metadata.get("artifacts", [])

@@ -226,6 +226,16 @@ def _chapter_epubs(job: dict) -> list[dict]:
     return [artifact for artifact in (job.get("artifacts") or []) if artifact.get("type") == "chapter_epub"]
 
 
+def _book_epub(job: dict) -> dict | None:
+    result = job.get("result") or {}
+    if isinstance(result.get("book_epub"), dict):
+        return result["book_epub"]
+    for artifact in job.get("artifacts") or []:
+        if artifact.get("type") == "book_epub":
+            return artifact
+    return None
+
+
 def render_job_summary(job: dict) -> None:
     status = job.get("status", "unknown")
     stage = job.get("stage") or status
@@ -267,46 +277,65 @@ def _audio_mime(filename: str) -> str:
 
 def render_downloads(job: dict) -> bytes | None:
     result = job.get("result") or {}
-    if job.get("status") != "completed":
-        st.info("Kết quả sẽ xuất hiện khi tác vụ hoàn tất.")
+    has_partial_outputs = bool(_chapter_epubs(job) or _book_epub(job))
+    if job.get("status") != "completed" and not has_partial_outputs:
+        st.info("Kết quả sẽ xuất hiện khi tác vụ hoàn tất từng phần.")
         return None
 
-    audio_response = download_job_audio(job["job_id"])
-    if audio_response.ok:
-        filename = Path(result.get("output_path") or "audiobook.mp3").name
-        mime = _audio_mime(filename)
-        st.audio(audio_response.content, format=mime)
-        st.download_button(
-            "Tải âm thanh",
-            data=audio_response.content,
-            file_name=filename,
-            mime=mime,
-            use_container_width=True,
-        )
-    else:
-        st.warning("Tác vụ đã hoàn tất nhưng chưa tìm thấy tệp âm thanh.")
+    if job.get("status") == "completed":
+        audio_response = download_job_audio(job["job_id"])
+        if audio_response.ok:
+            filename = Path(result.get("output_path") or "audiobook.mp3").name
+            mime = _audio_mime(filename)
+            st.audio(audio_response.content, format=mime)
+            st.download_button(
+                "Tải âm thanh",
+                data=audio_response.content,
+                file_name=filename,
+                mime=mime,
+                use_container_width=True,
+            )
+        else:
+            st.warning("Tác vụ đã hoàn tất nhưng chưa tìm thấy tệp âm thanh.")
+    elif has_partial_outputs:
+        st.info("Âm thanh tổng sẽ xuất hiện khi bước hoàn thiện kết thúc.")
 
     epub_bytes = None
-    epub_response = download_job_epub(job["job_id"])
-    if epub_response.ok:
-        epub_bytes = epub_response.content
-        book_epub = result.get("book_epub") or {}
-        epub_filename = Path(book_epub.get("path") or "audiobook.epub").name
-        st.download_button(
-            "Tải EPUB3",
-            data=epub_bytes,
-            file_name=epub_filename,
-            mime="application/epub+zip",
-            use_container_width=True,
-        )
+    book_epub = _book_epub(job)
+    if book_epub:
+        epub_response = download_job_epub(job["job_id"])
+        if epub_response.ok:
+            epub_bytes = epub_response.content
+            epub_filename = Path(book_epub.get("path") or "audiobook.epub").name
+            st.download_button(
+                "Tải EPUB3 tổng",
+                data=epub_bytes,
+                file_name=epub_filename,
+                mime="application/epub+zip",
+                use_container_width=True,
+            )
+        else:
+            st.warning("Đã có thông tin EPUB3 tổng nhưng chưa tải được tệp.")
+    elif job.get("status") == "completed":
+        epub_response = download_job_epub(job["job_id"])
+        if epub_response.ok:
+            epub_bytes = epub_response.content
+            book_epub = result.get("book_epub") or {}
+            epub_filename = Path(book_epub.get("path") or "audiobook.epub").name
+            st.download_button(
+                "Tải EPUB3 tổng",
+                data=epub_bytes,
+                file_name=epub_filename,
+                mime="application/epub+zip",
+                use_container_width=True,
+            )
     else:
-        artifacts = job.get("artifacts") or []
-        if any(artifact.get("type") == "book_epub" for artifact in artifacts) or result.get("book_epub"):
-            st.warning("Tác vụ đã hoàn tất nhưng chưa tìm thấy tệp EPUB3.")
+        st.info("EPUB3 tổng sẽ xuất hiện sau khi các chương đã sinh xong.")
 
     chapter_epubs = _chapter_epubs(job)
     if chapter_epubs:
-        with st.expander("EPUB theo từng chương", expanded=False):
+        st.caption(f"Đã sẵn sàng {len(chapter_epubs)} EPUB chương.")
+        with st.expander("EPUB theo từng chương", expanded=True):
             for artifact in sorted(chapter_epubs, key=lambda item: int(item.get("chapter_index") or 0)):
                 chapter_index = int(artifact.get("chapter_index") or 0)
                 title = artifact.get("title") or f"Chương {chapter_index}"
@@ -322,6 +351,8 @@ def render_downloads(job: dict) -> bytes | None:
                         mime="application/epub+zip",
                         use_container_width=True,
                     )
+                else:
+                    st.caption(f"Chương {chapter_index}: chưa tải được tệp.")
     return epub_bytes
 
 
