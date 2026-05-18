@@ -278,8 +278,11 @@ def _epub_filename(filename: str | None, fallback_stem: str) -> str:
     return f"{fallback_stem}.epub"
 
 
-def _slug(value: str, fallback: str) -> str:
-    value = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-")
+def _slug(value: str, fallback: str, max_length: int = 80) -> str:
+    value = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-._ ")
+    value = re.sub(r"-{2,}", "-", value)
+    value = re.sub(r"\.{2,}", ".", value)
+    value = value[:max_length].rstrip("-._ ")
     return value or fallback
 
 
