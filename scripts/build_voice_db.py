@@ -53,9 +53,14 @@ def main():
     print("Building Qdrant Voice Database...")
     os.makedirs("data", exist_ok=True)
     
-    # 1. Initialize Qdrant Client (Local file-based)
-    # To deploy, simply change this to: QdrantClient(url="YOUR_URL", api_key="YOUR_KEY")
-    client = QdrantClient(path=DB_PATH)
+    # 1. Initialize Qdrant Client
+    qdrant_url = os.getenv("QDRANT_URL")
+    if qdrant_url:
+        print(f"Connecting to Qdrant at {qdrant_url}...")
+        client = QdrantClient(url=qdrant_url)
+    else:
+        print(f"Connecting to Qdrant at local path {DB_PATH}...")
+        client = QdrantClient(path=DB_PATH)
     
     # 2. Recreate Collection
     if client.collection_exists(collection_name=COLLECTION_NAME):

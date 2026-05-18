@@ -1,6 +1,7 @@
 """
 Voice Agent — Assigns TTS voice IDs and prosody to speakers.
 """
+import os
 import hashlib
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -57,8 +58,14 @@ class VoiceAgent(BaseAgent):
         
         if QdrantClient:
             try:
-                print(f"[VoiceAgent] Connecting to Qdrant at {self.db_path}...")
-                self.qdrant = QdrantClient(path=self.db_path)
+                qdrant_url = os.getenv("QDRANT_URL")
+                if qdrant_url:
+                    print(f"[VoiceAgent] Connecting to Qdrant at {qdrant_url}...")
+                    self.qdrant = QdrantClient(url=qdrant_url)
+                else:
+                    print(f"[VoiceAgent] Connecting to Qdrant at local path {self.db_path}...")
+                    self.qdrant = QdrantClient(path=self.db_path)
+                    
                 if self.qdrant.collection_exists(self.collection_name):
                     print(f"[VoiceAgent] Connected to collection '{self.collection_name}'.")
                 else:
@@ -86,8 +93,8 @@ class VoiceAgent(BaseAgent):
                 self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
                 self._model = AutoModel.from_pretrained(self.model_name)
                 self._model.eval()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[VoiceAgent] Error loading model: {e}")
 
     def _get_embedding(self, text: str):
         self._load_model()
@@ -111,14 +118,14 @@ class VoiceAgent(BaseAgent):
             # emb is a tensor if HAS_TORCH is true, so we convert it to list
             query_vector = emb.squeeze().tolist() if hasattr(emb, "squeeze") else emb
             
-            search_result = self.qdrant.search(
+            search_result = self.qdrant.query_points(
                 collection_name=self.collection_name,
-                query_vector=query_vector,
+                query=query_vector,
                 limit=1
             )
-            if search_result:
-                voice_id = search_result[0].payload.get("voice_id", fallback_voice)
-                score = search_result[0].score
+            if search_result.points:
+                voice_id = search_result.points[0].payload.get("voice_id", fallback_voice)
+                score = search_result.points[0].score
                 print(f"[VoiceAgent] Vector match: {voice_id} (score: {score:.3f}) for context: '{text_context[:50]}...'")
                 return voice_id
             else:

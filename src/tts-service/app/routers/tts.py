@@ -15,7 +15,7 @@ q = Queue("tts_queue", connection=redis_conn)
 @router.post("/batch", response_model=JobResponse)
 def enqueue_tts_batch(request: TTSBatchRequest):
     try:
-        job = q.enqueue(synthesize_batch, request.dict(), job_timeout=3600)
+        job = q.enqueue(synthesize_batch, request.dict(), job_timeout=-1)
         return JobResponse(job_id=job.id, status="queued", message="Job enqueued successfully")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

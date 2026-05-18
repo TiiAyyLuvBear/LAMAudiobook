@@ -38,9 +38,9 @@ async def run_test():
     if v_out_multi.success:
         print(">> Multi-Mode Output (Vector Matching):")
         for va in v_out_multi.data.voice_assignments:
-            print(f"   Speaker: {va.speaker:15} -> Voice ID: {va.voice_id}")
+            print(f"   [Trace] Speaker: {va.speaker:15} -> Voice ID: {va.voice_id} | Base Speed: {va.voice_params.get('base_speed', 1.0)}")
     else:
-        print(f"   VoiceAgent Multi failed: {v_out_multi.error}")
+        print(f"   [!] VoiceAgent Multi failed: {v_out_multi.error}")
 
     # 2. Test TTSAgent
     print("\n[2] Testing TTS Agent (Microservice Integration)")

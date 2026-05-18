@@ -56,7 +56,7 @@ class TTSAgent(BaseAgent):
                 "output_dir": str(output_dir)
             }
             
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=300.0) as client:
                 # 1. Enqueue job
                 resp = await client.post(f"{self.service_url}/api/tts/batch", json=payload)
                 resp.raise_for_status()
@@ -98,4 +98,4 @@ class TTSAgent(BaseAgent):
                     await asyncio.sleep(2.0)
 
         except Exception as e:
-            return AgentResult(success=False, error=str(e))
+            return AgentResult(success=False, error=repr(e))

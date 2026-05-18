@@ -177,20 +177,29 @@ class XTTSEngine(BaseTTSEngine):
             try:
                 import torch
                 if not torch.cuda.is_available():
-                    raise RuntimeError("CUDA is not available. XTTS requires CUDA.")
-                print(f"[XTTS] Loading direct XTTS checkpoint to CUDA: {self.model_name_or_path}")
+                    print("[XTTS] CUDA is not available. XTTS will fallback to CPU (may be slow).")
+                    device = "cpu"
+                else:
+                    device = "cuda"
+                    
+                print(f"[XTTS] Loading direct XTTS checkpoint to {device}: {self.model_name_or_path}")
                 model_ref = Path(self.model_name_or_path)
                 if model_ref.exists():
                     tts = self._load_from_local_path(model_ref)
                 else:
                     tts = self._load_from_huggingface(self.model_name_or_path)
-                XTTSEngine._tts_instances[self.model_cache_key] = tts.to("cuda")
+                XTTSEngine._tts_instances[self.model_cache_key] = tts.to(device)
             except Exception as e:
                 raise RuntimeError(f"Failed to load XTTS model: {e}") from e
         self._tts_instance = XTTSEngine._tts_instances[self.model_cache_key]
 
     def synthesize(self, text: str, voice_id: str, speed: float, pitch: float, output_path: str) -> None:
-        speaker_wav = self.voice_dir / f"{voice_id}.wav"
+        if os.path.isfile(voice_id):
+            speaker_wav = Path(voice_id)
+        elif os.path.isfile(voice_id + ".wav"):
+            speaker_wav = Path(voice_id + ".wav")
+        else:
+            speaker_wav = self.voice_dir / f"{voice_id}.wav"
         
         if not speaker_wav.exists():
             raise RuntimeError(f"Reference audio not found for voice_id={voice_id}: {speaker_wav}")
