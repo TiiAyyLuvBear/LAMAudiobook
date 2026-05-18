@@ -26,6 +26,30 @@ storage_service = StorageService()
 SUPPORTED_INPUT_EXTENSIONS = {".epub", ".pdf", ".txt"}
 
 
+def _tts_runtime_info() -> Dict[str, str]:
+    engine = os.getenv("TTS_ENGINE", "xtts_gpu")
+    device = os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE", "auto")
+    model = os.getenv("XTTS_MODEL_NAME_OR_PATH") or "aiMy144/XTTSv2VietAudiobook"
+    lora_adapter = ""
+    mode = ""
+
+    if engine.lower() in {"vieneu", "vieneu_tts", "direct_vieneu"}:
+        model = os.getenv("VIENEU_MODEL_NAME", "pnnbao-ump/VieNeu-TTS-0.3B")
+        device = os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE", "auto")
+        lora_adapter = os.getenv("VIENEU_LORA_ADAPTER", "")
+        mode = os.getenv("VIENEU_MODE", "standard")
+    elif engine.lower() in {"xtts", "xtts_gpu", "direct_xtts"}:
+        device = os.getenv("XTTS_DEVICE") or os.getenv("TTS_DEVICE", "auto")
+
+    return {
+        "engine": engine,
+        "model": model,
+        "device": device,
+        "mode": mode,
+        "lora_adapter": lora_adapter,
+    }
+
+
 class CreateJobResponse(BaseModel):
     job_id: str
     status: str
@@ -47,6 +71,9 @@ def _attach_job_metadata(job_status: Dict[str, Any], include_logs: bool = False)
     job_status["artifacts"] = artifacts
     job_status["source_filename"] = metadata.get("source_filename")
     job_status["output_format"] = metadata.get("output_format")
+    job_status["tts_runtime"] = metadata.get("tts_runtime")
+    result_stats = result.get("pipeline_stats") if isinstance(result, dict) else None
+    job_status["pipeline_stats"] = metadata.get("pipeline_stats") or result_stats
     if include_logs:
         job_status["logs"] = storage_service.read_logs(job_id)
     return job_status
@@ -66,6 +93,71 @@ def _state_log_line(state: Dict[str, Any]) -> str:
     return f"[{stage}] {progress}% | chapter {chapter} | segment {segment} | {message}".rstrip()
 
 
+def _format_seconds(value: Any) -> str:
+    try:
+        seconds = float(value or 0.0)
+    except (TypeError, ValueError):
+        seconds = 0.0
+    return f"{seconds:.2f}s"
+
+
+def _build_pipeline_report(job_id: str) -> str:
+    metadata = storage_service.load_metadata(job_id) or {}
+    stats = metadata.get("pipeline_stats") or (metadata.get("result") or {}).get("pipeline_stats") or {}
+    logs = storage_service.read_logs(job_id, max_lines=10000)
+    book = stats.get("book") or {}
+    execution = stats.get("execution") or {}
+    tts = stats.get("tts") or metadata.get("tts_runtime") or {}
+    chapters = stats.get("chapters") or []
+
+    lines = [
+        "Audiobook Pipeline Report",
+        f"Job ID: {job_id}",
+        "",
+        "Book",
+        f"- Source: {book.get('source_filename') or metadata.get('source_filename') or '-'}",
+        f"- Format: {book.get('input_format') or metadata.get('source_extension') or '-'} -> {book.get('output_format') or metadata.get('output_format') or '-'}",
+        f"- Title: {book.get('title') or '-'}",
+        f"- Chapters: {book.get('chapter_count') or metadata.get('total_chapters') or 0}",
+        f"- Sentences/segments: {book.get('sentence_count') or metadata.get('total_segments') or 0}",
+        f"- Paragraphs: {book.get('paragraph_count') or 0}",
+        f"- Words: {book.get('word_count') or 0}",
+        f"- Characters: {book.get('character_count') or 0}",
+        "",
+        "TTS",
+        f"- Engine: {tts.get('engine') or '-'}",
+        f"- Model: {tts.get('model') or '-'}",
+        f"- Device: {tts.get('device') or '-'}",
+        f"- LoRA adapter: {tts.get('lora_adapter') or '-'}",
+        f"- Audio duration: {_format_seconds(tts.get('audio_duration_seconds') or (metadata.get('result') or {}).get('duration'))}",
+        "",
+        "Execution",
+        f"- Total wall time: {_format_seconds(execution.get('total_wall_seconds'))}",
+    ]
+
+    stage_seconds = execution.get("stage_wall_seconds") or {}
+    for name, seconds in stage_seconds.items():
+        lines.append(f"- {name}: {_format_seconds(seconds)}")
+
+    lines.extend(["", "Chapters"])
+    if chapters:
+        for chapter in chapters:
+            lines.append(
+                "- "
+                f"{chapter.get('chapter_index')}. {chapter.get('title') or '-'} | "
+                f"segments={chapter.get('segment_count') or 0} | "
+                f"words={chapter.get('word_count') or 0} | "
+                f"audio={_format_seconds(chapter.get('audio_duration_seconds'))} | "
+                f"tts_wall={_format_seconds(chapter.get('tts_wall_seconds'))} | "
+                f"status={chapter.get('status') or '-'}"
+            )
+    else:
+        lines.append("- No chapter timing data available.")
+
+    lines.extend(["", "Logs", logs or "-"])
+    return "\n".join(lines).rstrip() + "\n"
+
+
 async def audiobook_generation_handler(
     payload: Dict[str, Any],
     progress_callback: Callable[[float, Optional[str]], Awaitable[None]],
@@ -82,6 +174,7 @@ async def audiobook_generation_handler(
             f"TTS_ENGINE={os.getenv('TTS_ENGINE', 'xtts_gpu')}, "
             f"TTS_DEVICE={os.getenv('TTS_DEVICE', 'auto')}, "
             f"VIENEU_DEVICE={os.getenv('VIENEU_DEVICE', os.getenv('TTS_DEVICE', 'auto'))}, "
+            f"VIENEU_LORA_ADAPTER={os.getenv('VIENEU_LORA_ADAPTER') or ''}, "
             f"output_format={output_format}"
         ),
     )
@@ -119,6 +212,7 @@ async def audiobook_generation_handler(
             vieneu_emotion=os.getenv("VIENEU_EMOTION", "storytelling"),
             vieneu_api_base=os.getenv("VIENEU_API_BASE") or None,
             vieneu_device=os.getenv("VIENEU_DEVICE", os.getenv("TTS_DEVICE", "auto")),
+            vieneu_lora_adapter=os.getenv("VIENEU_LORA_ADAPTER") or None,
             stage_output_callback=_record_stage_output,
         )
     )
@@ -150,10 +244,18 @@ async def audiobook_generation_handler(
         "book_epub": result.get("book_epub"),
         "duration": result.get("duration", 0),
         "chapter_count": result.get("chapter_count", 0),
+        "pipeline_stats": result.get("pipeline_stats"),
         "error": result.get("error"),
         "stage": result.get("stage"),
     }
-    _save_job_metadata(job_id, {**pipeline.get_state(), "result": safe_result})
+    _save_job_metadata(
+        job_id,
+        {
+            **pipeline.get_state(),
+            "pipeline_stats": result.get("pipeline_stats"),
+            "result": safe_result,
+        },
+    )
 
     if result.get("success"):
         output_path = result.get("output_path")
@@ -203,6 +305,7 @@ async def create_audiobook_job(
             "source_extension": source_extension,
             "detected_input_type": source_extension.lstrip("."),
             "output_format": output_format,
+            "tts_runtime": _tts_runtime_info(),
             "status": "pending",
         },
     )
@@ -248,6 +351,17 @@ async def get_audiobook_job_logs(job_id: str):
     if not await queue_service.get_job(job_id):
         raise HTTPException(status_code=404, detail="Job not found")
     return storage_service.read_logs(job_id)
+
+
+@router.get("/jobs/{job_id}/report/download", response_class=PlainTextResponse)
+async def download_audiobook_job_report(job_id: str):
+    if not await queue_service.get_job(job_id):
+        raise HTTPException(status_code=404, detail="Job not found")
+    return PlainTextResponse(
+        _build_pipeline_report(job_id),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="pipeline_report_{job_id}.txt"'},
+    )
 
 
 @router.get("/jobs/{job_id}/download")

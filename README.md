@@ -66,10 +66,20 @@ TTS_ENGINE=vieneu
 TTS_DEVICE=cpu
 VIENEU_DEVICE=cpu
 VIENEU_MODEL_NAME=pnnbao-ump/VieNeu-TTS-v2
+VIENEU_LORA_ADAPTER=
 VIENEU_MODE=standard
 VIENEU_EMOTION=storytelling
 VIENEU_ENABLE_VOICE_CLONING=0
 ```
+
+Nếu dùng LoRA finetune, giữ `VIENEU_MODEL_NAME` là VieNeu base PyTorch model và đặt adapter vào `VIENEU_LORA_ADAPTER`, ví dụ:
+
+```env
+VIENEU_MODEL_NAME=pnnbao-ump/VieNeu-TTS-v2
+VIENEU_LORA_ADAPTER=anyu205/VieNeu-TTS-v2-lora
+```
+
+LoRA adapter không chạy với GGUF; nếu muốn chạy GGUF trên CPU thì cần merge/export model hoàn chỉnh trước.
 
 Khi chưa cài `ffmpeg`, trong Streamlit nên chọn:
 

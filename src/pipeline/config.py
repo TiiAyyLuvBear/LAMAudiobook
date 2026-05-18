@@ -69,6 +69,7 @@ class PipelineConfig:
     vieneu_emotion: str = "storytelling"
     vieneu_api_base: Optional[str] = None
     vieneu_device: str = "auto"
+    vieneu_lora_adapter: Optional[str] = None
     stage_output_callback: Optional[Callable[[str, str, Any], None]] = None
 
     def __post_init__(self) -> None:
@@ -98,5 +99,6 @@ class PipelineConfig:
             "vieneu_emotion": self.vieneu_emotion,
             "vieneu_api_base": self.vieneu_api_base,
             "vieneu_device": self.vieneu_device,
+            "vieneu_lora_adapter": self.vieneu_lora_adapter,
             "stage_output_callback": bool(self.stage_output_callback),
         }

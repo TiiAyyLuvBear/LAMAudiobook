@@ -86,6 +86,12 @@ def list_jobs(limit: int = 50) -> dict:
     return response.json()
 
 
+def get_health() -> dict:
+    response = requests.get(api_url("/health"), timeout=10)
+    response.raise_for_status()
+    return response.json()
+
+
 def cancel_job(job_id: str) -> dict:
     response = requests.delete(api_url(f"/api/v1/audiobook/jobs/{job_id}"), timeout=60)
     response.raise_for_status()
@@ -100,6 +106,10 @@ def download_job_epub(job_id: str) -> requests.Response:
     return requests.get(api_url(f"/api/v1/audiobook/jobs/{job_id}/epub/download"), timeout=60)
 
 
+def download_job_report(job_id: str) -> requests.Response:
+    return requests.get(api_url(f"/api/v1/audiobook/jobs/{job_id}/report/download"), timeout=60)
+
+
 def _short_id(job_id: str) -> str:
     return job_id[:8]
 
@@ -111,6 +121,55 @@ def _label(value: str | None) -> str:
 def _selected_status_value(label: str) -> str:
     reverse = {_label(value): value for value in STATUS_FILTERS}
     return reverse.get(label, "all")
+
+
+def _display_value(value: str | None) -> str:
+    value = (value or "").strip()
+    return value if value else "-"
+
+
+def _format_seconds(value) -> str:
+    try:
+        seconds = float(value or 0.0)
+    except (TypeError, ValueError):
+        seconds = 0.0
+    if seconds >= 3600:
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        return f"{hours}g {minutes}p"
+    if seconds >= 60:
+        minutes = int(seconds // 60)
+        remain = seconds % 60
+        return f"{minutes}p {remain:.0f}s"
+    return f"{seconds:.1f}s"
+
+
+def _format_tts_runtime(tts: dict | None) -> str:
+    if not tts:
+        return "TTS: -"
+    parts = [
+        f"Engine: {_display_value(tts.get('engine'))}",
+        f"Model: {_display_value(tts.get('model'))}",
+        f"Device: {_display_value(tts.get('device'))}",
+    ]
+    if tts.get("lora_adapter"):
+        parts.append(f"LoRA: {tts['lora_adapter']}")
+    return " | ".join(parts)
+
+
+def render_tts_runtime(tts: dict | None) -> None:
+    st.subheader("TTS đang dùng")
+    if not tts:
+        st.caption("Chưa đọc được cấu hình TTS từ backend.")
+        return
+
+    st.metric("Engine", _display_value(tts.get("engine")))
+    st.caption(f"Model: {_display_value(tts.get('model'))}")
+    st.caption(f"Thiết bị: {_display_value(tts.get('device'))}")
+    if tts.get("mode"):
+        st.caption(f"Chế độ: {tts['mode']}")
+    if tts.get("lora_adapter"):
+        st.caption(f"LoRA: {tts['lora_adapter']}")
 
 
 def _status_badge(container, status: str) -> None:
@@ -253,6 +312,47 @@ def render_job_summary(job: dict) -> None:
     segment_total = int(job.get("total_segments") or 0)
     segment_current = int(job.get("current_segment") or 0)
     c4.metric("Câu", f"{segment_current}/{segment_total}" if segment_total else "-")
+
+    tts_runtime = job.get("tts_runtime")
+    if tts_runtime:
+        st.caption(_format_tts_runtime(tts_runtime))
+
+    stats = job.get("pipeline_stats") or {}
+    execution = stats.get("execution") or {}
+    book = stats.get("book") or {}
+    if stats:
+        st.divider()
+        st.subheader("Thống kê pipeline")
+        e1, e2, e3, e4 = st.columns(4)
+        e1.metric("Tổng thời gian", _format_seconds(execution.get("total_wall_seconds")))
+        e2.metric("Số chương", book.get("chapter_count") or job.get("total_chapters") or "-")
+        e3.metric("Số câu", book.get("sentence_count") or job.get("total_segments") or "-")
+        e4.metric("Số từ", book.get("word_count") or "-")
+
+        stage_seconds = execution.get("stage_wall_seconds") or {}
+        if stage_seconds:
+            st.caption(
+                " | ".join(
+                    f"{name}: {_format_seconds(seconds)}"
+                    for name, seconds in stage_seconds.items()
+                )
+            )
+
+        chapters = stats.get("chapters") or []
+        if chapters:
+            rows = [
+                {
+                    "Chương": chapter.get("chapter_index"),
+                    "Tiêu đề": chapter.get("title"),
+                    "Câu": chapter.get("segment_count"),
+                    "Từ": chapter.get("word_count"),
+                    "Audio": _format_seconds(chapter.get("audio_duration_seconds")),
+                    "Thực thi TTS": _format_seconds(chapter.get("tts_wall_seconds")),
+                    "Trạng thái": chapter.get("status"),
+                }
+                for chapter in chapters
+            ]
+            st.dataframe(rows, use_container_width=True, hide_index=True)
 
     if job.get("cancel_requested"):
         st.warning("Đã yêu cầu hủy. Quy trình sẽ dừng ở điểm an toàn gần nhất.")
@@ -480,6 +580,18 @@ def render_logs_tab(job: dict | None) -> None:
     if not job:
         st.info("Chọn một tác vụ để xem nhật ký.")
         return
+    report_response = download_job_report(job["job_id"])
+    if report_response.ok:
+        st.download_button(
+            "Tải log và thống kê pipeline",
+            data=report_response.content,
+            file_name=f"pipeline_report_{job['job_id']}.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+    else:
+        st.warning("Chưa tải được report thống kê.")
+
     logs = job.get("logs") or ""
     if logs:
         st.code(logs, language="")
@@ -506,8 +618,16 @@ def main() -> None:
     st.title("Audiobook AI")
     st.caption(f"Máy chủ: {API_BASE_URL}")
 
+    health_payload = None
+    try:
+        health_payload = get_health()
+    except requests.RequestException:
+        health_payload = None
+
     with st.sidebar:
         st.header("Thiết lập")
+        render_tts_runtime((health_payload or {}).get("tts"))
+        st.divider()
         output_format = st.selectbox("Định dạng âm thanh", ["mp3", "wav"], index=0)
         normalize_audio = st.checkbox("Chuẩn hóa âm lượng", value=True)
         add_chapters = st.checkbox("Gắn mốc chương", value=True)

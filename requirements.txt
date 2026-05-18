@@ -34,8 +34,10 @@ vinorm>=2.0,<3.0
 #     torch==2.11.0+cu130 torchaudio==2.11.0+cu130 torchcodec==0.11.1
 torch>=2.11,<2.12
 torchaudio>=2.11,<2.12
+torchvision>=0.26,<0.27
 torchcodec>=0.11,<0.12
 transformers>=4.36,<5.0
+peft>=0.11,<1.0
 sentence-transformers>=2.2,<4.0
 huggingface_hub>=0.23,<1.0
 qdrant-client>=1.7,<2.0

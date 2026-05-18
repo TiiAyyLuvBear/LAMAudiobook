@@ -4,6 +4,7 @@ Audiobook Pipeline — 4-phase parallel pipeline orchestrator.
 
 import logging
 import asyncio
+import time
 from dataclasses import asdict, is_dataclass
 from enum import Enum
 from pathlib import Path
@@ -55,6 +56,8 @@ class AudiobookPipeline:
         self.state = StateManager()
         self.executor = ParallelExecutor()
         self._cancel_requested = False
+        self._stage_timings: Dict[str, float] = {}
+        self._chapter_timings: List[Dict[str, Any]] = []
 
         # Initialize agents
         self.parser = ParserAgent()
@@ -76,6 +79,7 @@ class AudiobookPipeline:
                 "vieneu_emotion": config.vieneu_emotion,
                 "vieneu_api_base": config.vieneu_api_base,
                 "vieneu_device": config.vieneu_device,
+                "vieneu_lora_adapter": config.vieneu_lora_adapter,
                 "progress_callback": self._on_tts_progress,
             }
         )
@@ -165,6 +169,55 @@ class AudiobookPipeline:
             "duration_seconds": segment.duration_seconds,
             "file_path": segment.file_path,
             "text": segment.text,
+        }
+
+    @staticmethod
+    def _count_sentences(text: str) -> int:
+        import re
+
+        return len([item for item in re.split(r"(?<=[.!?])\s+", (text or "").strip()) if item.strip()])
+
+    def _build_pipeline_stats(
+        self,
+        parse_data: Dict[str, Any],
+        gen_data: Dict[str, Any],
+        finalize_data: Dict[str, Any],
+        total_wall_seconds: float,
+    ) -> Dict[str, Any]:
+        plain_text = parse_data.get("plain_text") or ""
+        chapters = parse_data.get("chapters") or []
+        segments = gen_data.get("segments") or []
+        audio_out = finalize_data.get("audio")
+        source_filename = self.config.source_filename or Path(self.config.input_file).name
+        metadata = parse_data.get("metadata") or {}
+        engine_name = (self.config.tts_engine or "").lower()
+        is_vieneu = engine_name in {"vieneu", "vieneu_tts", "direct_vieneu"}
+
+        return {
+            "execution": {
+                "total_wall_seconds": round(total_wall_seconds, 3),
+                "stage_wall_seconds": {key: round(value, 3) for key, value in self._stage_timings.items()},
+            },
+            "book": {
+                "source_filename": source_filename,
+                "input_format": self._get_file_type(),
+                "output_format": self.config.output_format,
+                "title": metadata.get("title") or Path(source_filename).stem,
+                "chapter_count": len(chapters),
+                "paragraph_count": sum(len(getattr(chapter, "paragraphs", []) or []) for chapter in chapters),
+                "sentence_count": len(segments) or self._count_sentences(plain_text),
+                "word_count": len(plain_text.split()),
+                "character_count": len(plain_text),
+            },
+            "tts": {
+                "engine": self.config.tts_engine,
+                "device": self.config.vieneu_device if is_vieneu else self.config.tts_device,
+                "model": self.config.vieneu_model_name if is_vieneu else self.config.xtts_model_name_or_path,
+                "lora_adapter": self.config.vieneu_lora_adapter,
+                "segment_count": len(segments),
+                "audio_duration_seconds": round(float(getattr(audio_out, "total_duration", 0.0) or 0.0), 3),
+            },
+            "chapters": self._chapter_timings,
         }
 
     # ─────────────────────────────────────────────
@@ -520,6 +573,7 @@ class AudiobookPipeline:
 
         for chapter_index in sorted(segments_by_chapter):
             self._raise_if_cancelled()
+            chapter_started = time.perf_counter()
             chapter_segments = sorted(segments_by_chapter[chapter_index], key=lambda s: s.segment_index)
             self.state.update_chapter(chapter_index)
             self.state.set_status(
@@ -545,11 +599,27 @@ class AudiobookPipeline:
             all_failed_segments.extend(getattr(tts_data, "failed_segments", []) or [])
             completed_segment_count += len(chapter_segments)
             self.state.update_segment(completed_segment_count)
+            chapter_audio_duration = sum(segment.duration_seconds for segment in chapter_audio_segments)
+            chapter = chapters_by_index.get(chapter_index)
+            chapter_title = (
+                getattr(chapter, "title", None)
+                or getattr(chapter, "chapter_title", None)
+                or f"Chapter {chapter_index}"
+            )
+            chapter_timing = {
+                "chapter_index": chapter_index,
+                "title": chapter_title,
+                "segment_count": len(chapter_segments),
+                "audio_segment_count": len(chapter_audio_segments),
+                "word_count": sum(len(segment.text.split()) for segment in chapter_segments),
+                "audio_duration_seconds": round(chapter_audio_duration, 3),
+                "tts_wall_seconds": round(time.perf_counter() - chapter_started, 3),
+                "status": "completed",
+            }
 
             generated_indexes = {segment.segment_index for segment in chapter_audio_segments}
             expected_indexes = {segment.segment_index for segment in chapter_segments}
             if generated_indexes >= expected_indexes:
-                chapter = chapters_by_index.get(chapter_index)
                 title = (
                     getattr(chapter, "title", None)
                     or getattr(chapter, "chapter_title", None)
@@ -579,9 +649,12 @@ class AudiobookPipeline:
             else:
                 missing = sorted(expected_indexes - generated_indexes)
                 all_failed_segments.extend(missing)
+                chapter_timing["status"] = "missing_audio"
+                chapter_timing["missing_segments"] = missing
                 self.state.set_status(
                     f"Chapter {chapter_index}/{total_chapters} has missing audio segments: {missing}"
                 )
+            self._chapter_timings.append(chapter_timing)
 
             base = 0.72
             span = 0.18
@@ -600,6 +673,7 @@ class AudiobookPipeline:
                 "failed_segments": sorted(set(all_failed_segments)),
                 "chapter_epubs": chapter_epubs,
                 "total_duration": total_duration,
+                "chapter_timings": self._chapter_timings,
             },
         )
         tts_output = type(
@@ -612,6 +686,7 @@ class AudiobookPipeline:
                 "metadata": {
                     "chapter_epubs": chapter_epubs,
                     "segment_count": len(segments),
+                    "chapter_timings": self._chapter_timings,
                 },
             },
         )()
@@ -622,6 +697,7 @@ class AudiobookPipeline:
             "chapters": parse_data.get("chapters") or [],
             "book_title": (parse_data.get("metadata") or {}).get("title") or Path(self.config.input_file).stem,
             "chapter_epubs": chapter_epubs,
+            "chapter_timings": self._chapter_timings,
         }
 
     # ─────────────────────────────────────────────
@@ -765,25 +841,41 @@ class AudiobookPipeline:
 
     async def run(self) -> Dict[str, Any]:
         """Execute the full 4-phase pipeline."""
+        pipeline_started = time.perf_counter()
         try:
             # PHASE 1: Parse (sequential)
             self._raise_if_cancelled()
+            phase_started = time.perf_counter()
             parse_data = await self._phase1_parse()
+            self._stage_timings["parse_analyze_text"] = time.perf_counter() - phase_started
 
             # PHASE 2: Analyze (parallel)
             self._raise_if_cancelled()
+            phase_started = time.perf_counter()
             analyze_data = await self._phase2_analyze(parse_data)
+            self._stage_timings["voice_memory"] = time.perf_counter() - phase_started
 
             # PHASE 3: Generate (parallel)
             self._raise_if_cancelled()
+            phase_started = time.perf_counter()
             gen_data = await self._phase3_generate(parse_data, analyze_data)
+            self._stage_timings["tts_generation"] = time.perf_counter() - phase_started
 
             # PHASE 4: Finalize (sequential)
             self._raise_if_cancelled()
+            phase_started = time.perf_counter()
             finalize_data = await self._phase4_finalize(gen_data)
+            self._stage_timings["finalize"] = time.perf_counter() - phase_started
 
             self.state.set_stage(PipelineStage.COMPLETED)
             audio_out = finalize_data["audio"]
+            total_wall_seconds = time.perf_counter() - pipeline_started
+            pipeline_stats = self._build_pipeline_stats(
+                parse_data=parse_data,
+                gen_data=gen_data,
+                finalize_data=finalize_data,
+                total_wall_seconds=total_wall_seconds,
+            )
 
             return {
                 "success": True,
@@ -803,6 +895,7 @@ class AudiobookPipeline:
                 "classify": analyze_data["classifier"],
                 "summarize": analyze_data["context"],
                 "chapter_count": parse_data["chapter_count"],
+                "pipeline_stats": pipeline_stats,
             }
 
         except asyncio.CancelledError:

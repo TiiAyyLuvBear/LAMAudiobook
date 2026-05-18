@@ -213,6 +213,7 @@ class TTSAgent(BaseAgent):
                 api_base=self.config.get("vieneu_api_base") or os.getenv("VIENEU_API_BASE") or None,
                 voice_dir=self.config.get("xtts_voice_dir") or os.getenv("XTTS_VOICE_DIR", "data/voice_samples"),
                 device=self.config.get("vieneu_device") or os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE", "auto"),
+                lora_adapter=self.config.get("vieneu_lora_adapter") or os.getenv("VIENEU_LORA_ADAPTER") or None,
             )
         return self._vieneu_engine
 

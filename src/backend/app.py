@@ -39,6 +39,30 @@ app.add_middleware(
 app.include_router(audiobook_router)
 
 
+def _tts_runtime_info() -> dict:
+    engine = os.getenv("TTS_ENGINE", "xtts_gpu")
+    device = os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE", "auto")
+    model = os.getenv("XTTS_MODEL_NAME_OR_PATH") or "aiMy144/XTTSv2VietAudiobook"
+    lora_adapter = ""
+    mode = ""
+
+    if engine.lower() in {"vieneu", "vieneu_tts", "direct_vieneu"}:
+        model = os.getenv("VIENEU_MODEL_NAME", "pnnbao-ump/VieNeu-TTS-0.3B")
+        device = os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE", "auto")
+        lora_adapter = os.getenv("VIENEU_LORA_ADAPTER", "")
+        mode = os.getenv("VIENEU_MODE", "standard")
+    elif engine.lower() in {"xtts", "xtts_gpu", "direct_xtts"}:
+        device = os.getenv("XTTS_DEVICE") or os.getenv("TTS_DEVICE", "auto")
+
+    return {
+        "engine": engine,
+        "model": model,
+        "device": device,
+        "mode": mode,
+        "lora_adapter": lora_adapter,
+    }
+
+
 @app.on_event("startup")
 async def startup() -> None:
     await queue_service.start()
@@ -46,4 +70,8 @@ async def startup() -> None:
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "healthy", "queue": queue_service.get_queue_stats()}
+    return {
+        "status": "healthy",
+        "queue": queue_service.get_queue_stats(),
+        "tts": _tts_runtime_info(),
+    }

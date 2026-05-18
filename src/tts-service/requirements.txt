@@ -9,7 +9,9 @@ rq>=1.15,<2.0
 
 torch>=2.11,<2.12
 torchaudio>=2.11,<2.12
+torchvision>=0.26,<0.27
 transformers>=4.36,<5.0
+peft>=0.11,<1.0
 huggingface_hub>=0.23,<1.0
 underthesea>=6.8,<7.0
 vinorm>=2.0,<3.0
