@@ -34,6 +34,7 @@ from schema.audio import TTSSegment, AudioSegment
 from schema.pipeline import Chapter
 from utils.epub3_packager import package_book_epub, package_chapter_epub
 from .config import PipelineConfig, PipelineStage
+from .progress import SegmentProgress
 from .state import StateManager
 from .executor import ParallelExecutor
 
@@ -58,6 +59,8 @@ class AudiobookPipeline:
         self._cancel_requested = False
         self._stage_timings: Dict[str, float] = {}
         self._chapter_timings: List[Dict[str, Any]] = []
+        self._segment_timings: List[Dict[str, Any]] = []
+        self._tts_device_diagnostics: Dict[str, Any] = {}
 
         # Initialize agents
         self.parser = ParserAgent()
@@ -175,7 +178,28 @@ class AudiobookPipeline:
     def _count_sentences(text: str) -> int:
         import re
 
-        return len([item for item in re.split(r"(?<=[.!?])\s+", (text or "").strip()) if item.strip()])
+        pattern = r"[^.!?。！？]+[.!?。！？]+(?:[\"'”’)]*)|[^.!?。！？]+$"
+        return len([item.group(0).strip() for item in re.finditer(pattern, (text or "").strip()) if item.group(0).strip()])
+
+    @staticmethod
+    def _rtf_summary(segment_timings: List[Dict[str, Any]]) -> Dict[str, Any]:
+        valid = [item for item in segment_timings if isinstance(item.get("rtf"), (int, float))]
+        if not valid:
+            return {"avg_segment_rtf": None, "max_segment_rtf": None, "slowest_segment": None}
+        slowest = max(valid, key=lambda item: float(item.get("rtf") or 0.0))
+        avg = sum(float(item["rtf"]) for item in valid) / len(valid)
+        return {
+            "avg_segment_rtf": round(avg, 3),
+            "max_segment_rtf": round(float(slowest.get("rtf") or 0.0), 3),
+            "slowest_segment": {
+                "segment_index": slowest.get("segment_index"),
+                "chapter_index": slowest.get("chapter_index"),
+                "rtf": slowest.get("rtf"),
+                "tts_wall_seconds": slowest.get("tts_wall_seconds"),
+                "audio_duration_seconds": slowest.get("audio_duration_seconds"),
+                "text_preview": str(slowest.get("text_preview") or "")[:120],
+            },
+        }
 
     def _build_pipeline_stats(
         self,
@@ -211,11 +235,17 @@ class AudiobookPipeline:
             },
             "tts": {
                 "engine": self.config.tts_engine,
-                "device": self.config.vieneu_device if is_vieneu else self.config.tts_device,
+                "device": self._tts_device_diagnostics.get("resolved_device")
+                or (self.config.vieneu_device if is_vieneu else self.config.tts_device),
+                "requested_device": self._tts_device_diagnostics.get("requested_device")
+                or (self.config.vieneu_device if is_vieneu else self.config.tts_device),
                 "model": self.config.vieneu_model_name if is_vieneu else self.config.xtts_model_name_or_path,
                 "lora_adapter": self.config.vieneu_lora_adapter,
                 "segment_count": len(segments),
                 "audio_duration_seconds": round(float(getattr(audio_out, "total_duration", 0.0) or 0.0), 3),
+                "device_diagnostics": self._tts_device_diagnostics,
+                "segment_timings": self._segment_timings,
+                "rtf_summary": self._rtf_summary(self._segment_timings),
             },
             "chapters": self._chapter_timings,
         }
@@ -402,7 +432,8 @@ class AudiobookPipeline:
                     speaker_mode=self.config.tts_speaker_mode,
                     book_summary=(ctx.summary if ctx else ""),
                     book_mood=(getattr(classifier_data, "recommended_voice_style", None) if classifier_data else None) or (ctx.primary_mood if ctx else "neutral"),
-                    character_emotions=char_emotions
+                    character_emotions=char_emotions,
+                    narrator_voice_override=self.config.narrator_voice_override,
                 ),
                 "memory": MemoryInput(action="clear"),
             },
@@ -419,6 +450,8 @@ class AudiobookPipeline:
                 "narrator_voice": getattr(voice_data, "narrator_voice", None),
                 "voice_assignments": getattr(voice_data, "voice_assignments", []),
                 "speaker_mode": self.config.tts_speaker_mode,
+                "voice_mode": self.config.voice_mode,
+                "narrator_voice_override": self.config.narrator_voice_override,
                 "character_emotions": char_emotions,
             },
         )
@@ -434,69 +467,39 @@ class AudiobookPipeline:
     # PHASE 3: Generate  (parallel)
     # ─────────────────────────────────────────────
 
-    def _on_tts_progress(self, current_segment: int, total_segments: int, chapter_index: int) -> None:
+    def _on_tts_progress(self, event: Dict[str, Any]) -> None:
         self.state.set_stage(PipelineStage.GENERATING)
         self._raise_if_cancelled()
-        self.state.set_segments(total_segments)
-        self.state.update_segment(current_segment)
-        self.state.update_chapter(chapter_index)
-        self.state.set_status(
-            f"Generating TTS segment {current_segment}/{total_segments} "
-            f"(chapter {chapter_index}/{self.state.state.total_chapters or '?'})"
+        chapter_index = int(event.get("chapter_index") or 0)
+        chapter_current = int(event.get("chapter_segment_current") or 0)
+        chapter_total = int(event.get("chapter_segment_total") or 0)
+        global_current = int(event.get("global_segment_current") or 0)
+        global_total = int(event.get("global_segment_total") or 0)
+        progress = SegmentProgress(
+            chapter_index=chapter_index,
+            total_chapters=self.state.state.total_chapters,
+            chapter_completed_segments=chapter_current,
+            chapter_total_segments=chapter_total,
+            completed_segments=global_current,
+            total_segments=global_total,
         )
-        # Keep stage-level progress between analyzing and finalizing while TTS runs.
-        base = 0.72
-        span = 0.18
-        self.state.set_progress(base + span * (current_segment / max(1, total_segments)))
+        self.state.set_global_segments(global_total)
+        self.state.update_global_segment(global_current)
+        self.state.set_chapter_segments(chapter_total)
+        self.state.update_chapter_segment(chapter_current)
+        self.state.update_chapter(chapter_index)
+        self.state.set_status(progress.status())
+        self.state.set_progress(progress.generation_progress())
 
     def _split_tts_text(self, text: str, max_chars: Optional[int] = None) -> List[str]:
-        import os
         import re
 
-        if max_chars is None:
-            max_chars = int(os.getenv("TTS_SEGMENT_MAX_CHARS", "420"))
-        pack_sentences = os.getenv("TTS_PACK_SENTENCES", "0").strip().lower() in {"1", "true", "yes", "on"}
-
-        def split_long_sentence(sentence: str) -> List[str]:
-            if len(sentence) <= max_chars:
-                return [sentence]
-            parts = re.split(r"(?<=[,;:])\s+", sentence)
-            chunks: List[str] = []
-            current = ""
-            for part in [p.strip() for p in parts if p.strip()]:
-                if current and len(current) + len(part) + 1 > max_chars:
-                    chunks.append(current.strip())
-                    current = ""
-                if len(part) > max_chars:
-                    if current:
-                        chunks.append(current.strip())
-                        current = ""
-                    for i in range(0, len(part), max_chars):
-                        chunks.append(part[i : i + max_chars].strip())
-                    continue
-                current = f"{current} {part}".strip()
-            if current:
-                chunks.append(current.strip())
-            return chunks or [sentence]
-
-        sentences = re.split(r"(?<=[.!?])\s+", text.strip())
-        sentence_chunks: List[str] = []
-        for sentence in [s.strip() for s in sentences if s.strip()]:
-            sentence_chunks.extend(split_long_sentence(sentence))
-
-        if not pack_sentences:
-            return sentence_chunks
-
-        packed_chunks: List[str] = []
-        current = ""
-        for chunk in sentence_chunks:
-            if current and len(current) + len(chunk) + 1 > max_chars:
-                packed_chunks.append(current.strip())
-                current = ""
-            current = f"{current} {chunk}".strip()
-        if current:
-            packed_chunks.append(current.strip())
-        return packed_chunks
+        text = (text or "").strip()
+        if not text:
+            return []
+        pattern = r"[^.!?。！？]+[.!?。！？]+(?:[\"'”’)]*)|[^.!?。！？]+$"
+        sentences = [match.group(0).strip() for match in re.finditer(pattern, text)]
+        return [sentence for sentence in sentences if sentence] or [text]
 
     def _build_tts_segments(self, parse_data: Dict[str, Any], analyze_data: Dict[str, Any]) -> List[TTSSegment]:
         voice_data = analyze_data["voice"]
@@ -553,8 +556,10 @@ class AudiobookPipeline:
 
         total_chapters = parse_data.get("chapter_count") or max((s.chapter_index for s in segments), default=0)
         self.state.set_chapters(total_chapters)
-        self.state.set_segments(len(segments))
-        self.state.update_segment(0)
+        self.state.set_global_segments(len(segments))
+        self.state.update_global_segment(0)
+        self.state.set_chapter_segments(0)
+        self.state.update_chapter_segment(0)
         self.state.update_chapter(segments[0].chapter_index if segments else 0)
         self.state.set_status(f"Preparing TTS for {len(segments)} segments across {total_chapters} chapters")
 
@@ -576,6 +581,8 @@ class AudiobookPipeline:
             chapter_started = time.perf_counter()
             chapter_segments = sorted(segments_by_chapter[chapter_index], key=lambda s: s.segment_index)
             self.state.update_chapter(chapter_index)
+            self.state.set_chapter_segments(len(chapter_segments))
+            self.state.update_chapter_segment(0)
             self.state.set_status(
                 f"Generating chapter {chapter_index}/{total_chapters} "
                 f"({len(chapter_segments)} segments)"
@@ -584,7 +591,13 @@ class AudiobookPipeline:
             tts_result = await self.executor.execute_single(
                 "tts",
                 self.tts,
-                TTSGeneratorInput(segments=chapter_segments, output_dir=self.config.output_dir),
+                TTSGeneratorInput(
+                    segments=chapter_segments,
+                    output_dir=self.config.output_dir,
+                    global_total_segments=len(segments),
+                    completed_segment_offset=completed_segment_count,
+                    chapter_total_segments=len(chapter_segments),
+                ),
             )
 
             if not tts_result.success:
@@ -592,13 +605,23 @@ class AudiobookPipeline:
             self._raise_if_cancelled()
 
             tts_data = tts_result.data
+            tts_metadata = getattr(tts_data, "metadata", {}) or {}
+            for timing in tts_metadata.get("segment_timings", []) or []:
+                segment_lookup = {segment.segment_index: segment for segment in chapter_segments}
+                segment = segment_lookup.get(timing.get("segment_index"))
+                if segment:
+                    timing = {**timing, "text_preview": segment.text[:120]}
+                self._segment_timings.append(timing)
+            if tts_metadata.get("device_diagnostics"):
+                self._tts_device_diagnostics = tts_metadata["device_diagnostics"]
             chapter_audio_segments = (
                 tts_data.audio_segments if hasattr(tts_data, "audio_segments") else []
             )
             all_audio_segments.extend(chapter_audio_segments)
             all_failed_segments.extend(getattr(tts_data, "failed_segments", []) or [])
             completed_segment_count += len(chapter_segments)
-            self.state.update_segment(completed_segment_count)
+            self.state.update_global_segment(completed_segment_count)
+            self.state.update_chapter_segment(len(chapter_segments))
             chapter_audio_duration = sum(segment.duration_seconds for segment in chapter_audio_segments)
             chapter = chapters_by_index.get(chapter_index)
             chapter_title = (
@@ -656,9 +679,16 @@ class AudiobookPipeline:
                 )
             self._chapter_timings.append(chapter_timing)
 
-            base = 0.72
-            span = 0.18
-            self.state.set_progress(base + span * (completed_segment_count / max(1, len(segments))))
+            self.state.set_progress(
+                SegmentProgress(
+                    chapter_index=chapter_index,
+                    total_chapters=total_chapters,
+                    chapter_completed_segments=len(chapter_segments),
+                    chapter_total_segments=len(chapter_segments),
+                    completed_segments=completed_segment_count,
+                    total_segments=len(segments),
+                ).generation_progress()
+            )
 
         total_duration = sum(segment.duration_seconds for segment in all_audio_segments)
         self._record_stage_output(
@@ -674,6 +704,7 @@ class AudiobookPipeline:
                 "chapter_epubs": chapter_epubs,
                 "total_duration": total_duration,
                 "chapter_timings": self._chapter_timings,
+                "segment_timings": self._segment_timings,
             },
         )
         tts_output = type(
@@ -687,6 +718,8 @@ class AudiobookPipeline:
                     "chapter_epubs": chapter_epubs,
                     "segment_count": len(segments),
                     "chapter_timings": self._chapter_timings,
+                    "segment_timings": self._segment_timings,
+                    "device_diagnostics": self._tts_device_diagnostics,
                 },
             },
         )()
@@ -730,7 +763,7 @@ class AudiobookPipeline:
             "segment_count": book_epub.segment_count,
         }
         self.state.add_artifact(book_epub_data)
-        self.state.set_status(f"Full EPUB3 ready: {Path(book_epub.epub_path).name}")
+        self.state.set_status(f"Book EPUB3 artifact ready: {Path(book_epub.epub_path).name}")
 
         # Step 4.1: QC
         qc_result = await self.executor.execute_single(
@@ -780,6 +813,8 @@ class AudiobookPipeline:
         if not audio_result.success:
             raise RuntimeError(f"Audio finalization failed: {audio_result.error}")
         self._raise_if_cancelled()
+        final_audio_path = getattr(audio_result.data, "final_audio_path", output_path)
+        self.state.set_status(self._final_audio_message(final_audio_path))
 
         self._cleanup_temp_segment_audio(audio_segments, keep_paths=set())
         self._record_stage_output(
@@ -801,6 +836,14 @@ class AudiobookPipeline:
             "chapter_epubs": gen_data.get("chapter_epubs", []),
             "book_epub": book_epub_data,
         }
+
+    def _final_audio_message(self, output_path: str) -> str:
+        suffix = Path(output_path).suffix.lower().lstrip(".")
+        if suffix == "mp3":
+            return f"MP3 audiobook ready: {Path(output_path).name}"
+        if suffix == "wav":
+            return f"WAV audiobook ready: {Path(output_path).name}"
+        return f"Audiobook ready: {Path(output_path).name}"
 
     def _cleanup_temp_segment_audio(self, audio_segments: List[AudioSegment], keep_paths: set[str]) -> None:
         keep_resolved = {str(Path(path).resolve()) for path in keep_paths}

@@ -42,6 +42,10 @@ class Job:
     total_chapters: int = 0
     current_segment: int = 0
     total_segments: int = 0
+    chapter_segment_current: int = 0
+    chapter_segment_total: int = 0
+    global_segment_current: int = 0
+    global_segment_total: int = 0
     status_message: str = ""
     cancel_requested: bool = False
 
@@ -83,6 +87,10 @@ class QueueService:
                     total_chapters INTEGER NOT NULL DEFAULT 0,
                     current_segment INTEGER NOT NULL DEFAULT 0,
                     total_segments INTEGER NOT NULL DEFAULT 0,
+                    chapter_segment_current INTEGER NOT NULL DEFAULT 0,
+                    chapter_segment_total INTEGER NOT NULL DEFAULT 0,
+                    global_segment_current INTEGER NOT NULL DEFAULT 0,
+                    global_segment_total INTEGER NOT NULL DEFAULT 0,
                     status_message TEXT NOT NULL DEFAULT '',
                     result TEXT,
                     error TEXT,
@@ -102,6 +110,14 @@ class QueueService:
                 conn.execute("ALTER TABLE jobs ADD COLUMN status_message TEXT NOT NULL DEFAULT ''")
             if "cancel_requested" not in columns:
                 conn.execute("ALTER TABLE jobs ADD COLUMN cancel_requested INTEGER NOT NULL DEFAULT 0")
+            for column in (
+                "chapter_segment_current",
+                "chapter_segment_total",
+                "global_segment_current",
+                "global_segment_total",
+            ):
+                if column not in columns:
+                    conn.execute(f"ALTER TABLE jobs ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0")
             conn.commit()
 
     @staticmethod
@@ -125,6 +141,10 @@ class QueueService:
             total_chapters=int(row["total_chapters"]),
             current_segment=int(row["current_segment"]),
             total_segments=int(row["total_segments"]),
+            chapter_segment_current=int(row["chapter_segment_current"]) if "chapter_segment_current" in row.keys() else 0,
+            chapter_segment_total=int(row["chapter_segment_total"]) if "chapter_segment_total" in row.keys() else 0,
+            global_segment_current=int(row["global_segment_current"]) if "global_segment_current" in row.keys() else int(row["current_segment"]),
+            global_segment_total=int(row["global_segment_total"]) if "global_segment_total" in row.keys() else int(row["total_segments"]),
             status_message=row["status_message"] or "",
             cancel_requested=bool(row["cancel_requested"]) if "cancel_requested" in row.keys() else False,
         )
@@ -151,10 +171,12 @@ class QueueService:
                 INSERT INTO jobs (
                     id, job_type, payload, status, progress, stage,
                     current_chapter, total_chapters, current_segment,
-                    total_segments, status_message, cancel_requested, result, error,
+                    total_segments, chapter_segment_current, chapter_segment_total,
+                    global_segment_current, global_segment_total,
+                    status_message, cancel_requested, result, error,
                     created_at, started_at, completed_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     payload=excluded.payload,
                     status=excluded.status,
@@ -164,6 +186,10 @@ class QueueService:
                     total_chapters=excluded.total_chapters,
                     current_segment=excluded.current_segment,
                     total_segments=excluded.total_segments,
+                    chapter_segment_current=excluded.chapter_segment_current,
+                    chapter_segment_total=excluded.chapter_segment_total,
+                    global_segment_current=excluded.global_segment_current,
+                    global_segment_total=excluded.global_segment_total,
                     status_message=excluded.status_message,
                     cancel_requested=excluded.cancel_requested,
                     result=excluded.result,
@@ -182,6 +208,10 @@ class QueueService:
                     job.total_chapters,
                     job.current_segment,
                     job.total_segments,
+                    job.chapter_segment_current,
+                    job.chapter_segment_total,
+                    job.global_segment_current,
+                    job.global_segment_total,
                     job.status_message,
                     1 if job.cancel_requested else 0,
                     json.dumps(job.result, ensure_ascii=False) if job.result else None,
@@ -234,6 +264,18 @@ class QueueService:
             "total_chapters": job.total_chapters,
             "current_segment": job.current_segment,
             "total_segments": job.total_segments,
+            "chapter_segment_current": job.chapter_segment_current,
+            "chapter_segment_total": job.chapter_segment_total,
+            "global_segment_current": job.global_segment_current,
+            "global_segment_total": job.global_segment_total,
+            "chapter_segment": {
+                "current": job.chapter_segment_current,
+                "total": job.chapter_segment_total,
+            },
+            "global_segment": {
+                "current": job.global_segment_current,
+                "total": job.global_segment_total,
+            },
             "status_message": job.status_message,
             "cancel_requested": job.cancel_requested,
             "created_at": job.created_at.isoformat(),
@@ -284,12 +326,17 @@ class QueueService:
         job = self._jobs.get(job_id)
         if not job:
             return
-        job.progress = max(0.0, min(1.0, float(state.get("progress", job.progress))))
+        next_progress = max(0.0, min(1.0, float(state.get("progress", job.progress))))
+        job.progress = max(job.progress, next_progress)
         job.stage = "cancelling" if job.cancel_requested else (state.get("stage") or job.stage)
         job.current_chapter = int(state.get("current_chapter") or job.current_chapter or 0)
         job.total_chapters = int(state.get("total_chapters") or job.total_chapters or 0)
         job.current_segment = int(state.get("current_segment") or job.current_segment or 0)
         job.total_segments = int(state.get("total_segments") or job.total_segments or 0)
+        job.chapter_segment_current = int(state.get("chapter_segment_current") or job.chapter_segment_current or 0)
+        job.chapter_segment_total = int(state.get("chapter_segment_total") or job.chapter_segment_total or 0)
+        job.global_segment_current = int(state.get("global_segment_current") or job.global_segment_current or job.current_segment or 0)
+        job.global_segment_total = int(state.get("global_segment_total") or job.global_segment_total or job.total_segments or 0)
         job.status_message = (
             "Cancellation requested. Waiting for the current step to stop."
             if job.cancel_requested

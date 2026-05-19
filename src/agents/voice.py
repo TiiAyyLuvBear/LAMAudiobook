@@ -22,16 +22,25 @@ from .base import BaseAgent, AgentResult
 from schema.audio import VoiceAssignment
 
 
+def _safe_print(message: str) -> None:
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        print(message.encode("ascii", errors="backslashreplace").decode("ascii"))
+
+
 class VoiceInput:
     """Input for Voice Agent"""
     def __init__(self, speakers: List[str], speaker_mode: str = "multi",
                  book_summary: str = "", book_mood: str = "",
-                 character_emotions: Optional[Dict[str, str]] = None):
+                 character_emotions: Optional[Dict[str, str]] = None,
+                 narrator_voice_override: Optional[str] = None):
         self.speakers = speakers
         self.speaker_mode = speaker_mode
         self.book_summary = book_summary
         self.book_mood = book_mood
         self.character_emotions = character_emotions or {}
+        self.narrator_voice_override = narrator_voice_override
 
 
 class VoiceOutput:
@@ -59,18 +68,18 @@ class VoiceAgent(BaseAgent):
         
         if QdrantClient:
             try:
-                print(f"[VoiceAgent] Connecting to Qdrant at {self.db_path}...")
+                _safe_print(f"[VoiceAgent] Connecting to Qdrant at {self.db_path}...")
                 self.qdrant = QdrantClient(path=self.db_path)
                 if self.qdrant.collection_exists(self.collection_name):
-                    print(f"[VoiceAgent] Connected to collection '{self.collection_name}'.")
+                    _safe_print(f"[VoiceAgent] Connected to collection '{self.collection_name}'.")
                 else:
-                    print(f"[VoiceAgent] Collection '{self.collection_name}' not found. Vector search disabled.")
+                    _safe_print(f"[VoiceAgent] Collection '{self.collection_name}' not found. Vector search disabled.")
                     self.qdrant = None
             except Exception as e:
-                print(f"[VoiceAgent] Qdrant connection failed: {e}")
+                _safe_print(f"[VoiceAgent] Qdrant connection failed: {e}")
                 self.qdrant = None
         else:
-            print("[VoiceAgent] QdrantClient not installed. Vector search disabled.")
+            _safe_print("[VoiceAgent] QdrantClient not installed. Vector search disabled.")
 
         self.model_name = "keepitreal/vietnamese-sbert"
         self._tokenizer = None
@@ -98,12 +107,12 @@ class VoiceAgent(BaseAgent):
 
         fallback_name = Path(fallback_voice).stem
         if self._voice_exists(fallback_name):
-            print(f"[VoiceAgent] Voice '{voice_id}' has no WAV sample. Falling back to '{fallback_name}'.")
+            _safe_print(f"[VoiceAgent] Voice '{voice_id}' has no WAV sample. Falling back to '{fallback_name}'.")
             return fallback_name
 
         if self.available_voices:
             first_available = sorted(self.available_voices)[0]
-            print(f"[VoiceAgent] Voice '{voice_id}' has no WAV sample. Falling back to '{first_available}'.")
+            _safe_print(f"[VoiceAgent] Voice '{voice_id}' has no WAV sample. Falling back to '{first_available}'.")
             return first_available
 
         return fallback_name
@@ -187,12 +196,12 @@ class VoiceAgent(BaseAgent):
                 voice_id = search_result[0].payload.get("voice_id", fallback_voice)
                 score = search_result[0].score
                 voice_id = self._safe_voice(voice_id, fallback_voice)
-                print(f"[VoiceAgent] Vector match: {voice_id} (score: {score:.3f}) for context: '{text_context[:50]}...'")
+                _safe_print(f"[VoiceAgent] Vector match: {voice_id} (score: {score:.3f}) for context: '{text_context[:50]}...'")
                 return voice_id
             else:
-                print(f"[VoiceAgent] No vector match found for context: '{text_context[:50]}...'")
+                _safe_print(f"[VoiceAgent] No vector match found for context: '{text_context[:50]}...'")
         except Exception as e:
-            print(f"[VoiceAgent] Search error: {e}")
+            _safe_print(f"[VoiceAgent] Search error: {e}")
         
         return self._safe_voice(fallback_voice, self.narrator_fallback)
 
@@ -233,11 +242,15 @@ class VoiceAgent(BaseAgent):
             
             # 1. Chọn giọng Narrator dựa trên mood/genre trước, rồi mới dùng vector fallback.
             narrator_context = f"Tóm tắt: {input_data.book_summary}. Cảm xúc: {input_data.book_mood}"
-            narrator_voice = self._select_voice_by_rules(narrator_context)
-            if narrator_voice:
-                print(f"[VoiceAgent] Rule narrator match: {narrator_voice} for context: '{narrator_context[:80]}...'")
+            if input_data.narrator_voice_override:
+                narrator_voice = self._safe_voice(input_data.narrator_voice_override, self.narrator_fallback)
+                _safe_print(f"[VoiceAgent] Narrator override: {narrator_voice}")
             else:
-                narrator_voice = self._select_voice_by_vector(narrator_context, self.narrator_fallback)
+                narrator_voice = self._select_voice_by_rules(narrator_context)
+                if narrator_voice:
+                    _safe_print(f"[VoiceAgent] Rule narrator match: {narrator_voice} for context: '{narrator_context[:80]}...'")
+                else:
+                    narrator_voice = self._select_voice_by_vector(narrator_context, self.narrator_fallback)
 
             for speaker in input_data.speakers:
                 if input_data.speaker_mode == "single" or speaker.lower() == "narrator":

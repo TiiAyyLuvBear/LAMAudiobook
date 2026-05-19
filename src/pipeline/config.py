@@ -2,6 +2,7 @@
 Pipeline configuration and state types.
 """
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 from enum import Enum
 
@@ -28,6 +29,10 @@ class PipelineState:
     total_chapters: int = 0
     current_segment: int = 0
     total_segments: int = 0
+    chapter_segment_current: int = 0
+    chapter_segment_total: int = 0
+    global_segment_current: int = 0
+    global_segment_total: int = 0
     artifacts: List[Dict[str, Any]] = field(default_factory=list)
     status_message: str = ""
     error: Optional[str] = None
@@ -40,6 +45,18 @@ class PipelineState:
             "total_chapters": self.total_chapters,
             "current_segment": self.current_segment,
             "total_segments": self.total_segments,
+            "chapter_segment_current": self.chapter_segment_current,
+            "chapter_segment_total": self.chapter_segment_total,
+            "global_segment_current": self.global_segment_current,
+            "global_segment_total": self.global_segment_total,
+            "chapter_segment": {
+                "current": self.chapter_segment_current,
+                "total": self.chapter_segment_total,
+            },
+            "global_segment": {
+                "current": self.global_segment_current,
+                "total": self.global_segment_total,
+            },
             "artifacts": self.artifacts or [],
             "status_message": self.status_message,
             "error": self.error,
@@ -60,6 +77,8 @@ class PipelineConfig:
     tts_engine: str = "xtts_gpu"
     tts_device: str = "auto"
     tts_speaker_mode: str = "single"
+    voice_mode: str = "default"
+    narrator_voice_override: Optional[str] = None
     xtts_model_name_or_path: Optional[str] = None
     xtts_config_path: Optional[str] = None
     xtts_vocab_path: Optional[str] = None
@@ -76,6 +95,11 @@ class PipelineConfig:
         self.tts_speaker_mode = (self.tts_speaker_mode or "single").strip().lower()
         if self.tts_speaker_mode not in {"single", "multi"}:
             raise ValueError("tts_speaker_mode must be 'single' or 'multi'.")
+        self.voice_mode = (self.voice_mode or "default").strip().lower()
+        if self.voice_mode not in {"default", "system_voice", "upload_voice"}:
+            raise ValueError("voice_mode must be 'default', 'system_voice', or 'upload_voice'.")
+        if self.narrator_voice_override:
+            self.narrator_voice_override = Path(self.narrator_voice_override).stem
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -90,6 +114,8 @@ class PipelineConfig:
             "tts_engine": self.tts_engine,
             "tts_device": self.tts_device,
             "tts_speaker_mode": self.tts_speaker_mode,
+            "voice_mode": self.voice_mode,
+            "narrator_voice_override": self.narrator_voice_override,
             "xtts_model_name_or_path": self.xtts_model_name_or_path,
             "xtts_config_path": self.xtts_config_path,
             "xtts_vocab_path": self.xtts_vocab_path,

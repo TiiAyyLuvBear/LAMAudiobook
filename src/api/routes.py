@@ -6,6 +6,9 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
+import shutil
+import subprocess
 import uuid
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, Optional
@@ -24,6 +27,8 @@ router = APIRouter(prefix="/api/v1/audiobook", tags=["audiobook"])
 queue_service = QueueService()
 storage_service = StorageService()
 SUPPORTED_INPUT_EXTENSIONS = {".epub", ".pdf", ".txt"}
+SUPPORTED_VOICE_EXTENSIONS = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg"}
+VOICE_MODES = {"default", "system_voice", "upload_voice"}
 
 
 def _tts_runtime_info() -> Dict[str, str]:
@@ -50,6 +55,82 @@ def _tts_runtime_info() -> Dict[str, str]:
     }
 
 
+def _voice_samples_dir() -> Path:
+    return Path(os.getenv("XTTS_VOICE_DIR", "data/voice_samples"))
+
+
+def _sanitize_voice_id(value: str) -> str:
+    voice_id = Path(value or "").stem.lower()
+    voice_id = re.sub(r"[^a-z0-9_-]+", "_", voice_id).strip("_-")
+    return voice_id
+
+
+def _available_voice_ids() -> list[str]:
+    voice_dir = _voice_samples_dir()
+    if not voice_dir.exists():
+        return []
+    return sorted(path.stem for path in voice_dir.glob("*.wav") if path.is_file())
+
+
+def _voice_source_label(metadata: Dict[str, Any]) -> str:
+    mode = metadata.get("voice_mode") or "default"
+    if mode == "upload_voice":
+        uploaded = metadata.get("uploaded_voice_filename")
+        override = metadata.get("narrator_voice_override")
+        processed = Path(metadata.get("uploaded_voice_path") or "").name
+        parts = ["uploaded"]
+        if uploaded:
+            parts.append(f"source={uploaded}")
+        if override:
+            parts.append(f"voice_id={override}")
+        if processed:
+            parts.append(f"processed={processed}")
+        return " | ".join(parts)
+    if mode == "system_voice":
+        selected = metadata.get("selected_voice_filename") or metadata.get("selected_voice_id") or metadata.get("narrator_voice_override")
+        return f"system voice | source={selected or '-'}"
+    return "auto-selected by system"
+
+
+def _preprocess_voice_sample(input_path: Path, output_path: Path) -> None:
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise HTTPException(
+            status_code=400,
+            detail="ffmpeg is required to preprocess uploaded voice samples",
+        )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        ffmpeg,
+        "-y",
+        "-i",
+        str(input_path),
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        "-af",
+        (
+            "highpass=f=80,"
+            "lowpass=f=12000,"
+            "afftdn=nf=-25,"
+            "areverse,"
+            "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.2,"
+            "areverse,"
+            "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.2,"
+            "loudnorm=I=-20:TP=-2:LRA=11"
+        ),
+        str(output_path),
+    ]
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True, timeout=180)
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or exc.stdout or str(exc)).strip()
+        raise HTTPException(status_code=400, detail=f"Voice preprocessing failed: {detail}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise HTTPException(status_code=400, detail="Voice preprocessing timed out") from exc
+
+
 class CreateJobResponse(BaseModel):
     job_id: str
     status: str
@@ -72,6 +153,13 @@ def _attach_job_metadata(job_status: Dict[str, Any], include_logs: bool = False)
     job_status["source_filename"] = metadata.get("source_filename")
     job_status["output_format"] = metadata.get("output_format")
     job_status["tts_runtime"] = metadata.get("tts_runtime")
+    job_status["voice_mode"] = metadata.get("voice_mode")
+    job_status["narrator_voice_override"] = metadata.get("narrator_voice_override")
+    job_status["uploaded_voice_path"] = metadata.get("uploaded_voice_path")
+    job_status["uploaded_voice_filename"] = metadata.get("uploaded_voice_filename")
+    job_status["selected_voice_id"] = metadata.get("selected_voice_id")
+    job_status["selected_voice_filename"] = metadata.get("selected_voice_filename")
+    job_status["voice_source"] = metadata.get("voice_source") or _voice_source_label(metadata)
     result_stats = result.get("pipeline_stats") if isinstance(result, dict) else None
     job_status["pipeline_stats"] = metadata.get("pipeline_stats") or result_stats
     if include_logs:
@@ -88,9 +176,21 @@ def _state_log_line(state: Dict[str, Any]) -> str:
     stage = state.get("stage") or "unknown"
     message = state.get("status_message") or ""
     chapter = f"{state.get('current_chapter') or 0}/{state.get('total_chapters') or 0}"
-    segment = f"{state.get('current_segment') or 0}/{state.get('total_segments') or 0}"
+    chapter_segment = state.get("chapter_segment") or {}
+    global_segment = state.get("global_segment") or {}
+    chapter_segment_text = (
+        f"{chapter_segment.get('current') or state.get('chapter_segment_current') or 0}/"
+        f"{chapter_segment.get('total') or state.get('chapter_segment_total') or 0}"
+    )
+    global_segment_text = (
+        f"{global_segment.get('current') or state.get('global_segment_current') or state.get('current_segment') or 0}/"
+        f"{global_segment.get('total') or state.get('global_segment_total') or state.get('total_segments') or 0}"
+    )
     progress = round(float(state.get("progress") or 0.0) * 100, 1)
-    return f"[{stage}] {progress}% | chapter {chapter} | segment {segment} | {message}".rstrip()
+    return (
+        f"[{stage}] {progress}% | chapter {chapter} | "
+        f"chapter_segment {chapter_segment_text} | global_segment {global_segment_text} | {message}"
+    ).rstrip()
 
 
 def _format_seconds(value: Any) -> str:
@@ -108,7 +208,11 @@ def _build_pipeline_report(job_id: str) -> str:
     book = stats.get("book") or {}
     execution = stats.get("execution") or {}
     tts = stats.get("tts") or metadata.get("tts_runtime") or {}
+    voice_source = metadata.get("voice_source") or _voice_source_label(metadata)
+    device = tts.get("device_diagnostics") or {}
+    rtf_summary = tts.get("rtf_summary") or {}
     chapters = stats.get("chapters") or []
+    segment_timings = tts.get("segment_timings") or []
 
     lines = [
         "Audiobook Pipeline Report",
@@ -127,9 +231,19 @@ def _build_pipeline_report(job_id: str) -> str:
         "TTS",
         f"- Engine: {tts.get('engine') or '-'}",
         f"- Model: {tts.get('model') or '-'}",
-        f"- Device: {tts.get('device') or '-'}",
+        f"- Requested device: {tts.get('requested_device') or device.get('requested_device') or '-'}",
+        f"- Resolved device: {tts.get('device') or device.get('resolved_device') or '-'}",
+        f"- CUDA available: {device.get('cuda_available')}",
+        f"- CUDA device: {device.get('cuda_device_name') or '-'}",
+        f"- Model device: {device.get('model_device') or '-'}",
+        f"- Model dtype: {device.get('model_dtype') or '-'}",
         f"- LoRA adapter: {tts.get('lora_adapter') or '-'}",
+        f"- Voice mode: {metadata.get('voice_mode') or '-'}",
+        f"- Voice source: {voice_source}",
+        f"- Narrator voice: {metadata.get('narrator_voice_override') or '-'}",
         f"- Audio duration: {_format_seconds(tts.get('audio_duration_seconds') or (metadata.get('result') or {}).get('duration'))}",
+        f"- Avg segment RTF: {rtf_summary.get('avg_segment_rtf') if rtf_summary.get('avg_segment_rtf') is not None else '-'}",
+        f"- Max segment RTF: {rtf_summary.get('max_segment_rtf') if rtf_summary.get('max_segment_rtf') is not None else '-'}",
         "",
         "Execution",
         f"- Total wall time: {_format_seconds(execution.get('total_wall_seconds'))}",
@@ -154,6 +268,35 @@ def _build_pipeline_report(job_id: str) -> str:
     else:
         lines.append("- No chapter timing data available.")
 
+    lines.extend(["", "Slowest Segment"])
+    slowest = rtf_summary.get("slowest_segment")
+    if slowest:
+        lines.append(
+            "- "
+            f"segment={slowest.get('segment_index')} | "
+            f"chapter={slowest.get('chapter_index')} | "
+            f"rtf={slowest.get('rtf')} | "
+            f"tts_wall={_format_seconds(slowest.get('tts_wall_seconds'))} | "
+            f"audio={_format_seconds(slowest.get('audio_duration_seconds'))} | "
+            f"text={slowest.get('text_preview') or '-'}"
+        )
+    else:
+        lines.append("- No segment timing data available.")
+
+    if segment_timings:
+        lines.extend(["", "Segment Timings"])
+        for item in segment_timings[:100]:
+            lines.append(
+                "- "
+                f"global={item.get('global_segment_index')}/{item.get('global_segment_total')} | "
+                f"chapter={item.get('chapter_index')} "
+                f"segment={item.get('chapter_segment_index')}/{item.get('chapter_segment_total')} | "
+                f"rtf={item.get('rtf') if item.get('rtf') is not None else '-'} | "
+                f"tts_wall={_format_seconds(item.get('tts_wall_seconds'))} | "
+                f"audio={_format_seconds(item.get('audio_duration_seconds'))} | "
+                f"status={item.get('status') or '-'}"
+            )
+
     lines.extend(["", "Logs", logs or "-"])
     return "\n".join(lines).rstrip() + "\n"
 
@@ -175,6 +318,9 @@ async def audiobook_generation_handler(
             f"TTS_DEVICE={os.getenv('TTS_DEVICE', 'auto')}, "
             f"VIENEU_DEVICE={os.getenv('VIENEU_DEVICE', os.getenv('TTS_DEVICE', 'auto'))}, "
             f"VIENEU_LORA_ADAPTER={os.getenv('VIENEU_LORA_ADAPTER') or ''}, "
+            f"voice_mode={payload.get('voice_mode', 'default')}, "
+            f"narrator_voice_override={payload.get('narrator_voice_override') or ''}, "
+            f"voice_source={payload.get('voice_source') or ''}, "
             f"output_format={output_format}"
         ),
     )
@@ -203,6 +349,8 @@ async def audiobook_generation_handler(
             tts_engine=os.getenv("TTS_ENGINE", "xtts_gpu"),
             tts_device=os.getenv("TTS_DEVICE", "auto"),
             tts_speaker_mode=os.getenv("TTS_SPEAKER_MODE", "single"),
+            voice_mode=payload.get("voice_mode", "default"),
+            narrator_voice_override=payload.get("narrator_voice_override"),
             xtts_model_name_or_path=os.getenv("XTTS_MODEL_NAME_OR_PATH") or None,
             xtts_config_path=os.getenv("XTTS_CONFIG_PATH") or None,
             xtts_vocab_path=os.getenv("XTTS_VOCAB_PATH") or None,
@@ -253,6 +401,7 @@ async def audiobook_generation_handler(
         {
             **pipeline.get_state(),
             "pipeline_stats": result.get("pipeline_stats"),
+            "tts_runtime": (result.get("pipeline_stats") or {}).get("tts") or _tts_runtime_info(),
             "result": safe_result,
         },
     )
@@ -277,10 +426,13 @@ queue_service.register_handler("audiobook_generation", audiobook_generation_hand
 @router.post("/jobs", response_model=CreateJobResponse)
 async def create_audiobook_job(
     file: UploadFile = File(...),
+    voice_file: Optional[UploadFile] = File(None),
     output_format: str = "mp3",
     normalize_audio: bool = True,
     add_chapters: bool = True,
     analysis_enabled: bool = True,
+    voice_mode: str = "default",
+    selected_voice_id: Optional[str] = None,
 ):
     source_filename = Path(file.filename or "").name
     source_extension = Path(source_filename).suffix.lower()
@@ -288,6 +440,9 @@ async def create_audiobook_job(
         raise HTTPException(status_code=400, detail="Only .epub, .pdf, and .txt uploads are supported")
     if output_format not in {"mp3", "wav"}:
         raise HTTPException(status_code=400, detail="output_format must be mp3 or wav")
+    voice_mode = (voice_mode or "default").strip().lower()
+    if voice_mode not in VOICE_MODES:
+        raise HTTPException(status_code=400, detail="voice_mode must be default, system_voice, or upload_voice")
 
     content = await file.read()
     if not content:
@@ -298,6 +453,55 @@ async def create_audiobook_job(
     job_id = str(uuid.uuid4())
     input_file = storage_service.save_input_file(job_id, content, filename=source_filename)
     output_dir = str(storage_service.job_dir(job_id) / "output")
+    narrator_voice_override = None
+    uploaded_voice_path = None
+    uploaded_voice_filename = None
+    selected_voice_id_meta = None
+    selected_voice_filename = None
+    voice_dir = _voice_samples_dir()
+
+    if voice_mode == "system_voice":
+        narrator_voice_override = _sanitize_voice_id(selected_voice_id or "")
+        if not narrator_voice_override:
+            raise HTTPException(status_code=400, detail="selected_voice_id is required for system_voice mode")
+        if narrator_voice_override not in _available_voice_ids():
+            raise HTTPException(status_code=400, detail=f"Unknown voice sample: {narrator_voice_override}")
+        selected_voice_id_meta = narrator_voice_override
+        selected_voice_filename = f"{narrator_voice_override}.wav"
+    elif voice_mode == "upload_voice":
+        if voice_file is None:
+            raise HTTPException(status_code=400, detail="voice_file is required for upload_voice mode")
+        voice_filename = Path(voice_file.filename or "").name
+        uploaded_voice_filename = voice_filename
+        voice_extension = Path(voice_filename).suffix.lower()
+        if voice_extension not in SUPPORTED_VOICE_EXTENSIONS:
+            raise HTTPException(status_code=400, detail="Voice upload must be wav, mp3, m4a, aac, flac, or ogg")
+        voice_content = await voice_file.read()
+        if not voice_content:
+            raise HTTPException(status_code=400, detail="Uploaded voice file is empty")
+        if len(voice_content) > 50 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Uploaded voice file is too large")
+
+        raw_voice_dir = storage_service.job_dir(job_id) / "input" / "voice"
+        raw_voice_dir.mkdir(parents=True, exist_ok=True)
+        raw_voice_path = raw_voice_dir / f"raw{voice_extension}"
+        raw_voice_path.write_bytes(voice_content)
+
+        narrator_voice_override = f"custom_{job_id.replace('-', '')[:12]}"
+        processed_voice_path = voice_dir / f"{narrator_voice_override}.wav"
+        _preprocess_voice_sample(raw_voice_path, processed_voice_path)
+        uploaded_voice_path = str(processed_voice_path)
+
+    voice_metadata = {
+        "voice_mode": voice_mode,
+        "narrator_voice_override": narrator_voice_override,
+        "uploaded_voice_path": uploaded_voice_path,
+        "uploaded_voice_filename": uploaded_voice_filename,
+        "selected_voice_id": selected_voice_id_meta,
+        "selected_voice_filename": selected_voice_filename,
+    }
+    voice_metadata["voice_source"] = _voice_source_label(voice_metadata)
+
     storage_service.save_metadata(
         job_id,
         {
@@ -306,10 +510,12 @@ async def create_audiobook_job(
             "detected_input_type": source_extension.lstrip("."),
             "output_format": output_format,
             "tts_runtime": _tts_runtime_info(),
+            **voice_metadata,
             "status": "pending",
         },
     )
     storage_service.append_log(job_id, f"Queued upload: {source_filename}")
+    storage_service.append_log(job_id, f"Voice source: {voice_metadata['voice_source']}")
 
     await queue_service.enqueue(
         "audiobook_generation",
@@ -322,10 +528,27 @@ async def create_audiobook_job(
             "normalize_audio": normalize_audio,
             "add_chapters": add_chapters,
             "analysis_enabled": analysis_enabled,
+            **voice_metadata,
         },
         job_id=job_id,
     )
     return CreateJobResponse(job_id=job_id, status="queued")
+
+
+@router.get("/voices")
+async def list_voice_samples():
+    voice_dir = _voice_samples_dir()
+    voices = [
+        {
+            "voice_id": path.stem,
+            "filename": path.name,
+            "path": str(path),
+            "size_bytes": path.stat().st_size,
+        }
+        for path in sorted(voice_dir.glob("*.wav"))
+        if path.is_file()
+    ] if voice_dir.exists() else []
+    return {"voice_dir": str(voice_dir), "voices": voices}
 
 
 @router.get("/jobs")

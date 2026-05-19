@@ -29,6 +29,8 @@ class XTTSEngine(BaseTTSEngine):
         self.config_path = config_path or os.getenv("XTTS_CONFIG_PATH")
         self.vocab_path = vocab_path or os.getenv("XTTS_VOCAB_PATH")
         self.device_request = (device or os.getenv("XTTS_DEVICE") or os.getenv("TTS_DEVICE") or "auto").lower()
+        self.requested_device = self.device_request
+        self.device = None
         self.runtime_dir = Path(os.getenv("XTTS_RUNTIME_DIR", DEFAULT_XTTS_RUNTIME_DIR))
         self.model_cache_key = "|".join(
             [
@@ -179,6 +181,7 @@ class XTTSEngine(BaseTTSEngine):
         if self.model_cache_key not in XTTSEngine._tts_instances:
             try:
                 device = self._resolve_device()
+                self.device = device
                 print(f"[XTTS] Loading direct XTTS checkpoint to {device}: {self.model_name_or_path}")
                 model_ref = Path(self.model_name_or_path)
                 if model_ref.exists():

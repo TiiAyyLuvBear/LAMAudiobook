@@ -43,6 +43,9 @@ class TTSGeneratorInput:
     segments: List[TTSSegment]
     output_dir: str
     format: str = "wav"
+    global_total_segments: int = 0
+    completed_segment_offset: int = 0
+    chapter_total_segments: int = 0
 
 
 @dataclass

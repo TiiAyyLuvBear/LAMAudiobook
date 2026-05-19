@@ -41,7 +41,8 @@ class VieNeuEngine(BaseTTSEngine):
         self.lora_adapter = (lora_adapter or os.getenv("VIENEU_LORA_ADAPTER") or "").strip()
         self.hf_token = os.getenv("HF_TOKEN") or None
         self.voice_dir = Path(voice_dir)
-        self.device = self._normalize_device(device or os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE") or "auto")
+        self.requested_device = self._normalize_device(device or os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE") or "auto")
+        self.device = self._resolve_device(self.requested_device)
         self.enable_voice_cloning = os.getenv("VIENEU_ENABLE_VOICE_CLONING", "0").lower() in {"1", "true", "yes"}
         self.reference_text = os.getenv(
             "VIENEU_REFERENCE_TEXT",
@@ -54,6 +55,16 @@ class VieNeuEngine(BaseTTSEngine):
         requested = (device or "auto").strip().lower()
         if requested in {"gpu", "cuda:0"}:
             return "cuda"
+        return requested
+
+    def _resolve_device(self, device: str) -> str:
+        requested = self._normalize_device(device)
+        if requested == "auto":
+            return "cuda" if self._cuda_available() else "cpu"
+        if requested == "cuda" and not self._cuda_available():
+            raise RuntimeError("VIENEU_DEVICE=cuda was requested but CUDA is not available.")
+        if requested not in {"cuda", "cpu"}:
+            raise RuntimeError("VIENEU_DEVICE must be one of: auto, cuda, cpu.")
         return requested
 
     @staticmethod
@@ -70,11 +81,10 @@ class VieNeuEngine(BaseTTSEngine):
         if VieNeuEngine._instance is None or VieNeuEngine._instance_key != instance_key:
             try:
                 from vieneu import Vieneu
-                if self.device == "cuda" and not self._cuda_available():
-                    raise RuntimeError("VIENEU_DEVICE=cuda was requested but CUDA is not available.")
                 print(
                     f"[VieNeu] Initializing VieNeu TTS engine mode={self.mode} "
-                    f"model={self.model_name} emotion={self.emotion} device={self.device}..."
+                    f"model={self.model_name} emotion={self.emotion} "
+                    f"requested_device={self.requested_device} resolved_device={self.device}..."
                 )
                 # VieNeu SDK >=1.2 uses backbone_repo/backbone_device. Older builds used
                 # model_name/device, so keep those as fallbacks after the preferred forms.
@@ -227,19 +237,22 @@ class VieNeuEngine(BaseTTSEngine):
             ref_audio = self._get_reference_audio(voice_id)
             if self.enable_voice_cloning and ref_audio and self._can_encode_reference_audio():
                 try:
-                    audio = self.tts.infer(
-                        text=text,
-                        ref_audio=str(ref_audio),
-                        ref_text=self.reference_text,
-                    )
+                    with self._inference_context():
+                        audio = self.tts.infer(
+                            text=text,
+                            ref_audio=str(ref_audio),
+                            ref_text=self.reference_text,
+                        )
                 except TypeError:
                     voice_data = self._get_voice_data(voice_id)
-                    audio = self.tts.infer(text=text, voice=voice_data)
+                    with self._inference_context():
+                        audio = self.tts.infer(text=text, voice=voice_data)
             else:
                 if self.enable_voice_cloning and ref_audio:
                     self._warn_reference_encoder_unavailable()
                 voice_data = self._get_voice_data(voice_id)
-                audio = self.tts.infer(text=text, voice=voice_data)
+                with self._inference_context():
+                    audio = self.tts.infer(text=text, voice=voice_data)
             
             output_file = Path(output_path)
             output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -248,3 +261,14 @@ class VieNeuEngine(BaseTTSEngine):
             self.tts.save(audio, str(output_file))
         except Exception as e:
             raise RuntimeError(f"VieNeu generation failed: {e}") from e
+
+    @staticmethod
+    def _inference_context():
+        try:
+            import torch
+
+            return torch.inference_mode()
+        except Exception:
+            from contextlib import nullcontext
+
+            return nullcontext()

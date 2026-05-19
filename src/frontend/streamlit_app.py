@@ -4,6 +4,7 @@ Streamlit frontend for the audiobook service.
 
 from __future__ import annotations
 
+import base64
 import io
 import os
 import re
@@ -14,7 +15,6 @@ from pathlib import Path
 
 import requests
 import streamlit as st
-import streamlit.components.v1 as components
 from bs4 import BeautifulSoup, NavigableString
 from dotenv import load_dotenv
 
@@ -50,11 +50,29 @@ UPLOAD_MIME_TYPES = {
 EPUB_AUDIO_LIMIT_BYTES = 35 * 1024 * 1024
 
 
+def _select_job(job_id: str) -> None:
+    next_job_id = job_id.strip()
+    previous_job_id = (st.session_state.get("job_id") or "").strip()
+    if next_job_id != previous_job_id:
+        for key in list(st.session_state.keys()):
+            if str(key).startswith(("epub-preview-", "result-panel-", "logs-panel-")):
+                del st.session_state[key]
+    st.session_state["job_id"] = next_job_id
+
+
 def api_url(path: str) -> str:
     return f"{API_BASE_URL}{path}"
 
 
-def create_job(uploaded_file, output_format: str, normalize_audio: bool, add_chapters: bool) -> dict:
+def create_job(
+    uploaded_file,
+    output_format: str,
+    normalize_audio: bool,
+    add_chapters: bool,
+    voice_mode: str = "default",
+    selected_voice_id: str | None = None,
+    uploaded_voice_file=None,
+) -> dict:
     suffix = Path(uploaded_file.name).suffix.lower()
     files = {
         "file": (
@@ -63,12 +81,21 @@ def create_job(uploaded_file, output_format: str, normalize_audio: bool, add_cha
             UPLOAD_MIME_TYPES.get(suffix, "application/octet-stream"),
         )
     }
+    if uploaded_voice_file is not None:
+        files["voice_file"] = (
+            uploaded_voice_file.name,
+            uploaded_voice_file.getvalue(),
+            "application/octet-stream",
+        )
     params = {
         "output_format": output_format,
         "normalize_audio": normalize_audio,
         "add_chapters": add_chapters,
         "analysis_enabled": True,
+        "voice_mode": voice_mode,
     }
+    if selected_voice_id:
+        params["selected_voice_id"] = selected_voice_id
     response = requests.post(api_url("/api/v1/audiobook/jobs"), files=files, params=params, timeout=60)
     response.raise_for_status()
     return response.json()
@@ -92,6 +119,12 @@ def get_health() -> dict:
     return response.json()
 
 
+def list_voice_samples() -> dict:
+    response = requests.get(api_url("/api/v1/audiobook/voices"), timeout=20)
+    response.raise_for_status()
+    return response.json()
+
+
 def cancel_job(job_id: str) -> dict:
     response = requests.delete(api_url(f"/api/v1/audiobook/jobs/{job_id}"), timeout=60)
     response.raise_for_status()
@@ -104,6 +137,10 @@ def download_job_audio(job_id: str) -> requests.Response:
 
 def download_job_epub(job_id: str) -> requests.Response:
     return requests.get(api_url(f"/api/v1/audiobook/jobs/{job_id}/epub/download"), timeout=60)
+
+
+def download_chapter_epub(job_id: str, chapter_index: int) -> requests.Response:
+    return requests.get(api_url(f"/api/v1/audiobook/jobs/{job_id}/chapters/{chapter_index}/download"), timeout=60)
 
 
 def download_job_report(job_id: str) -> requests.Response:
@@ -128,6 +165,21 @@ def _display_value(value: str | None) -> str:
     return value if value else "-"
 
 
+def _voice_source_text(job: dict) -> str:
+    source = _display_value(job.get("voice_source"))
+    if source != "-":
+        return source
+    mode = job.get("voice_mode")
+    if mode == "upload_voice":
+        uploaded = _display_value(job.get("uploaded_voice_filename"))
+        narrator = _display_value(job.get("narrator_voice_override"))
+        return f"source={uploaded} | voice_id={narrator}"
+    if mode == "system_voice":
+        selected = _display_value(job.get("selected_voice_filename") or job.get("selected_voice_id"))
+        return f"source={selected}"
+    return "auto-selected by system"
+
+
 def _format_seconds(value) -> str:
     try:
         seconds = float(value or 0.0)
@@ -147,10 +199,11 @@ def _format_seconds(value) -> str:
 def _format_tts_runtime(tts: dict | None) -> str:
     if not tts:
         return "TTS: -"
+    device_info = tts.get("device_diagnostics") or {}
     parts = [
         f"Engine: {_display_value(tts.get('engine'))}",
         f"Model: {_display_value(tts.get('model'))}",
-        f"Device: {_display_value(tts.get('device'))}",
+        f"Device: {_display_value(tts.get('device') or device_info.get('resolved_device'))}",
     ]
     if tts.get("lora_adapter"):
         parts.append(f"LoRA: {tts['lora_adapter']}")
@@ -165,7 +218,10 @@ def render_tts_runtime(tts: dict | None) -> None:
 
     st.metric("Engine", _display_value(tts.get("engine")))
     st.caption(f"Model: {_display_value(tts.get('model'))}")
-    st.caption(f"Thiết bị: {_display_value(tts.get('device'))}")
+    device_info = tts.get("device_diagnostics") or {}
+    st.caption(f"Thiết bị: {_display_value(tts.get('device') or device_info.get('resolved_device'))}")
+    if device_info:
+        st.caption(f"CUDA: {_display_value(str(device_info.get('cuda_available')))} | GPU: {_display_value(device_info.get('cuda_device_name'))}")
     if tts.get("mode"):
         st.caption(f"Chế độ: {tts['mode']}")
     if tts.get("lora_adapter"):
@@ -219,11 +275,58 @@ def render_upload_tab(output_format: str, normalize_audio: bool, add_chapters: b
         st.error(f"Tệp vượt quá giới hạn {MAX_FILE_SIZE_MB} MB.")
         return
 
-    if st.button("Tạo sách nói", type="primary", use_container_width=True):
+    voice_mode_label = st.radio(
+        "Giọng đọc",
+        ["Hệ thống tự chọn", "Chọn giọng có sẵn", "Tải giọng riêng"],
+        horizontal=True,
+    )
+    voice_mode = {
+        "Hệ thống tự chọn": "default",
+        "Chọn giọng có sẵn": "system_voice",
+        "Tải giọng riêng": "upload_voice",
+    }[voice_mode_label]
+    selected_voice_id = None
+    uploaded_voice = None
+
+    if voice_mode == "system_voice":
         try:
-            created = create_job(uploaded, output_format, normalize_audio, add_chapters)
-            st.session_state["job_id"] = created["job_id"]
-            st.success(f"Đã đưa vào hàng đợi: {created['job_id']}")
+            voice_payload = list_voice_samples()
+            voices = [item.get("voice_id") for item in voice_payload.get("voices", []) if item.get("voice_id")]
+        except requests.RequestException as exc:
+            voices = []
+            st.warning(f"Không đọc được danh sách giọng: {exc}")
+        if voices:
+            selected_voice_id = st.selectbox("Chọn giọng narrator", voices, index=0)
+        else:
+            st.warning("Chưa có WAV voice sample trong thư mục giọng.")
+            return
+    elif voice_mode == "upload_voice":
+        uploaded_voice = st.file_uploader(
+            "Tải tệp giọng mẫu",
+            type=["wav", "mp3", "m4a", "aac", "flac", "ogg"],
+            key="uploaded_voice_sample",
+        )
+        if uploaded_voice:
+            voice_size_mb = len(uploaded_voice.getvalue()) / 1024 / 1024
+            st.caption(f"{uploaded_voice.name} | {voice_size_mb:.2f} MB")
+
+    if st.button("Tạo sách nói", type="primary", width="stretch"):
+        if voice_mode == "upload_voice" and uploaded_voice is None:
+            st.error("Hãy tải lên một tệp giọng mẫu trước khi tạo sách nói.")
+            return
+        try:
+            created = create_job(
+                uploaded,
+                output_format,
+                normalize_audio,
+                add_chapters,
+                voice_mode=voice_mode,
+                selected_voice_id=selected_voice_id,
+                uploaded_voice_file=uploaded_voice,
+            )
+            _select_job(created["job_id"])
+            st.session_state["job_created_message"] = f"Đã đưa vào hàng đợi: {created['job_id']}"
+            st.rerun()
         except requests.HTTPError as exc:
             detail = exc.response.text if exc.response is not None else str(exc)
             st.error(f"Không tải được tệp: {detail}")
@@ -254,17 +357,17 @@ def render_queue_tab(payload: dict, selected_status: str) -> list[dict]:
         job_id = job.get("job_id", "")
         with st.container(border=True):
             top = st.columns([1.2, 1.2, 2.8, 1.0])
-            if top[0].button(_short_id(job_id), key=f"select-{job_id}", use_container_width=True):
-                st.session_state["job_id"] = job_id
+            if top[0].button(_short_id(job_id), key=f"select-{job_id}", width="stretch"):
+                _select_job(job_id)
                 st.rerun()
             _status_badge(top[1], job.get("status", "unknown"))
             top[2].progress(_progress(job), text=job.get("status_message") or f"{_progress(job):.0%}")
             if job.get("cancel_requested"):
                 top[3].caption("Đang hủy")
             elif job.get("status") in {"pending", "running"}:
-                if top[3].button("Hủy", key=f"cancel-row-{job_id}", use_container_width=True):
+                if top[3].button("Hủy", key=f"cancel-row-{job_id}", width="stretch"):
                     cancel_job(job_id)
-                    st.session_state["job_id"] = job_id
+                    _select_job(job_id)
                     st.rerun()
             else:
                 top[3].caption("-")
@@ -272,11 +375,12 @@ def render_queue_tab(payload: dict, selected_status: str) -> list[dict]:
             bottom = st.columns(4)
             total = int(job.get("total_chapters") or 0)
             current = int(job.get("current_chapter") or 0)
-            segment_total = int(job.get("total_segments") or 0)
-            segment_current = int(job.get("current_segment") or 0)
+            global_segment = job.get("global_segment") or {}
+            segment_total = int(global_segment.get("total") or job.get("total_segments") or 0)
+            segment_current = int(global_segment.get("current") or job.get("current_segment") or 0)
             bottom[0].caption(f"Bước: {_label(job.get('stage') or job.get('status'))}")
             bottom[1].caption(f"Chương: {current}/{total}" if total else "Chương: -")
-            bottom[2].caption(f"Câu: {segment_current}/{segment_total}" if segment_total else "Câu: -")
+            bottom[2].caption(f"Câu tổng: {segment_current}/{segment_total}" if segment_total else "Câu tổng: -")
             bottom[3].caption(f"Tệp: {len(job.get('artifacts') or [])}")
 
     return jobs
@@ -284,6 +388,10 @@ def render_queue_tab(payload: dict, selected_status: str) -> list[dict]:
 
 def _chapter_epubs(job: dict) -> list[dict]:
     return [artifact for artifact in (job.get("artifacts") or []) if artifact.get("type") == "chapter_epub"]
+
+
+def _sorted_chapter_epubs(job: dict) -> list[dict]:
+    return sorted(_chapter_epubs(job), key=lambda item: int(item.get("chapter_index") or 0))
 
 
 def _book_epub(job: dict) -> dict | None:
@@ -309,13 +417,29 @@ def render_job_summary(job: dict) -> None:
     total = int(job.get("total_chapters") or 0)
     current = int(job.get("current_chapter") or 0)
     c3.metric("Chương", f"{current}/{total}" if total else "-")
-    segment_total = int(job.get("total_segments") or 0)
-    segment_current = int(job.get("current_segment") or 0)
-    c4.metric("Câu", f"{segment_current}/{segment_total}" if segment_total else "-")
+    chapter_segment = job.get("chapter_segment") or {}
+    global_segment = job.get("global_segment") or {}
+    segment_total = int(global_segment.get("total") or job.get("total_segments") or 0)
+    segment_current = int(global_segment.get("current") or job.get("current_segment") or 0)
+    chapter_segment_total = int(chapter_segment.get("total") or 0)
+    chapter_segment_current = int(chapter_segment.get("current") or 0)
+    c4.metric("Câu tổng", f"{segment_current}/{segment_total}" if segment_total else "-")
+    if chapter_segment_total:
+        st.caption(f"Câu chương hiện tại: {chapter_segment_current}/{chapter_segment_total}")
 
     tts_runtime = job.get("tts_runtime")
     if tts_runtime:
         st.caption(_format_tts_runtime(tts_runtime))
+    if job.get("voice_mode"):
+        voice_label = {
+            "default": "Hệ thống tự chọn",
+            "system_voice": "Giọng có sẵn",
+            "upload_voice": "Giọng tải lên",
+        }.get(job.get("voice_mode"), job.get("voice_mode"))
+        st.caption(
+            f"Giọng đọc: {voice_label} | Narrator: {_display_value(job.get('narrator_voice_override'))}"
+        )
+        st.caption(f"Nguồn giọng: {_voice_source_text(job)}")
 
     stats = job.get("pipeline_stats") or {}
     execution = stats.get("execution") or {}
@@ -352,12 +476,12 @@ def render_job_summary(job: dict) -> None:
                 }
                 for chapter in chapters
             ]
-            st.dataframe(rows, use_container_width=True, hide_index=True)
+            st.dataframe(rows, width="stretch", hide_index=True)
 
     if job.get("cancel_requested"):
         st.warning("Đã yêu cầu hủy. Quy trình sẽ dừng ở điểm an toàn gần nhất.")
     elif status in {"pending", "running"}:
-        if st.button("Hủy tác vụ", type="secondary", use_container_width=True, key=f"cancel-detail-{job['job_id']}"):
+        if st.button("Hủy tác vụ", type="secondary", width="stretch", key=f"cancel-detail-{job['job_id']}"):
             try:
                 cancel_job(job["job_id"])
                 st.warning("Đã gửi yêu cầu hủy.")
@@ -394,7 +518,8 @@ def render_downloads(job: dict) -> bytes | None:
                 data=audio_response.content,
                 file_name=filename,
                 mime=mime,
-                use_container_width=True,
+                width="stretch",
+                key=f"audio-download-{job['job_id']}",
             )
         else:
             st.warning("Tác vụ đã hoàn tất nhưng chưa tìm thấy tệp âm thanh.")
@@ -413,7 +538,8 @@ def render_downloads(job: dict) -> bytes | None:
                 data=epub_bytes,
                 file_name=epub_filename,
                 mime="application/epub+zip",
-                use_container_width=True,
+                width="stretch",
+                key=f"book-epub-download-{job['job_id']}",
             )
         else:
             st.warning("Đã có thông tin EPUB3 tổng nhưng chưa tải được tệp.")
@@ -428,33 +554,48 @@ def render_downloads(job: dict) -> bytes | None:
                 data=epub_bytes,
                 file_name=epub_filename,
                 mime="application/epub+zip",
-                use_container_width=True,
+                width="stretch",
+                key=f"book-epub-download-fallback-{job['job_id']}",
             )
     else:
         st.info("EPUB3 tổng sẽ xuất hiện sau khi các chương đã sinh xong.")
 
-    chapter_epubs = _chapter_epubs(job)
+    chapter_epubs = _sorted_chapter_epubs(job)
     if chapter_epubs:
         st.caption(f"Đã sẵn sàng {len(chapter_epubs)} EPUB chương.")
         with st.expander("EPUB theo từng chương", expanded=True):
-            for artifact in sorted(chapter_epubs, key=lambda item: int(item.get("chapter_index") or 0)):
+            for artifact in chapter_epubs:
                 chapter_index = int(artifact.get("chapter_index") or 0)
                 title = artifact.get("title") or f"Chương {chapter_index}"
-                response = requests.get(
-                    api_url(f"/api/v1/audiobook/jobs/{job['job_id']}/chapters/{chapter_index}/download"),
-                    timeout=60,
-                )
+                response = download_chapter_epub(job["job_id"], chapter_index)
                 if response.ok:
                     st.download_button(
                         f"Chương {chapter_index}: {title}",
                         data=response.content,
                         file_name=Path(artifact.get("path") or f"chapter_{chapter_index:04d}.epub").name,
                         mime="application/epub+zip",
-                        use_container_width=True,
+                        width="stretch",
+                        key=f"chapter-epub-download-{job['job_id']}-{chapter_index}",
                     )
                 else:
                     st.caption(f"Chương {chapter_index}: chưa tải được tệp.")
     return epub_bytes
+
+
+def _chapter_preview_options(job: dict) -> list[dict]:
+    options = []
+    for artifact in _sorted_chapter_epubs(job):
+        chapter_index = int(artifact.get("chapter_index") or 0)
+        if not chapter_index:
+            continue
+        title = artifact.get("title") or f"Chương {chapter_index}"
+        options.append(
+            {
+                "label": f"Chương {chapter_index}: {title}",
+                "chapter_index": chapter_index,
+            }
+        )
+    return options
 
 
 def _epub_chapter_entries(epub_bytes: bytes) -> list[tuple[str, str]]:
@@ -552,24 +693,51 @@ def _preview_html_from_epub(epub_bytes: bytes, chapter_path: str) -> tuple[str, 
     return html_doc, audio
 
 
-def render_epub_preview(epub_bytes: bytes | None) -> None:
+def render_epub_preview(epub_bytes: bytes | None, job: dict) -> None:
+    job_id = job["job_id"]
     st.subheader("Xem EPUB3")
-    if not epub_bytes:
-        st.info("Chưa có EPUB3 để xem trực tiếp.")
+    preview_source = "book"
+    chapter_options = _chapter_preview_options(job)
+    if epub_bytes:
+        if chapter_options and job.get("status") != "completed":
+            st.caption("Đang xem EPUB chương đã hoàn tất. EPUB tổng sẽ thay thế khi sách hoàn tất.")
+            preview_source = "chapter"
+        else:
+            st.caption("Đang xem EPUB3 tổng.")
+    elif chapter_options:
+        st.caption(f"Có thể xem trước {len(chapter_options)} chương đã sinh xong.")
+        preview_source = "chapter"
+    else:
+        st.info("Chưa có EPUB chương nào để xem trước.")
         return
+
     try:
+        if preview_source == "chapter":
+            labels = [option["label"] for option in chapter_options]
+            selected = st.selectbox("Chọn chương", labels, index=0, key=f"epub-preview-chapter-artifact-{job_id}")
+            chapter_index = chapter_options[labels.index(selected)]["chapter_index"]
+            response = download_chapter_epub(job_id, chapter_index)
+            if not response.ok:
+                st.warning("Chương này chưa tải được để xem trước.")
+                return
+            epub_bytes = response.content
+
         entries = _epub_chapter_entries(epub_bytes)
         if not entries:
             st.warning("Không tìm thấy nội dung XHTML trong EPUB3.")
             return
         labels = [title for title, _ in entries]
-        selected = st.selectbox("Chọn chương", labels, index=0)
-        chapter_path = entries[labels.index(selected)][1]
+        if preview_source == "book":
+            selected = st.selectbox("Chọn chương", labels, index=0, key=f"epub-preview-book-chapter-{job_id}")
+            chapter_path = entries[labels.index(selected)][1]
+        else:
+            chapter_path = entries[0][1]
         html_doc, chapter_audio = _preview_html_from_epub(epub_bytes, chapter_path)
         if chapter_audio:
             data, mime = chapter_audio
             st.audio(data, format=mime)
-        components.html(html_doc, height=620, scrolling=True)
+        encoded_html = base64.b64encode(html_doc.encode("utf-8")).decode("ascii")
+        st.iframe(f"data:text/html;base64,{encoded_html}", width="stretch", height=620)
     except zipfile.BadZipFile:
         st.warning("Tệp EPUB3 không đọc được.")
     except Exception as exc:
@@ -580,21 +748,24 @@ def render_logs_tab(job: dict | None) -> None:
     if not job:
         st.info("Chọn một tác vụ để xem nhật ký.")
         return
-    report_response = download_job_report(job["job_id"])
+    job_id = job["job_id"]
+    st.caption(f"Nhật ký của tác vụ: {job_id}")
+    report_response = download_job_report(job_id)
     if report_response.ok:
         st.download_button(
             "Tải log và thống kê pipeline",
             data=report_response.content,
-            file_name=f"pipeline_report_{job['job_id']}.txt",
+            file_name=f"pipeline_report_{job_id}.txt",
             mime="text/plain",
-            use_container_width=True,
+            width="stretch",
+            key=f"report-download-{job_id}",
         )
     else:
         st.warning("Chưa tải được report thống kê.")
 
     logs = job.get("logs") or ""
     if logs:
-        st.code(logs, language="")
+        st.code(logs, language="", height=520, wrap_lines=True)
     else:
         st.info("Chưa có nhật ký.")
 
@@ -617,12 +788,20 @@ def main() -> None:
     apply_style()
     st.title("Audiobook AI")
     st.caption(f"Máy chủ: {API_BASE_URL}")
+    created_message = st.session_state.pop("job_created_message", None)
+    if created_message:
+        st.success(created_message)
 
     health_payload = None
     try:
         health_payload = get_health()
     except requests.RequestException:
         health_payload = None
+
+    selected_job_id = (st.session_state.get("job_id") or "").strip()
+    if st.session_state.get("_job_id_input_synced") != selected_job_id:
+        st.session_state["job_id_input"] = selected_job_id
+        st.session_state["_job_id_input_synced"] = selected_job_id
 
     with st.sidebar:
         st.header("Thiết lập")
@@ -638,9 +817,12 @@ def main() -> None:
         auto_refresh = st.checkbox("Tự làm mới", value=True)
         refresh_seconds = st.number_input("Số giây", min_value=1, max_value=30, value=2)
         st.divider()
-        remembered = st.text_input("Mã tác vụ", value=st.session_state.get("job_id", ""))
-        if remembered:
-            st.session_state["job_id"] = remembered.strip()
+        remembered = st.text_input("Mã tác vụ", key="job_id_input")
+        remembered_job_id = remembered.strip()
+        if remembered_job_id != selected_job_id:
+            _select_job(remembered_job_id)
+            st.session_state["_job_id_input_synced"] = remembered_job_id
+            st.rerun()
 
     try:
         queue_payload = list_jobs()
@@ -653,7 +835,7 @@ def main() -> None:
         return
 
     job = None
-    job_id = st.session_state.get("job_id")
+    job_id = (st.session_state.get("job_id") or "").strip()
     if job_id:
         try:
             job = get_job(job_id)
@@ -663,7 +845,11 @@ def main() -> None:
         except requests.RequestException as exc:
             st.error(f"Không kết nối được máy chủ: {exc}")
 
-    tab_create, tab_queue, tab_result, tab_logs = st.tabs(["Tạo sách nói", "Theo dõi", "Kết quả", "Nhật ký"])
+    tab_scope = job_id or "none"
+    tab_create, tab_queue, tab_result, tab_logs = st.tabs(
+        ["Tạo sách nói", "Theo dõi", "Kết quả", "Nhật ký"],
+        key=f"main-tabs-{tab_scope}",
+    )
 
     with tab_create:
         render_upload_tab(output_format, normalize_audio, add_chapters)
@@ -675,16 +861,22 @@ def main() -> None:
         if not job:
             st.info("Chọn một tác vụ trong tab Theo dõi hoặc nhập mã tác vụ ở thanh bên.")
         else:
-            render_job_summary(job)
-            st.divider()
-            left, right = st.columns([0.9, 1.4])
-            with left:
-                epub_bytes = render_downloads(job)
-            with right:
-                render_epub_preview(epub_bytes)
+            st.caption(f"Kết quả của tác vụ: {job['job_id']}")
+            with st.container(key=f"result-panel-{job['job_id']}"):
+                render_job_summary(job)
+                st.divider()
+                left, right = st.columns([0.9, 1.4])
+                with left:
+                    epub_bytes = render_downloads(job)
+                with right:
+                    render_epub_preview(epub_bytes, job)
 
     with tab_logs:
-        render_logs_tab(job)
+        if job:
+            with st.container(key=f"logs-panel-{job['job_id']}"):
+                render_logs_tab(job)
+        else:
+            render_logs_tab(job)
 
     if auto_refresh and any(item.get("status") in {"pending", "running"} for item in queue_payload.get("jobs", [])):
         time.sleep(float(refresh_seconds))

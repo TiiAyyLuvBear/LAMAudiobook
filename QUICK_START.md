@@ -18,6 +18,22 @@ streamlit run src/frontend/streamlit_app.py --server.port 8501
 
 Mở `http://localhost:8501`, upload EPUB, đợi job hoàn tất rồi tải audio hoặc EPUB3 chapter artifact.
 
+## Share Web Qua Cloudflare
+
+Cài `cloudflared` một lần nếu máy chưa có:
+
+```powershell
+winget install --id Cloudflare.cloudflared
+```
+
+Chạy script chia sẻ UI cho đồng đội:
+
+```powershell
+.\scripts\share_cloudflare.ps1
+```
+
+Script sẽ khởi động FastAPI/Streamlit local nếu cần, mở Cloudflare quick tunnel cho Streamlit, rồi in URL dạng `https://...trycloudflare.com`. Giữ terminal đó mở trong lúc đồng đội dùng web.
+
 ## Production XTTS
 
 ```powershell
