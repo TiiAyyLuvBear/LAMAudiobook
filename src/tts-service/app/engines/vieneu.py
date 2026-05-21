@@ -33,6 +33,8 @@ class VieNeuEngine(BaseTTSEngine):
         voice_dir: str = "data/voice_samples",
         device: str = "auto",
         lora_adapter: Optional[str] = None,
+        codec_repo: Optional[str] = None,
+        codec_device: Optional[str] = None,
     ):
         self.mode = mode
         self.model_name = model_name
@@ -44,11 +46,28 @@ class VieNeuEngine(BaseTTSEngine):
         self.requested_device = self._normalize_device(device or os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE") or "auto")
         self.device = self._resolve_device(self.requested_device)
         self.enable_voice_cloning = os.getenv("VIENEU_ENABLE_VOICE_CLONING", "0").lower() in {"1", "true", "yes"}
+        self.codec_repo = (
+            codec_repo
+            or os.getenv("VIENEU_CODEC_REPO")
+            or ("neuphonic/neucodec" if self.enable_voice_cloning else "neuphonic/neucodec-onnx-decoder-int8")
+        )
+        self.codec_device = self._normalize_device(codec_device or os.getenv("VIENEU_CODEC_DEVICE") or self.device)
         self.reference_text = os.getenv(
             "VIENEU_REFERENCE_TEXT",
             "Tác phẩm dự thi bảo đảm tính khoa học, tính đảng, tính chiến đấu, tính định hướng.",
         )
+        self._runtime_warnings = []
         self._load_tts()
+
+    def _add_warning(self, message: str) -> None:
+        if message not in self._runtime_warnings:
+            self._runtime_warnings.append(message)
+        print(f"[VieNeu] Warning: {message}")
+
+    def consume_warnings(self) -> list[str]:
+        warnings = list(self._runtime_warnings)
+        self._runtime_warnings.clear()
+        return warnings
 
     @staticmethod
     def _normalize_device(device: str) -> str:
@@ -77,14 +96,24 @@ class VieNeuEngine(BaseTTSEngine):
             return False
 
     def _load_tts(self):
-        instance_key = (self.mode, self.model_name, self.emotion, self.api_base, self.device, self.lora_adapter)
+        instance_key = (
+            self.mode,
+            self.model_name,
+            self.emotion,
+            self.api_base,
+            self.device,
+            self.lora_adapter,
+            self.codec_repo,
+            self.codec_device,
+        )
         if VieNeuEngine._instance is None or VieNeuEngine._instance_key != instance_key:
             try:
                 from vieneu import Vieneu
                 print(
                     f"[VieNeu] Initializing VieNeu TTS engine mode={self.mode} "
                     f"model={self.model_name} emotion={self.emotion} "
-                    f"requested_device={self.requested_device} resolved_device={self.device}..."
+                    f"requested_device={self.requested_device} resolved_device={self.device} "
+                    f"codec={self.codec_repo} codec_device={self.codec_device}..."
                 )
                 # VieNeu SDK >=1.2 uses backbone_repo/backbone_device. Older builds used
                 # model_name/device, so keep those as fallbacks after the preferred forms.
@@ -100,6 +129,10 @@ class VieNeuEngine(BaseTTSEngine):
                 model_kwargs = {}
                 if self.hf_token:
                     model_kwargs["hf_token"] = self.hf_token
+                if self.codec_repo:
+                    model_kwargs["codec_repo"] = self.codec_repo
+                if self.codec_device:
+                    model_kwargs["codec_device"] = self.codec_device
                 if self.lora_adapter:
                     model_kwargs["gguf_filename"] = None
 
@@ -182,7 +215,7 @@ class VieNeuEngine(BaseTTSEngine):
             restored = getattr(tts, "_preset_voices", None) or {}
             print(f"[VieNeu] Restored {len(restored)} preset voices from base model.")
         except Exception as exc:
-            print(f"[VieNeu] Warning: could not restore base preset voices: {exc}")
+            self._add_warning(f"Could not restore base preset voices: {exc}")
 
     def _get_voice_data(self, voice_id: str):
         if voice_id in self._voices_cache:
@@ -195,7 +228,7 @@ class VieNeuEngine(BaseTTSEngine):
             self._voices_cache[voice_id] = voice_data
             return voice_data
         except Exception as e:
-            print(f"[VieNeu] Warning: Could not load voice '{voice_id}': {e}. Using default voice.")
+            self._add_warning(f"Could not load preset voice '{voice_id}': {e}. Using default preset voice.")
             try:
                 voice_data = self.tts.get_preset_voice(None)
                 self._voices_cache[voice_id] = voice_data
@@ -212,19 +245,22 @@ class VieNeuEngine(BaseTTSEngine):
         sample_path = self.voice_dir / f"{Path(voice_id).stem}.wav"
         return sample_path if sample_path.is_file() else None
 
+    def _should_clone_voice(self, voice_id: str) -> bool:
+        if not self.enable_voice_cloning:
+            return False
+        voice_name = Path(voice_id).stem
+        return os.path.isfile(voice_id) or voice_name.startswith("custom_")
+
     def _can_encode_reference_audio(self) -> bool:
         codec = getattr(self.tts, "codec", None)
         return callable(getattr(codec, "encode_code", None))
 
     def _warn_reference_encoder_unavailable(self) -> None:
-        if VieNeuEngine._warned_reference_encoder_unavailable:
-            return
         VieNeuEngine._warned_reference_encoder_unavailable = True
-        print(
-            "[VieNeu] Warning: voice cloning was requested, but the loaded codec "
-            "cannot encode reference audio. Falling back to preset voices. "
-            "Use a full NeuCodec backend instead of the default ONNX decoder "
-            "to enable reference WAV cloning."
+        self._add_warning(
+            "Voice cloning was requested, but the loaded codec cannot encode reference audio. "
+            "Falling back to preset voices. Use a full NeuCodec backend instead of the default "
+            "ONNX decoder to enable reference WAV cloning."
         )
 
     def synthesize(self, text: str, voice_id: str, speed: float, pitch: float, output_path: str) -> None:
@@ -235,7 +271,19 @@ class VieNeuEngine(BaseTTSEngine):
         
         try:
             ref_audio = self._get_reference_audio(voice_id)
-            if self.enable_voice_cloning and ref_audio and self._can_encode_reference_audio():
+            should_clone = self._should_clone_voice(voice_id)
+            if should_clone:
+                if not ref_audio:
+                    raise RuntimeError(
+                        f"Voice cloning was requested for '{voice_id}', but no reference WAV was found "
+                        f"in '{self.voice_dir}'."
+                    )
+                if not self._can_encode_reference_audio():
+                    raise RuntimeError(
+                        "Voice cloning was requested for an uploaded/custom voice, but the loaded codec "
+                        f"'{self.codec_repo}' cannot encode reference audio. Set VIENEU_CODEC_REPO to "
+                        "'neuphonic/neucodec' or 'neuphonic/distill-neucodec'."
+                    )
                 try:
                     with self._inference_context():
                         audio = self.tts.infer(
@@ -243,13 +291,11 @@ class VieNeuEngine(BaseTTSEngine):
                             ref_audio=str(ref_audio),
                             ref_text=self.reference_text,
                         )
-                except TypeError:
-                    voice_data = self._get_voice_data(voice_id)
-                    with self._inference_context():
-                        audio = self.tts.infer(text=text, voice=voice_data)
+                except TypeError as exc:
+                    raise RuntimeError(
+                        f"VieNeu infer() did not accept reference audio for custom voice '{voice_id}': {exc}"
+                    ) from exc
             else:
-                if self.enable_voice_cloning and ref_audio:
-                    self._warn_reference_encoder_unavailable()
                 voice_data = self._get_voice_data(voice_id)
                 with self._inference_context():
                     audio = self.tts.infer(text=text, voice=voice_data)

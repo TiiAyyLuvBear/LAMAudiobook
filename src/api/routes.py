@@ -37,12 +37,20 @@ def _tts_runtime_info() -> Dict[str, str]:
     model = os.getenv("XTTS_MODEL_NAME_OR_PATH") or "aiMy144/XTTSv2VietAudiobook"
     lora_adapter = ""
     mode = ""
+    codec_repo = ""
+    codec_device = ""
 
     if engine.lower() in {"vieneu", "vieneu_tts", "direct_vieneu"}:
         model = os.getenv("VIENEU_MODEL_NAME", "pnnbao-ump/VieNeu-TTS-0.3B")
         device = os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE", "auto")
         lora_adapter = os.getenv("VIENEU_LORA_ADAPTER", "")
         mode = os.getenv("VIENEU_MODE", "standard")
+        codec_repo = os.getenv("VIENEU_CODEC_REPO") or (
+            "neuphonic/neucodec"
+            if os.getenv("VIENEU_ENABLE_VOICE_CLONING", "0").lower() in {"1", "true", "yes"}
+            else "neuphonic/neucodec-onnx-decoder-int8"
+        )
+        codec_device = os.getenv("VIENEU_CODEC_DEVICE", "")
     elif engine.lower() in {"xtts", "xtts_gpu", "direct_xtts"}:
         device = os.getenv("XTTS_DEVICE") or os.getenv("TTS_DEVICE", "auto")
 
@@ -52,11 +60,17 @@ def _tts_runtime_info() -> Dict[str, str]:
         "device": device,
         "mode": mode,
         "lora_adapter": lora_adapter,
+        "codec_repo": codec_repo,
+        "codec_device": codec_device,
     }
 
 
 def _voice_samples_dir() -> Path:
     return Path(os.getenv("XTTS_VOICE_DIR", "data/voice_samples"))
+
+
+def _is_temporary_voice_id(voice_id: str) -> bool:
+    return Path(voice_id or "").stem.startswith("custom_")
 
 
 def _sanitize_voice_id(value: str) -> str:
@@ -69,7 +83,33 @@ def _available_voice_ids() -> list[str]:
     voice_dir = _voice_samples_dir()
     if not voice_dir.exists():
         return []
-    return sorted(path.stem for path in voice_dir.glob("*.wav") if path.is_file())
+    return sorted(
+        path.stem
+        for path in voice_dir.glob("*.wav")
+        if path.is_file() and not _is_temporary_voice_id(path.stem)
+    )
+
+
+def _cleanup_uploaded_voice_sample(job_id: str, payload: Dict[str, Any]) -> None:
+    if payload.get("voice_mode") != "upload_voice":
+        return
+    voice_id = payload.get("narrator_voice_override") or ""
+    if not _is_temporary_voice_id(voice_id):
+        return
+    voice_path = Path(payload.get("uploaded_voice_path") or "")
+    try:
+        resolved_voice_path = voice_path.resolve()
+        voice_dir = _voice_samples_dir().resolve()
+    except OSError:
+        return
+    if not voice_path.is_file() or resolved_voice_path.parent != voice_dir:
+        return
+    try:
+        voice_path.unlink()
+        storage_service.append_log(job_id, f"Temporary uploaded voice removed from voice index: {voice_path.name}")
+        _save_job_metadata(job_id, {"uploaded_voice_cleaned": True})
+    except OSError as exc:
+        storage_service.append_log(job_id, f"Warning: failed to remove temporary uploaded voice {voice_path.name}: {exc}")
 
 
 def _voice_source_label(metadata: Dict[str, Any]) -> str:
@@ -92,7 +132,7 @@ def _voice_source_label(metadata: Dict[str, Any]) -> str:
     return "auto-selected by system"
 
 
-def _preprocess_voice_sample(input_path: Path, output_path: Path) -> None:
+def _preprocess_voice_sample(input_path: Path, output_path: Path) -> Dict[str, Any]:
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         raise HTTPException(
@@ -100,6 +140,16 @@ def _preprocess_voice_sample(input_path: Path, output_path: Path) -> None:
             detail="ffmpeg is required to preprocess uploaded voice samples",
         )
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    audio_filter = (
+        "highpass=f=80,"
+        "lowpass=f=12000,"
+        "afftdn=nf=-25,"
+        "areverse,"
+        "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.2,"
+        "areverse,"
+        "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.2,"
+        "loudnorm=I=-20:TP=-2:LRA=11"
+    )
     command = [
         ffmpeg,
         "-y",
@@ -110,25 +160,56 @@ def _preprocess_voice_sample(input_path: Path, output_path: Path) -> None:
         "-ar",
         "24000",
         "-af",
-        (
-            "highpass=f=80,"
-            "lowpass=f=12000,"
-            "afftdn=nf=-25,"
-            "areverse,"
-            "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.2,"
-            "areverse,"
-            "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.2,"
-            "loudnorm=I=-20:TP=-2:LRA=11"
-        ),
+        audio_filter,
         str(output_path),
     ]
     try:
         subprocess.run(command, check=True, capture_output=True, text=True, timeout=180)
+        return {
+            "input_path": str(input_path),
+            "output_path": str(output_path),
+            "sample_rate_hz": 24000,
+            "channels": 1,
+            "filters": [
+                "highpass=f=80",
+                "lowpass=f=12000",
+                "afftdn=nf=-25",
+                "silenceremove=start_threshold=-45dB:start_silence=0.2",
+                "loudnorm=I=-20:TP=-2:LRA=11",
+            ],
+            "ffmpeg_filter": audio_filter,
+            "output_size_bytes": output_path.stat().st_size if output_path.exists() else 0,
+        }
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or exc.stdout or str(exc)).strip()
         raise HTTPException(status_code=400, detail=f"Voice preprocessing failed: {detail}") from exc
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(status_code=400, detail="Voice preprocessing timed out") from exc
+
+
+def _record_uploaded_voice_clean_outputs(
+    job_id: str,
+    raw_voice_path: Path,
+    cleaned_voice_path: Path,
+    voice_filename: str,
+    voice_id: str,
+    cleaning_info: Dict[str, Any],
+) -> Dict[str, Any]:
+    clean_dir = storage_service.stage_output_dir(job_id, "clean")
+    audit_voice_path = clean_dir / "voice_cleaned_sample.wav"
+    shutil.copy2(cleaned_voice_path, audit_voice_path)
+    payload = {
+        "kind": "uploaded_voice_cleaning",
+        "source_filename": voice_filename,
+        "voice_id": voice_id,
+        "raw_voice_path": str(raw_voice_path),
+        "temporary_voice_path": str(cleaned_voice_path),
+        "clean_stage_voice_path": str(audit_voice_path),
+        "noise_reduction": cleaning_info,
+        "temporary_voice": True,
+    }
+    storage_service.save_stage_json(job_id, "clean", "voice_cleaning.json", payload)
+    return payload
 
 
 class CreateJobResponse(BaseModel):
@@ -157,6 +238,7 @@ def _attach_job_metadata(job_status: Dict[str, Any], include_logs: bool = False)
     job_status["narrator_voice_override"] = metadata.get("narrator_voice_override")
     job_status["uploaded_voice_path"] = metadata.get("uploaded_voice_path")
     job_status["uploaded_voice_filename"] = metadata.get("uploaded_voice_filename")
+    job_status["uploaded_voice_cleaning"] = metadata.get("uploaded_voice_cleaning")
     job_status["selected_voice_id"] = metadata.get("selected_voice_id")
     job_status["selected_voice_filename"] = metadata.get("selected_voice_filename")
     job_status["voice_source"] = metadata.get("voice_source") or _voice_source_label(metadata)
@@ -213,6 +295,7 @@ def _build_pipeline_report(job_id: str) -> str:
     rtf_summary = tts.get("rtf_summary") or {}
     chapters = stats.get("chapters") or []
     segment_timings = tts.get("segment_timings") or []
+    tts_warnings = tts.get("warnings") or []
 
     lines = [
         "Audiobook Pipeline Report",
@@ -238,9 +321,12 @@ def _build_pipeline_report(job_id: str) -> str:
         f"- Model device: {device.get('model_device') or '-'}",
         f"- Model dtype: {device.get('model_dtype') or '-'}",
         f"- LoRA adapter: {tts.get('lora_adapter') or '-'}",
+        f"- Codec repo: {tts.get('codec_repo') or '-'}",
+        f"- Codec device: {tts.get('codec_device') or '-'}",
         f"- Voice mode: {metadata.get('voice_mode') or '-'}",
         f"- Voice source: {voice_source}",
         f"- Narrator voice: {metadata.get('narrator_voice_override') or '-'}",
+        f"- Uploaded voice cleaning: {(metadata.get('uploaded_voice_cleaning') or {}).get('clean_stage_voice_path') or '-'}",
         f"- Audio duration: {_format_seconds(tts.get('audio_duration_seconds') or (metadata.get('result') or {}).get('duration'))}",
         f"- Avg segment RTF: {rtf_summary.get('avg_segment_rtf') if rtf_summary.get('avg_segment_rtf') is not None else '-'}",
         f"- Max segment RTF: {rtf_summary.get('max_segment_rtf') if rtf_summary.get('max_segment_rtf') is not None else '-'}",
@@ -283,6 +369,11 @@ def _build_pipeline_report(job_id: str) -> str:
     else:
         lines.append("- No segment timing data available.")
 
+    if tts_warnings:
+        lines.extend(["", "TTS Warnings"])
+        for warning in tts_warnings:
+            lines.append(f"- {warning}")
+
     if segment_timings:
         lines.extend(["", "Segment Timings"])
         for item in segment_timings[:100]:
@@ -318,6 +409,7 @@ async def audiobook_generation_handler(
             f"TTS_DEVICE={os.getenv('TTS_DEVICE', 'auto')}, "
             f"VIENEU_DEVICE={os.getenv('VIENEU_DEVICE', os.getenv('TTS_DEVICE', 'auto'))}, "
             f"VIENEU_LORA_ADAPTER={os.getenv('VIENEU_LORA_ADAPTER') or ''}, "
+            f"VIENEU_CODEC_REPO={os.getenv('VIENEU_CODEC_REPO') or ''}, "
             f"voice_mode={payload.get('voice_mode', 'default')}, "
             f"narrator_voice_override={payload.get('narrator_voice_override') or ''}, "
             f"voice_source={payload.get('voice_source') or ''}, "
@@ -361,6 +453,8 @@ async def audiobook_generation_handler(
             vieneu_api_base=os.getenv("VIENEU_API_BASE") or None,
             vieneu_device=os.getenv("VIENEU_DEVICE", os.getenv("TTS_DEVICE", "auto")),
             vieneu_lora_adapter=os.getenv("VIENEU_LORA_ADAPTER") or None,
+            vieneu_codec_repo=os.getenv("VIENEU_CODEC_REPO") or None,
+            vieneu_codec_device=os.getenv("VIENEU_CODEC_DEVICE") or None,
             stage_output_callback=_record_stage_output,
         )
     )
@@ -410,6 +504,8 @@ async def audiobook_generation_handler(
         output_path = result.get("output_path")
         if not output_path or not Path(output_path).exists():
             raise RuntimeError("Pipeline completed but output audio file is missing")
+        for warning in ((result.get("pipeline_stats") or {}).get("tts") or {}).get("warnings", []) or []:
+            storage_service.append_log(job_id, f"TTS warning: {warning}")
         storage_service.append_log(job_id, f"Completed: {output_path}")
     elif result.get("cancelled"):
         storage_service.append_log(job_id, "Cancelled")
@@ -417,6 +513,7 @@ async def audiobook_generation_handler(
         storage_service.append_log(job_id, f"Failed: {result.get('error')}")
 
     await progress_callback(1.0 if result.get("success") else pipeline.get_state().get("progress", 0), None)
+    _cleanup_uploaded_voice_sample(job_id, payload)
     return safe_result
 
 
@@ -456,6 +553,7 @@ async def create_audiobook_job(
     narrator_voice_override = None
     uploaded_voice_path = None
     uploaded_voice_filename = None
+    uploaded_voice_cleaning = None
     selected_voice_id_meta = None
     selected_voice_filename = None
     voice_dir = _voice_samples_dir()
@@ -464,6 +562,8 @@ async def create_audiobook_job(
         narrator_voice_override = _sanitize_voice_id(selected_voice_id or "")
         if not narrator_voice_override:
             raise HTTPException(status_code=400, detail="selected_voice_id is required for system_voice mode")
+        if _is_temporary_voice_id(narrator_voice_override):
+            raise HTTPException(status_code=400, detail="Uploaded custom voices are temporary. Use upload_voice mode instead.")
         if narrator_voice_override not in _available_voice_ids():
             raise HTTPException(status_code=400, detail=f"Unknown voice sample: {narrator_voice_override}")
         selected_voice_id_meta = narrator_voice_override
@@ -489,16 +589,26 @@ async def create_audiobook_job(
 
         narrator_voice_override = f"custom_{job_id.replace('-', '')[:12]}"
         processed_voice_path = voice_dir / f"{narrator_voice_override}.wav"
-        _preprocess_voice_sample(raw_voice_path, processed_voice_path)
+        cleaning_info = _preprocess_voice_sample(raw_voice_path, processed_voice_path)
         uploaded_voice_path = str(processed_voice_path)
+        uploaded_voice_cleaning = _record_uploaded_voice_clean_outputs(
+            job_id=job_id,
+            raw_voice_path=raw_voice_path,
+            cleaned_voice_path=processed_voice_path,
+            voice_filename=voice_filename,
+            voice_id=narrator_voice_override,
+            cleaning_info=cleaning_info,
+        )
 
     voice_metadata = {
         "voice_mode": voice_mode,
         "narrator_voice_override": narrator_voice_override,
         "uploaded_voice_path": uploaded_voice_path,
         "uploaded_voice_filename": uploaded_voice_filename,
+        "uploaded_voice_cleaning": uploaded_voice_cleaning,
         "selected_voice_id": selected_voice_id_meta,
         "selected_voice_filename": selected_voice_filename,
+        "temporary_voice_id": narrator_voice_override if voice_mode == "upload_voice" else None,
     }
     voice_metadata["voice_source"] = _voice_source_label(voice_metadata)
 
@@ -546,7 +656,7 @@ async def list_voice_samples():
             "size_bytes": path.stat().st_size,
         }
         for path in sorted(voice_dir.glob("*.wav"))
-        if path.is_file()
+        if path.is_file() and not _is_temporary_voice_id(path.stem)
     ] if voice_dir.exists() else []
     return {"voice_dir": str(voice_dir), "voices": voices}
 

@@ -45,12 +45,20 @@ def _tts_runtime_info() -> dict:
     model = os.getenv("XTTS_MODEL_NAME_OR_PATH") or "aiMy144/XTTSv2VietAudiobook"
     lora_adapter = ""
     mode = ""
+    codec_repo = ""
+    codec_device = ""
 
     if engine.lower() in {"vieneu", "vieneu_tts", "direct_vieneu"}:
         model = os.getenv("VIENEU_MODEL_NAME", "pnnbao-ump/VieNeu-TTS-0.3B")
         device = os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE", "auto")
         lora_adapter = os.getenv("VIENEU_LORA_ADAPTER", "")
         mode = os.getenv("VIENEU_MODE", "standard")
+        codec_repo = os.getenv("VIENEU_CODEC_REPO") or (
+            "neuphonic/neucodec"
+            if os.getenv("VIENEU_ENABLE_VOICE_CLONING", "0").lower() in {"1", "true", "yes"}
+            else "neuphonic/neucodec-onnx-decoder-int8"
+        )
+        codec_device = os.getenv("VIENEU_CODEC_DEVICE", "")
     elif engine.lower() in {"xtts", "xtts_gpu", "direct_xtts"}:
         device = os.getenv("XTTS_DEVICE") or os.getenv("TTS_DEVICE", "auto")
 
@@ -60,6 +68,8 @@ def _tts_runtime_info() -> dict:
         "device": device,
         "mode": mode,
         "lora_adapter": lora_adapter,
+        "codec_repo": codec_repo,
+        "codec_device": codec_device,
     }
 
 

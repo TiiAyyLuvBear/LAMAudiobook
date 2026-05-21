@@ -329,6 +329,8 @@ class TTSAgent(BaseAgent):
                 voice_dir=self.config.get("xtts_voice_dir") or os.getenv("XTTS_VOICE_DIR", "data/voice_samples"),
                 device=self.config.get("vieneu_device") or os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE", "auto"),
                 lora_adapter=self.config.get("vieneu_lora_adapter") or os.getenv("VIENEU_LORA_ADAPTER") or None,
+                codec_repo=self.config.get("vieneu_codec_repo") or os.getenv("VIENEU_CODEC_REPO") or None,
+                codec_device=self.config.get("vieneu_codec_device") or os.getenv("VIENEU_CODEC_DEVICE") or None,
             )
         return self._vieneu_engine
 
@@ -349,8 +351,18 @@ class TTSAgent(BaseAgent):
             failed_segments: List[int] = []
             failure_details: List[str] = []
             segment_timings: List[Dict[str, Any]] = []
+            warnings: List[str] = []
+
+            def _collect_engine_warnings() -> None:
+                consume_warnings = getattr(engine, "consume_warnings", None)
+                if not callable(consume_warnings):
+                    return
+                for warning in consume_warnings() or []:
+                    if warning not in warnings:
+                        warnings.append(warning)
 
             total_segments = len(segments)
+            _collect_engine_warnings()
             for position, seg in enumerate(segments, start=1):
                 segment_started = time.perf_counter()
                 duration = 0.0
@@ -367,6 +379,7 @@ class TTSAgent(BaseAgent):
                         pitch=pitch,
                         output_path=str(output_path),
                     )
+                    _collect_engine_warnings()
 
                     duration = 1.0
                     try:
@@ -407,6 +420,7 @@ class TTSAgent(BaseAgent):
                         }
                     )
                 except Exception as exc:
+                    _collect_engine_warnings()
                     wall_seconds = time.perf_counter() - segment_started
                     failed_segments.append(seg.segment_index)
                     detail = f"segment {seg.segment_index} voice={seg.voice_id}: {exc}"
@@ -466,6 +480,10 @@ class TTSAgent(BaseAgent):
                         "succeeded_count": len(audio_segments),
                         "segment_timings": segment_timings,
                         "device_diagnostics": device_diagnostics,
+                        "warnings": warnings,
+                        "voice_cloning": getattr(engine, "enable_voice_cloning", None),
+                        "codec_repo": getattr(engine, "codec_repo", None),
+                        "codec_device": getattr(engine, "codec_device", None),
                     },
                 ),
             )

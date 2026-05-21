@@ -61,6 +61,7 @@ class AudiobookPipeline:
         self._chapter_timings: List[Dict[str, Any]] = []
         self._segment_timings: List[Dict[str, Any]] = []
         self._tts_device_diagnostics: Dict[str, Any] = {}
+        self._tts_warnings: List[str] = []
 
         # Initialize agents
         self.parser = ParserAgent()
@@ -83,6 +84,8 @@ class AudiobookPipeline:
                 "vieneu_api_base": config.vieneu_api_base,
                 "vieneu_device": config.vieneu_device,
                 "vieneu_lora_adapter": config.vieneu_lora_adapter,
+                "vieneu_codec_repo": config.vieneu_codec_repo,
+                "vieneu_codec_device": config.vieneu_codec_device,
                 "progress_callback": self._on_tts_progress,
             }
         )
@@ -241,11 +244,14 @@ class AudiobookPipeline:
                 or (self.config.vieneu_device if is_vieneu else self.config.tts_device),
                 "model": self.config.vieneu_model_name if is_vieneu else self.config.xtts_model_name_or_path,
                 "lora_adapter": self.config.vieneu_lora_adapter,
+                "codec_repo": self.config.vieneu_codec_repo,
+                "codec_device": self.config.vieneu_codec_device,
                 "segment_count": len(segments),
                 "audio_duration_seconds": round(float(getattr(audio_out, "total_duration", 0.0) or 0.0), 3),
                 "device_diagnostics": self._tts_device_diagnostics,
                 "segment_timings": self._segment_timings,
                 "rtf_summary": self._rtf_summary(self._segment_timings),
+                "warnings": self._tts_warnings,
             },
             "chapters": self._chapter_timings,
         }
@@ -614,6 +620,10 @@ class AudiobookPipeline:
                 self._segment_timings.append(timing)
             if tts_metadata.get("device_diagnostics"):
                 self._tts_device_diagnostics = tts_metadata["device_diagnostics"]
+            for warning in tts_metadata.get("warnings", []) or []:
+                if warning not in self._tts_warnings:
+                    self._tts_warnings.append(warning)
+                    logger.warning("[TTS] %s", warning)
             chapter_audio_segments = (
                 tts_data.audio_segments if hasattr(tts_data, "audio_segments") else []
             )
@@ -705,6 +715,7 @@ class AudiobookPipeline:
                 "total_duration": total_duration,
                 "chapter_timings": self._chapter_timings,
                 "segment_timings": self._segment_timings,
+                "warnings": self._tts_warnings,
             },
         )
         tts_output = type(
@@ -720,6 +731,7 @@ class AudiobookPipeline:
                     "chapter_timings": self._chapter_timings,
                     "segment_timings": self._segment_timings,
                     "device_diagnostics": self._tts_device_diagnostics,
+                    "warnings": self._tts_warnings,
                 },
             },
         )()

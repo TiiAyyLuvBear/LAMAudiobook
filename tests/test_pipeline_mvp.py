@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import time
+import wave
 from pathlib import Path
 
 import pytest
@@ -97,3 +98,126 @@ def test_mock_job_system_voice_uses_one_segment_per_sentence(tmp_path, monkeypat
     logs = (tmp_path / "storage" / "jobs" / job_id / "logs" / "logs.txt").read_text(encoding="utf-8")
     assert "segment 11/6" not in logs
     assert "global_segment" in logs
+
+
+def test_tts_agent_surfaces_engine_warnings(tmp_path):
+    from agents.tts import TTSAgent
+    from schema.audio import TTSSegment, TTSGeneratorInput
+
+    class FakeWarningEngine:
+        enable_voice_cloning = True
+
+        def __init__(self):
+            self.device = "cpu"
+            self._warnings = ["Voice cloning fell back to preset voice."]
+
+        def consume_warnings(self):
+            warnings = list(self._warnings)
+            self._warnings.clear()
+            return warnings
+
+        def synthesize(self, text, voice_id, speed, pitch, output_path):
+            with wave.open(str(output_path), "wb") as audio_file:
+                audio_file.setnchannels(1)
+                audio_file.setsampwidth(2)
+                audio_file.setframerate(16000)
+                audio_file.writeframes(b"\x00\x00" * 1600)
+
+    agent = TTSAgent(config={"tts_engine": "vieneu", "tts_device": "cpu"})
+    result = agent._run_direct_engine_sync(
+        TTSGeneratorInput(
+            segments=[
+                TTSSegment(
+                    text="Xin chào.",
+                    voice_id="custom_voice",
+                    chapter_index=1,
+                    segment_index=1,
+                )
+            ],
+            output_dir=str(tmp_path),
+        ),
+        engine_factory=FakeWarningEngine,
+        engine_name="vieneu",
+    )
+
+    assert result.success
+    assert result.data.metadata["warnings"] == ["Voice cloning fell back to preset voice."]
+    assert result.data.metadata["voice_cloning"] is True
+
+
+def test_uploaded_custom_voices_are_not_listed_as_system_voices(tmp_path, monkeypatch):
+    voice_dir = tmp_path / "voices"
+    voice_dir.mkdir()
+    (voice_dir / "female_hn_01.wav").write_bytes(b"system")
+    (voice_dir / "custom_deadbeef1234.wav").write_bytes(b"temporary")
+    monkeypatch.setenv("XTTS_VOICE_DIR", str(voice_dir))
+
+    from api.routes import _available_voice_ids, _is_temporary_voice_id
+
+    assert _is_temporary_voice_id("custom_deadbeef1234")
+    assert _available_voice_ids() == ["female_hn_01"]
+
+
+def test_vieneu_custom_voice_requires_reference_encoder(tmp_path):
+    from importlib import import_module
+    import types
+
+    service_app_dir = SRC / "tts-service" / "app"
+    package_name = "_local_tts_service_app"
+    engines_package_name = f"{package_name}.engines"
+    if package_name not in sys.modules:
+        package = types.ModuleType(package_name)
+        package.__path__ = [str(service_app_dir)]
+        sys.modules[package_name] = package
+    if engines_package_name not in sys.modules:
+        engines_package = types.ModuleType(engines_package_name)
+        engines_package.__path__ = [str(service_app_dir / "engines")]
+        sys.modules[engines_package_name] = engines_package
+
+    module = import_module("_local_tts_service_app.engines.vieneu")
+    engine = object.__new__(module.VieNeuEngine)
+    engine.tts = object()
+    engine.voice_dir = tmp_path
+    engine.enable_voice_cloning = True
+    engine.codec_repo = "neuphonic/neucodec-onnx-decoder-int8"
+    engine.reference_text = "Xin chào."
+    engine._runtime_warnings = []
+    (tmp_path / "custom_deadbeef1234.wav").write_bytes(b"not-a-real-wav")
+
+    with pytest.raises(RuntimeError, match="cannot encode reference audio"):
+        engine.synthesize(
+            text="Xin chào.",
+            voice_id="custom_deadbeef1234",
+            speed=1.0,
+            pitch=1.0,
+            output_path=str(tmp_path / "out.wav"),
+        )
+
+
+def test_uploaded_voice_clean_outputs_are_written_to_clean_stage(tmp_path, monkeypatch):
+    monkeypatch.setenv("STORAGE_DIR", str(tmp_path / "storage"))
+    import api.routes as routes
+    from services.storage import StorageService
+
+    routes.storage_service = StorageService(str(tmp_path / "storage"))
+
+    raw_voice = tmp_path / "raw.wav"
+    cleaned_voice = tmp_path / "cleaned.wav"
+    raw_voice.write_bytes(b"raw")
+    cleaned_voice.write_bytes(b"cleaned")
+
+    payload = routes._record_uploaded_voice_clean_outputs(
+        job_id="job-1",
+        raw_voice_path=raw_voice,
+        cleaned_voice_path=cleaned_voice,
+        voice_filename="sample.wav",
+        voice_id="custom_job1",
+        cleaning_info={"filters": ["afftdn=nf=-25"], "sample_rate_hz": 24000},
+    )
+
+    clean_dir = tmp_path / "storage" / "jobs" / "job-1" / "outputs" / "02_clean"
+    assert (clean_dir / "voice_cleaned_sample.wav").read_bytes() == b"cleaned"
+    metadata = json.loads((clean_dir / "voice_cleaning.json").read_text(encoding="utf-8"))
+    assert metadata["voice_id"] == "custom_job1"
+    assert metadata["noise_reduction"]["filters"] == ["afftdn=nf=-25"]
+    assert payload["clean_stage_voice_path"].endswith("voice_cleaned_sample.wav")
