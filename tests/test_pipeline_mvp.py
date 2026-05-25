@@ -145,6 +145,14 @@ def test_tts_agent_surfaces_engine_warnings(tmp_path):
     assert result.data.metadata["voice_cloning"] is True
 
 
+
+def test_tts_engine_name_accepts_hyphen_alias():
+    from agents.tts import TTSAgent
+
+    agent = TTSAgent(config={"tts_engine": "xtts-gpu"})
+
+    assert agent.engine == "xtts_gpu"
+
 def test_uploaded_custom_voices_are_not_listed_as_system_voices(tmp_path, monkeypatch):
     voice_dir = tmp_path / "voices"
     voice_dir.mkdir()
@@ -192,6 +200,46 @@ def test_vieneu_custom_voice_requires_reference_encoder(tmp_path):
             pitch=1.0,
             output_path=str(tmp_path / "out.wav"),
         )
+
+
+def test_xtts_runtime_auto_setup_clones_and_installs_requirements(tmp_path, monkeypatch):
+    from importlib import import_module
+    import types
+
+    service_app_dir = SRC / "tts-service" / "app"
+    package_name = "_local_tts_service_app"
+    engines_package_name = f"{package_name}.engines"
+    if package_name not in sys.modules:
+        package = types.ModuleType(package_name)
+        package.__path__ = [str(service_app_dir)]
+        sys.modules[package_name] = package
+    if engines_package_name not in sys.modules:
+        engines_package = types.ModuleType(engines_package_name)
+        engines_package.__path__ = [str(service_app_dir / "engines")]
+        sys.modules[engines_package_name] = engines_package
+
+    module = import_module("_local_tts_service_app.engines.xtts")
+    runtime_dir = tmp_path / "models" / "XTTSv2-Finetuning-for-New-Languages"
+    calls = []
+
+    def fake_run(command, check):
+        calls.append(command)
+        if command[:3] == ["git", "clone", "--depth"]:
+            runtime_dir.mkdir(parents=True)
+            (runtime_dir / "requirements.txt").write_text("coqui-tts\n", encoding="utf-8")
+        return None
+
+    monkeypatch.setenv("XTTS_RUNTIME_REPO", "https://example.test/xtts-runtime.git")
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+
+    engine = object.__new__(module.XTTSEngine)
+    engine.runtime_dir = runtime_dir
+    engine._ensure_runtime_available()
+
+    assert calls == [
+        ["git", "clone", "--depth", "1", "https://example.test/xtts-runtime.git", str(runtime_dir)],
+        [sys.executable, "-m", "pip", "install", "-r", str(runtime_dir / "requirements.txt")],
+    ]
 
 
 def test_uploaded_voice_clean_outputs_are_written_to_clean_stage(tmp_path, monkeypatch):

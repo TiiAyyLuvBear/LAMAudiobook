@@ -5,9 +5,9 @@
 #   -> direct TTS engine -> audio + EPUB3 chapter artifacts
 #
 # System dependencies:
-#   - ffmpeg / ffprobe for audio concatenation, normalization, and conversion
-#   - For TTS_ENGINE=xtts_gpu, install the XTTS runtime repo requirements from
-#     models/XTTSv2-Finetuning-for-New-Languages as done by scripts/colab_runner.ipynb.
+#   - ffmpeg / ffprobe and libav* shared libraries for audio finalization and
+#     torchcodec-backed XTTS reference audio loading. On Ubuntu/Debian:
+#       apt-get install -y ffmpeg
 
 # --- API, UI, and configuration ---
 fastapi>=0.109,<1.0
@@ -32,6 +32,10 @@ vinorm>=2.0,<3.0
 # Colab CUDA install is handled explicitly in scripts/colab_runner.ipynb, e.g.:
 #   pip install --index-url https://download.pytorch.org/whl/cu130 \
 #     torch==2.11.0+cu130 torchaudio==2.11.0+cu130 torchcodec==0.11.1
+#
+# Engine-specific Transformers/tokenizers pins live in requirements-xtts.txt
+# and requirements-vieneu.txt because XTTS and VieNeu/Qwen3 need incompatible
+# Transformers major behavior around generation/model architecture support.
 torch>=2.11,<2.12
 torchaudio>=2.11,<2.12
 torchvision>=0.26,<0.27
@@ -40,9 +44,11 @@ transformers>=4.36,<5.0
 peft>=0.11,<1.0
 sentence-transformers>=2.2,<4.0
 huggingface_hub>=0.23,<1.0
+fsspec>=2023.1.0,<=2026.2.0
+networkx>=2.5,<3.0
 qdrant-client>=1.7,<2.0
-numpy>=1.24,<3.0
-scipy>=1.10,<2.0
+numpy>=1.24.3,<3.0
+scipy>=1.11.2,<2.0
 
 # --- Optional TTS service / worker mode ---
 redis>=5.0,<6.0

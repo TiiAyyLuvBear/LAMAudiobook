@@ -17,4 +17,4 @@ underthesea>=6.8,<7.0
 vinorm>=2.0,<3.0
 
 # Optional default service engine. Requires espeak-ng system dependency.
-vieneu>=1.2
+vieneu[gpu]>=2.7

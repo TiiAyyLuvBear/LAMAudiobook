@@ -31,7 +31,7 @@ class TTSAgent(BaseAgent):
     def __init__(self, name: str = "tts", config: Optional[Dict[str, Any]] = None):
         super().__init__(name, config)
         self.service_url = config.get("tts_service_url", "http://localhost:8001") if config else "http://localhost:8001"
-        self.engine = (self.config.get("tts_engine") or os.getenv("TTS_ENGINE") or "http").lower()
+        self.engine = (self.config.get("tts_engine") or os.getenv("TTS_ENGINE") or "http").lower().replace("-", "_")
         self.progress_callback: Optional[Callable[[Dict[str, Any]], None]] = self.config.get("progress_callback")
         self._xtts_engine = None
         self._vieneu_engine = None

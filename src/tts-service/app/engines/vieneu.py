@@ -41,6 +41,7 @@ class VieNeuEngine(BaseTTSEngine):
         self.emotion = emotion
         self.api_base = api_base
         self.lora_adapter = (lora_adapter or os.getenv("VIENEU_LORA_ADAPTER") or "").strip()
+        self.gguf_filename = self._resolve_gguf_filename(self.model_name, self.lora_adapter)
         self.hf_token = os.getenv("HF_TOKEN") or None
         self.voice_dir = Path(voice_dir)
         self.requested_device = self._normalize_device(device or os.getenv("VIENEU_DEVICE") or os.getenv("TTS_DEVICE") or "auto")
@@ -58,6 +59,18 @@ class VieNeuEngine(BaseTTSEngine):
         )
         self._runtime_warnings = []
         self._load_tts()
+
+    @staticmethod
+    def _resolve_gguf_filename(model_name: str, lora_adapter: str) -> Optional[str]:
+        raw = os.getenv("VIENEU_GGUF_FILENAME")
+        if raw is not None:
+            value = raw.strip()
+            return None if value.lower() in {"", "none", "null", "pytorch"} else value
+        if lora_adapter:
+            return None
+        if model_name.rstrip("/").endswith("VieNeu-TTS-0.3B"):
+            return "VieNeu-TTS-0.3B-Q4_K_M.gguf"
+        return None
 
     def _add_warning(self, message: str) -> None:
         if message not in self._runtime_warnings:
@@ -109,6 +122,14 @@ class VieNeuEngine(BaseTTSEngine):
         if VieNeuEngine._instance is None or VieNeuEngine._instance_key != instance_key:
             try:
                 from vieneu import Vieneu
+            except ImportError as exc:
+                raise RuntimeError(
+                    "Could not import the `vieneu` package or one of its import-time dependencies. "
+                    "Install the VieNeu profile with `pip install -U -r requirements-vieneu.txt` "
+                    f"using the same Python interpreter that runs the backend. Original import error: {exc}"
+                ) from exc
+
+            try:
                 print(
                     f"[VieNeu] Initializing VieNeu TTS engine mode={self.mode} "
                     f"model={self.model_name} emotion={self.emotion} "
@@ -133,8 +154,8 @@ class VieNeuEngine(BaseTTSEngine):
                     model_kwargs["codec_repo"] = self.codec_repo
                 if self.codec_device:
                     model_kwargs["codec_device"] = self.codec_device
-                if self.lora_adapter:
-                    model_kwargs["gguf_filename"] = None
+                if self.gguf_filename is not None or self.lora_adapter:
+                    model_kwargs["gguf_filename"] = self.gguf_filename
 
                 candidate_kwargs = []
                 for base in base_variants:
@@ -181,11 +202,6 @@ class VieNeuEngine(BaseTTSEngine):
                     self._assert_lora_adapter_active(VieNeuEngine._instance)
                     self._restore_base_voices_if_empty(VieNeuEngine._instance)
                 print("[VieNeu] Engine initialized successfully.")
-            except ImportError as exc:
-                raise RuntimeError(
-                    "The `vieneu` package is required to use VieNeuEngine. "
-                    "Install it via `pip install vieneu`. Note that `espeak-ng` system dependency is also required."
-                ) from exc
             except Exception as e:
                 raise RuntimeError(f"Failed to load VieNeu model: {e}") from e
         self.tts = VieNeuEngine._instance

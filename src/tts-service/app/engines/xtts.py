@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 from typing import Optional
 from pathlib import Path
 import shutil
@@ -7,6 +8,8 @@ from .base import BaseTTSEngine
 
 DEFAULT_XTTS_HF_REPO = "aiMy144/XTTSv2VietAudiobook"
 DEFAULT_XTTS_RUNTIME_DIR = "models/XTTSv2-Finetuning-for-New-Languages"
+DEFAULT_XTTS_RUNTIME_REPO = "https://github.com/anhnh2002/XTTSv2-Finetuning-for-New-Languages.git"
+
 
 class XTTSEngine(BaseTTSEngine):
     """Production XTTS Engine integrating with local reference wavs"""
@@ -32,6 +35,7 @@ class XTTSEngine(BaseTTSEngine):
         self.requested_device = self.device_request
         self.device = None
         self.runtime_dir = Path(os.getenv("XTTS_RUNTIME_DIR", DEFAULT_XTTS_RUNTIME_DIR))
+        self._ensure_runtime_available()
         self.model_cache_key = "|".join(
             [
                 self.model_name_or_path or "",
@@ -43,6 +47,53 @@ class XTTSEngine(BaseTTSEngine):
         )
         self._conditioning_cache_key = self.model_cache_key
         self._load_tts()
+
+    @staticmethod
+    def _env_flag(name: str, default: bool = True) -> bool:
+        value = os.getenv(name)
+        if value is None:
+            return default
+        return value.strip().lower() not in {"0", "false", "no", "off"}
+
+    def _ensure_runtime_available(self) -> None:
+        if self.runtime_dir.exists():
+            return
+        if not self._env_flag("XTTS_AUTO_SETUP", True):
+            raise RuntimeError(
+                f"XTTS runtime directory not found: {self.runtime_dir}. "
+                "Set XTTS_AUTO_SETUP=1 to auto-clone it, or set XTTS_RUNTIME_DIR to an existing checkout."
+            )
+
+        repo_url = os.getenv("XTTS_RUNTIME_REPO", DEFAULT_XTTS_RUNTIME_REPO)
+        self.runtime_dir.parent.mkdir(parents=True, exist_ok=True)
+        print(f"[XTTS] Runtime not found at {self.runtime_dir}; cloning {repo_url}")
+
+        try:
+            subprocess.run(
+                ["git", "clone", "--depth", "1", repo_url, str(self.runtime_dir)],
+                check=True,
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError("git is required to auto-clone the XTTS runtime repo.") from exc
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(f"Failed to clone XTTS runtime repo from {repo_url}") from exc
+
+        requirements_file = self.runtime_dir / "requirements.txt"
+        if not requirements_file.exists():
+            raise RuntimeError(f"XTTS runtime requirements not found: {requirements_file}")
+
+        if not self._env_flag("XTTS_AUTO_INSTALL_REQUIREMENTS", True):
+            print(f"[XTTS] Skipping runtime requirements install: {requirements_file}")
+            return
+
+        print(f"[XTTS] Installing runtime requirements: {requirements_file}")
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-r", str(requirements_file)],
+                check=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(f"Failed to install XTTS runtime requirements from {requirements_file}") from exc
 
     def _resolve_device(self) -> str:
         import torch

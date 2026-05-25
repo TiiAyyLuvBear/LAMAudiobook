@@ -1,0 +1,16 @@
+# Audiobook AI - VieNeu runtime requirements
+# Use this for TTS_ENGINE=vieneu / vieneu_tts / direct_vieneu.
+-r requirements.txt
+
+# VieNeu current PyTorch backbones can use Qwen3, which requires Transformers
+# versions that recognize model_type=qwen3.
+transformers>=4.51.0,<5.0
+tokenizers>=0.21,<0.22
+vieneu[gpu]>=2.7
+numpy>=2.0.2,<3.0
+pandas>=2.2,<4.0
+
+# Voice cloning uses neucodec from the vieneu[gpu] extra.
+# The lightweight ONNX decoder is only for preset voices.
+onnxruntime>=1.20.0
+llama-cpp-python==0.3.16

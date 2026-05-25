@@ -92,6 +92,43 @@ VIENEU_LORA_ADAPTER=anyu205/VieNeu-TTS-v2-lora
 
 LoRA adapter không chạy với GGUF; nếu muốn chạy GGUF trên CPU thì cần merge/export model hoàn chỉnh trước.
 
+### Chọn Requirements Theo TTS Engine
+
+`requirements.txt` chỉ chứa dependency chung cho API/UI/pipeline và đủ để chạy `TTS_ENGINE=mock`. Hai engine thật cần profile riêng vì chúng cần version `transformers`/`tokenizers` khác nhau:
+
+```powershell
+# XTTS GPU
+pip install -U -r requirements-xtts.txt
+$env:TTS_ENGINE="xtts_gpu"
+
+# VieNeu preset voices
+pip install -U -r requirements-vieneu.txt
+$env:TTS_ENGINE="vieneu"
+
+# VieNeu voice cloning, when switching from XTTS in the same .venv
+pip uninstall -y gruut gruut-ipa gruut-lang-de gruut-lang-en gruut-lang-es gruut-lang-fr
+$env:VIENEU_ENABLE_VOICE_CLONING="1"
+$env:VIENEU_CODEC_REPO="neuphonic/neucodec"
+```
+
+Không cài chồng requirements của XTTS runtime repo bằng lệnh riêng. Nếu đổi engine trong cùng một `.venv`, hãy chạy lại đúng file requirements của engine mới rồi restart backend/frontend. Với VieNeu voice cloning, `vieneu[gpu]` kéo `neucodec` và cần `numpy>=2`; nếu trước đó đã cài XTTS, gỡ nhóm `gruut*` như lệnh trên để `pip check` sạch. Khi quay lại XTTS, `requirements-xtts.txt` sẽ cài lại `gruut` và đưa `numpy` về `<2`. Conflict đã xác nhận:
+
+- XTTS cần `transformers<4.50` vì XTTS `GPT2InferenceModel` còn phụ thuộc `generate()`.
+- VieNeu/Qwen3 cần `transformers>=4.51` để nhận `model_type=qwen3`.
+- VieNeu voice cloning cần `neuphonic/neucodec`, không dùng `neuphonic/neucodec-onnx-decoder-int8` vì ONNX decoder chỉ phù hợp preset voices.
+
+System dependency chung cho audio/codec:
+
+```bash
+apt-get install -y ffmpeg
+```
+
+VieNeu trên Linux có thể cần thêm `espeak-ng` tùy backend/phonemizer:
+
+```bash
+apt-get install -y espeak-ng
+```
+
 Khi chưa cài `ffmpeg`, trong Streamlit nên chọn:
 
 - Định dạng âm thanh: `wav`
