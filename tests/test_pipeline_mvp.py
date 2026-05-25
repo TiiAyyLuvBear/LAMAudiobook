@@ -166,6 +166,79 @@ def test_uploaded_custom_voices_are_not_listed_as_system_voices(tmp_path, monkey
     assert _available_voice_ids() == ["female_hn_01"]
 
 
+def test_vieneu_auto_resolves_backbone_and_codec_devices(monkeypatch, tmp_path):
+    from importlib import import_module
+    import types
+
+    service_app_dir = SRC / "tts-service" / "app"
+    package_name = "_local_tts_service_app"
+    engines_package_name = f"{package_name}.engines"
+    if package_name not in sys.modules:
+        package = types.ModuleType(package_name)
+        package.__path__ = [str(service_app_dir)]
+        sys.modules[package_name] = package
+    if engines_package_name not in sys.modules:
+        engines_package = types.ModuleType(engines_package_name)
+        engines_package.__path__ = [str(service_app_dir / "engines")]
+        sys.modules[engines_package_name] = engines_package
+
+    module = import_module("_local_tts_service_app.engines.vieneu")
+    captured = []
+
+    class FakeVieneu:
+        def __init__(self, **kwargs):
+            captured.append(kwargs)
+
+    monkeypatch.setenv("VIENEU_CODEC_DEVICE", "auto")
+    monkeypatch.setattr(module.VieNeuEngine, "_cuda_available", staticmethod(lambda: True))
+    monkeypatch.setitem(sys.modules, "vieneu", types.SimpleNamespace(Vieneu=FakeVieneu))
+    monkeypatch.setattr(module.VieNeuEngine, "_instance", None)
+    monkeypatch.setattr(module.VieNeuEngine, "_instance_key", None)
+
+    engine = module.VieNeuEngine(
+        mode="standard",
+        model_name="pnnbao-ump/VieNeu-TTS-v2",
+        voice_dir=str(tmp_path),
+        device="auto",
+        codec_repo="neuphonic/neucodec",
+    )
+
+    assert engine.requested_device == "auto"
+    assert engine.device == "cuda"
+    assert engine.codec_device == "cuda"
+    assert captured
+    assert captured[0].get("backbone_device") == "cuda"
+    assert captured[0].get("codec_device") == "cuda"
+
+
+def test_vieneu_voice_cloning_uses_local_system_voice_samples(tmp_path):
+    from importlib import import_module
+    import types
+
+    service_app_dir = SRC / "tts-service" / "app"
+    package_name = "_local_tts_service_app"
+    engines_package_name = f"{package_name}.engines"
+    if package_name not in sys.modules:
+        package = types.ModuleType(package_name)
+        package.__path__ = [str(service_app_dir)]
+        sys.modules[package_name] = package
+    if engines_package_name not in sys.modules:
+        engines_package = types.ModuleType(engines_package_name)
+        engines_package.__path__ = [str(service_app_dir / "engines")]
+        sys.modules[engines_package_name] = engines_package
+
+    module = import_module("_local_tts_service_app.engines.vieneu")
+    engine = object.__new__(module.VieNeuEngine)
+    engine.enable_voice_cloning = True
+    engine.voice_dir = tmp_path
+    (tmp_path / "male_hn_02.wav").write_bytes(b"not-a-real-wav")
+
+    ref_audio = engine._get_reference_audio("male_hn_02")
+
+    assert ref_audio == tmp_path / "male_hn_02.wav"
+    assert engine._should_clone_voice("male_hn_02", ref_audio) is True
+
+
 def test_vieneu_custom_voice_requires_reference_encoder(tmp_path):
     from importlib import import_module
     import types
@@ -202,7 +275,7 @@ def test_vieneu_custom_voice_requires_reference_encoder(tmp_path):
         )
 
 
-def test_xtts_runtime_auto_setup_clones_and_installs_requirements(tmp_path, monkeypatch):
+def test_xtts_runtime_auto_setup_clones_without_installing_requirements_by_default(tmp_path, monkeypatch):
     from importlib import import_module
     import types
 
@@ -230,6 +303,47 @@ def test_xtts_runtime_auto_setup_clones_and_installs_requirements(tmp_path, monk
         return None
 
     monkeypatch.setenv("XTTS_RUNTIME_REPO", "https://example.test/xtts-runtime.git")
+    monkeypatch.delenv("XTTS_AUTO_INSTALL_REQUIREMENTS", raising=False)
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+
+    engine = object.__new__(module.XTTSEngine)
+    engine.runtime_dir = runtime_dir
+    engine._ensure_runtime_available()
+
+    assert calls == [
+        ["git", "clone", "--depth", "1", "https://example.test/xtts-runtime.git", str(runtime_dir)],
+    ]
+
+
+def test_xtts_runtime_auto_setup_can_install_requirements_when_enabled(tmp_path, monkeypatch):
+    from importlib import import_module
+    import types
+
+    service_app_dir = SRC / "tts-service" / "app"
+    package_name = "_local_tts_service_app"
+    engines_package_name = f"{package_name}.engines"
+    if package_name not in sys.modules:
+        package = types.ModuleType(package_name)
+        package.__path__ = [str(service_app_dir)]
+        sys.modules[package_name] = package
+    if engines_package_name not in sys.modules:
+        engines_package = types.ModuleType(engines_package_name)
+        engines_package.__path__ = [str(service_app_dir / "engines")]
+        sys.modules[engines_package_name] = engines_package
+
+    module = import_module("_local_tts_service_app.engines.xtts")
+    runtime_dir = tmp_path / "models" / "XTTSv2-Finetuning-for-New-Languages"
+    calls = []
+
+    def fake_run(command, check):
+        calls.append(command)
+        if command[:3] == ["git", "clone", "--depth"]:
+            runtime_dir.mkdir(parents=True)
+            (runtime_dir / "requirements.txt").write_text("coqui-tts\n", encoding="utf-8")
+        return None
+
+    monkeypatch.setenv("XTTS_RUNTIME_REPO", "https://example.test/xtts-runtime.git")
+    monkeypatch.setenv("XTTS_AUTO_INSTALL_REQUIREMENTS", "1")
     monkeypatch.setattr(module.subprocess, "run", fake_run)
 
     engine = object.__new__(module.XTTSEngine)

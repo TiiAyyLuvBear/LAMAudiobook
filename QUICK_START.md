@@ -14,6 +14,8 @@ Terminal khác:
 ```powershell
 $env:API_BASE_URL="http://localhost:8000"
 streamlit run src/frontend/streamlit_app.py --server.port 8501
+# Bật giao diện debug khi cần xem model/log chi tiết:
+streamlit run src/frontend/streamlit_app.py --server.port 8501 -- -debug
 ```
 
 Mở `http://localhost:8501`, upload EPUB, đợi job hoàn tất rồi tải audio hoặc EPUB3 chapter artifact.
@@ -44,7 +46,7 @@ $env:XTTS_RUNTIME_DIR="models/XTTSv2-Finetuning-for-New-Languages"
 $env:XTTS_VOICE_DIR="data/voice_samples"
 ```
 
-XTTS cần CUDA, runtime XTTS theo `models/XTTSv2.ipynb`, checkpoint/config/vocab hợp lệ và ít nhất một reference WAV trong `data/voice_samples`.
+XTTS cần CUDA, runtime XTTS theo `models/XTTSv2.ipynb`, checkpoint/config/vocab hợp lệ và ít nhất một reference WAV trong `data/voice_samples`. App mặc định chỉ clone XTTS runtime, không tự cài `models/.../requirements.txt`; hãy cài dependency bằng `requirements-xtts.txt`.
 
 ## Production VieNeu
 

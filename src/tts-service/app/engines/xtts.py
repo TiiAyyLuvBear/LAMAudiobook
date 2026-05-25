@@ -79,12 +79,15 @@ class XTTSEngine(BaseTTSEngine):
             raise RuntimeError(f"Failed to clone XTTS runtime repo from {repo_url}") from exc
 
         requirements_file = self.runtime_dir / "requirements.txt"
+        if not self._env_flag("XTTS_AUTO_INSTALL_REQUIREMENTS", False):
+            print(
+                "[XTTS] Skipping runtime requirements install. "
+                "Install project XTTS dependencies with requirements-xtts.txt."
+            )
+            return
+
         if not requirements_file.exists():
             raise RuntimeError(f"XTTS runtime requirements not found: {requirements_file}")
-
-        if not self._env_flag("XTTS_AUTO_INSTALL_REQUIREMENTS", True):
-            print(f"[XTTS] Skipping runtime requirements install: {requirements_file}")
-            return
 
         print(f"[XTTS] Installing runtime requirements: {requirements_file}")
         try:

@@ -53,6 +53,8 @@ Mở terminal khác:
 ```powershell
 $env:API_BASE_URL="http://localhost:8000"
 streamlit run src/frontend/streamlit_app.py --server.port 8501
+# Bật giao diện debug khi cần xem model/log chi tiết:
+streamlit run src/frontend/streamlit_app.py --server.port 8501 -- -debug
 ```
 
 Mở `http://localhost:8501`, upload EPUB, đợi job hoàn tất rồi tải audio hoặc EPUB3 chapter artifact.
@@ -111,7 +113,7 @@ $env:VIENEU_ENABLE_VOICE_CLONING="1"
 $env:VIENEU_CODEC_REPO="neuphonic/neucodec"
 ```
 
-Không cài chồng requirements của XTTS runtime repo bằng lệnh riêng. Nếu đổi engine trong cùng một `.venv`, hãy chạy lại đúng file requirements của engine mới rồi restart backend/frontend. Với VieNeu voice cloning, `vieneu[gpu]` kéo `neucodec` và cần `numpy>=2`; nếu trước đó đã cài XTTS, gỡ nhóm `gruut*` như lệnh trên để `pip check` sạch. Khi quay lại XTTS, `requirements-xtts.txt` sẽ cài lại `gruut` và đưa `numpy` về `<2`. Conflict đã xác nhận:
+Không cài chồng requirements của XTTS runtime repo bằng lệnh riêng. App chỉ nên clone runtime repo; dependency XTTS phải lấy từ `requirements-xtts.txt`. Mặc định `XTTS_AUTO_INSTALL_REQUIREMENTS=0` để tránh runtime repo kéo `numpy==1.22.0` trên Python 3.10 và làm lệch SciPy/Streamlit. Nếu đổi engine trong cùng một `.venv`, hãy chạy lại đúng file requirements của engine mới rồi restart backend/frontend. Với VieNeu voice cloning, `vieneu[gpu]` kéo `neucodec` và cần `numpy>=2`; nếu trước đó đã cài XTTS, gỡ nhóm `gruut*` như lệnh trên để `pip check` sạch. Khi quay lại XTTS, `requirements-xtts.txt` sẽ cài lại `gruut` và đưa `numpy` về `<2`. Conflict đã xác nhận:
 
 - XTTS cần `transformers<4.50` vì XTTS `GPT2InferenceModel` còn phụ thuộc `generate()`.
 - VieNeu/Qwen3 cần `transformers>=4.51` để nhận `model_type=qwen3`.

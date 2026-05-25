@@ -8,6 +8,7 @@ import base64
 import io
 import os
 import re
+import sys
 import unicodedata
 import zipfile
 from pathlib import Path
@@ -52,6 +53,12 @@ UPLOAD_MIME_TYPES = {
     ".txt": "text/plain",
 }
 EPUB_AUDIO_LIMIT_BYTES = 35 * 1024 * 1024
+
+
+def is_debug_mode() -> bool:
+    args = {arg.strip().lower() for arg in sys.argv[1:]}
+    env_value = os.getenv("STREAMLIT_DEBUG", "").strip().lower()
+    return bool(args.intersection({"-debug", "--debug"}) or env_value in {"1", "true", "yes", "on"})
 
 
 def _select_job(job_id: str) -> None:
@@ -171,6 +178,13 @@ def _short_id(job_id: str) -> str:
     return job_id[:8]
 
 
+def _job_display_name(job: dict) -> str:
+    filename = _display_value(job.get("source_filename"))
+    if filename != "-":
+        return filename
+    return f"Tác vụ {_short_id(job.get('job_id', ''))}"
+
+
 def _label(value: str | None) -> str:
     return STATUS_LABELS.get(value or "unknown", value or "-")
 
@@ -183,6 +197,55 @@ def _selected_status_value(label: str) -> str:
 def _display_value(value: str | None) -> str:
     value = (value or "").strip()
     return value if value else "-"
+
+
+def _status_text(job: dict, fallback: str) -> str:
+    raw = (job.get("status_message") or "").strip()
+    if not raw:
+        return fallback
+
+    normalized = raw.lower()
+    simple_messages = {
+        "cancelled": "Đã hủy",
+        "cancelled before execution": "Đã hủy trước khi xử lý",
+        "cancellation requested. waiting for the current step to stop.": "Đã yêu cầu hủy, đang chờ bước hiện tại dừng lại.",
+    }
+    if normalized in simple_messages:
+        return simple_messages[normalized]
+
+    match = re.match(r"^(mp3|wav) audiobook ready:\s*(.+)$", raw, re.IGNORECASE)
+    if match:
+        return "Audiobook đã hoàn thành"
+
+    match = re.match(r"^audiobook ready:\s*(.+)$", raw, re.IGNORECASE)
+    if match:
+        return "Audiobook đã hoàn thành"
+
+    match = re.match(r"^generating tts segment\s+(\d+)/(\d+)\s+\(global\s+(\d+)/(\d+)\)$", raw, re.IGNORECASE)
+    if match:
+        total = int(job.get("total_chapters") or 0)
+        current = int(job.get("current_chapter") or 0)
+        return f"Đang thực hiện tới chương {current}/{total}" if total else "Đang thực hiện"
+
+    match = re.match(r"^preparing tts for\s+(\d+)\s+segments across\s+(\d+)\s+chapters$", raw, re.IGNORECASE)
+    if match:
+        return "Đang chuẩn bị sinh giọng"
+
+    match = re.match(r"^generating chapter\s+(\d+)/(\d+)\s+(?:with\s+(\d+)\s+segments|\((\d+)\s+segments?\))$", raw, re.IGNORECASE)
+    if match:
+        current, total, _segments_a, _segments_b = match.groups()
+        return f"Đang thực hiện tới chương {current}/{total}"
+
+    match = re.match(r"^chapter\s+(\d+)/(\d+)\s+epub ready:\s*(.+)$", raw, re.IGNORECASE)
+    if match:
+        current, total, filename = match.groups()
+        return f"EPUB chương {current}/{total} đã sẵn sàng: {filename}"
+
+    match = re.match(r"^book epub3 artifact ready:\s*(.+)$", raw, re.IGNORECASE)
+    if match:
+        return f"EPUB3 tổng đã sẵn sàng: {match.group(1)}"
+
+    return raw
 
 
 def _voice_source_text(job: dict) -> str:
@@ -232,13 +295,17 @@ def _format_tts_runtime(tts: dict | None) -> str:
     return " | ".join(parts)
 
 
-def render_tts_runtime(tts: dict | None) -> None:
-    st.subheader("Cấu hình TTS")
+def render_tts_runtime(tts: dict | None, debug: bool = False) -> None:
+    st.subheader("Trạng thái đọc")
     if not tts:
-        st.caption("Chưa đọc được cấu hình TTS từ dịch vụ backend.")
+        st.caption("Chưa kết nối được dịch vụ đọc.")
         return
 
-    st.metric("Bộ máy", _display_value(tts.get("engine")))
+    st.metric("Bộ đọc", _display_value(tts.get("engine")))
+    if not debug:
+        st.caption("Hệ thống tự chọn cấu hình phù hợp cho sách nói.")
+        return
+
     st.caption(f"Mô hình: {_display_value(tts.get('model'))}")
     device_info = tts.get("device_diagnostics") or {}
     st.caption(f"Thiết bị: {_display_value(tts.get('device') or device_info.get('resolved_device'))}")
@@ -254,16 +321,19 @@ def render_tts_runtime(tts: dict | None) -> None:
 
 def _status_badge(container, status: str) -> None:
     label = _label(status)
-    if status == "running":
-        container.info(label)
-    elif status in {"pending", "queued"}:
-        container.warning(label)
-    elif status == "failed":
-        container.error(label)
-    elif status == "completed":
-        container.success(label)
-    else:
-        container.caption(label)
+    badge_class = {
+        "running": "status-running",
+        "pending": "status-pending",
+        "queued": "status-pending",
+        "failed": "status-failed",
+        "completed": "status-completed",
+        "cancelled": "status-cancelled",
+        "cancelling": "status-cancelled",
+    }.get(status, "status-muted")
+    container.markdown(
+        f'<div class="queue-status-badge {badge_class}">{label}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _progress(job: dict) -> float:
@@ -283,29 +353,47 @@ def render_stage(stage: str) -> None:
             cols[index].caption(_label(name))
 
 
-def render_upload_tab(output_format: str, normalize_audio: bool, add_chapters: bool) -> None:
+def render_section_header(title: str, kicker: str | None = None, compact: bool = False) -> None:
+    compact_class = " section-heading-compact" if compact else ""
+    kicker_html = f'<span class="section-kicker">{kicker}</span>' if kicker else ""
     st.markdown(
-        """
-        <div class="section-intro">
-          <span class="section-kicker">Khởi tạo</span>
-          <h2>Tạo sách nói mới</h2>
-          <p>Tải sách lên, chọn kiểu giọng đọc và gửi tác vụ vào hàng đợi xử lý.</p>
+        f"""
+        <div class="section-heading{compact_class}">
+          {kicker_html}
+          <h2>{title}</h2>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_upload_tab(output_format: str, normalize_audio: bool, add_chapters: bool) -> None:
+    # render_section_header("Tạo sách nói mới")
     uploaded = st.file_uploader("Chọn tệp EPUB, PDF hoặc TXT", type=["epub", "pdf", "txt"], key="book_upload")
     if not uploaded:
-        st.info("Tải sách lên để bắt đầu tạo âm thanh và EPUB3 đồng bộ theo từng chương.")
+        st.info("Tải sách lên để bắt đầu tạo Audiobook.")
         return
 
     size_mb = len(uploaded.getvalue()) / 1024 / 1024
-    c1, c2 = st.columns([2.2, 1])
-    c1.markdown(f"**Tệp nguồn**  \n`{uploaded.name}`")
-    c2.metric("Dung lượng", f"{size_mb:.2f} MB")
+    safe_filename = uploaded.name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    st.markdown(
+        f"""
+        <div class="upload-summary-grid">
+          <div class="upload-summary-card upload-file-card">
+            <div class="upload-summary-label">File đã tải</div>
+            <div class="upload-summary-value upload-file-name">{safe_filename}</div>
+          </div>
+          <div class="upload-summary-card">
+            <div class="upload-summary-label">Dung lượng</div>
+            <div class="upload-summary-value">{size_mb:.2f} MB</div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if size_mb > MAX_FILE_SIZE_MB:
-        st.error(f"Tệp vượt quá giới hạn {MAX_FILE_SIZE_MB} MB.")
+        st.error(f"File vượt quá giới hạn {MAX_FILE_SIZE_MB} MB.")
         return
 
     voice_mode_label = st.radio(
@@ -326,13 +414,13 @@ def render_upload_tab(output_format: str, normalize_audio: bool, add_chapters: b
             voices = []
             st.warning(f"Không đọc được danh sách giọng: {exc}")
         if voices:
-            selected_voice_id = st.selectbox("Chọn giọng kể", voices, index=0)
+            selected_voice_id = st.selectbox("", voices, index=0)
         else:
             st.warning("Chưa có tệp mẫu WAV trong thư mục giọng.")
             return
     elif voice_mode == "upload_voice":
         uploaded_voice = st.file_uploader(
-            "Tải tệp giọng mẫu",
+            "Tải file giọng tham chiếu",
             type=["wav", "mp3", "m4a", "aac", "flac", "ogg"],
             key="uploaded_voice_sample",
         )
@@ -342,7 +430,7 @@ def render_upload_tab(output_format: str, normalize_audio: bool, add_chapters: b
 
     if st.button("Tạo sách nói", type="primary", width="stretch", key="create_audiobook_job"):
         if voice_mode == "upload_voice" and uploaded_voice is None:
-            st.error("Hãy tải lên một tệp giọng mẫu trước khi tạo sách nói.")
+            st.error("Hãy tải lên một file giọng mẫu trước khi tạo sách nói.")
             return
         try:
             created = create_job(
@@ -364,20 +452,11 @@ def render_upload_tab(output_format: str, normalize_audio: bool, add_chapters: b
             st.error(f"Không kết nối được máy chủ: {exc}")
 
 
-def render_queue_tab(payload: dict, selected_status: str) -> list[dict]:
+def render_queue_tab(payload: dict, selected_status: str, debug: bool = False) -> list[dict]:
     jobs = payload.get("jobs") or []
     stats = payload.get("stats") or {}
 
-    st.markdown(
-        """
-        <div class="section-intro">
-          <span class="section-kicker">Giám sát</span>
-          <h2>Hàng đợi xử lý</h2>
-          <p>Theo dõi tiến độ, mở nhanh kết quả và hủy những tác vụ không còn cần thiết.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    render_section_header("Trạng thái")
 
     cols = st.columns(5)
     cols[0].metric("Đang chạy", stats.get("running", 0))
@@ -396,16 +475,19 @@ def render_queue_tab(payload: dict, selected_status: str) -> list[dict]:
     st.divider()
     for job in jobs:
         job_id = job.get("job_id", "")
-        with st.container(border=True):
-            top = st.columns([1.2, 1.2, 2.8, 1.0])
-            if top[0].button(_short_id(job_id), key=f"select-{job_id}", width="stretch"):
+        with st.container(border=True, key=f"queue-card-{job_id}"):
+            top = st.columns([2.0, 1.0, 2.6, 1.0])
+            display_name = _job_display_name(job)
+            if top[0].button(display_name, key=f"select-{job_id}", width="stretch"):
                 if st.session_state.get("job_id") != job_id:
                     _select_job(job_id)
                 st.session_state["page_target"] = "Kết quả"
                 st.session_state["_pending_page_target"] = "Kết quả"
                 st.rerun()
+            if debug:
+                top[0].caption(f"Mã: {_short_id(job_id)}")
             _status_badge(top[1], job.get("status", "unknown"))
-            top[2].progress(_progress(job), text=job.get("status_message") or f"{_progress(job):.0%}")
+            top[2].progress(_progress(job), text=_status_text(job, f"{_progress(job):.0%}"))
             if job.get("cancel_requested"):
                 top[3].caption("Đang hủy")
             elif job.get("status") in {"pending", "running"}:
@@ -417,16 +499,19 @@ def render_queue_tab(payload: dict, selected_status: str) -> list[dict]:
             else:
                 top[3].caption("-")
 
-            bottom = st.columns(4)
             total = int(job.get("total_chapters") or 0)
             current = int(job.get("current_chapter") or 0)
             global_segment = job.get("global_segment") or {}
             segment_total = int(global_segment.get("total") or job.get("total_segments") or 0)
             segment_current = int(global_segment.get("current") or job.get("current_segment") or 0)
-            bottom[0].caption(f"Bước: {_label(job.get('stage') or job.get('status'))}")
-            bottom[1].caption(f"Chương: {current}/{total}" if total else "Chương: -")
-            bottom[2].caption(f"Câu tổng: {segment_current}/{segment_total}" if segment_total else "Câu tổng: -")
-            bottom[3].caption(f"Tệp: {len(job.get('artifacts') or [])}")
+            if debug:
+                bottom = st.columns(4)
+                bottom[0].caption(f"Bước: {_label(job.get('stage') or job.get('status'))}")
+                bottom[1].caption(f"Chương: {current}/{total}" if total else "Chương: -")
+                bottom[2].caption(f"Tổng số câu: {segment_current}/{segment_total}" if segment_total else "Câu tổng: -")
+                bottom[3].caption(f"Tệp: {len(job.get('artifacts') or [])}")
+            else:
+                st.caption(f"Đã xử lý {current}/{total} chương" if total else _label(job.get('stage') or job.get('status')))
 
     return jobs
 
@@ -449,12 +534,13 @@ def _book_epub(job: dict) -> dict | None:
     return None
 
 
-def render_job_summary(job: dict) -> None:
+def render_job_summary(job: dict, debug: bool = False) -> None:
     status = job.get("status", "unknown")
     stage = job.get("stage") or status
-    st.subheader(f"Mã {_short_id(job.get('job_id', ''))}")
-    render_stage(stage if stage in STAGES else status)
-    st.progress(_progress(job), text=job.get("status_message") or f"{_label(status)} / {_label(stage)}")
+    if debug:
+        st.subheader(f"Mã {_short_id(job.get('job_id', ''))}")
+        render_stage(stage if stage in STAGES else status)
+        st.progress(_progress(job), text=_status_text(job, f"{_label(status)} / {_label(stage)}"))
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Trạng thái", _label(status))
@@ -468,16 +554,16 @@ def render_job_summary(job: dict) -> None:
     segment_current = int(global_segment.get("current") or job.get("current_segment") or 0)
     chapter_segment_total = int(chapter_segment.get("total") or 0)
     chapter_segment_current = int(chapter_segment.get("current") or 0)
-    c4.metric("Câu tổng", f"{segment_current}/{segment_total}" if segment_total else "-")
-    if chapter_segment_total:
-        st.caption(f"Câu chương hiện tại: {chapter_segment_current}/{chapter_segment_total}")
+    c4.metric("Tổng số câu", f"{segment_current}/{segment_total}" if segment_total else "-")
+    if debug and chapter_segment_total:
+        st.caption(f"Đã xử lý: {chapter_segment_current}/{chapter_segment_total} của chương hiện tại")
 
     tts_runtime = job.get("tts_runtime")
-    if tts_runtime:
+    if debug and tts_runtime:
         st.caption(_format_tts_runtime(tts_runtime))
         for warning in tts_runtime.get("warnings", []) or []:
             st.warning(f"TTS: {warning}")
-    if job.get("voice_mode"):
+    if debug and job.get("voice_mode"):
         voice_label = VOICE_MODE_LABELS.get(job.get("voice_mode"), job.get("voice_mode"))
         st.caption(
             f"Giọng đọc: {voice_label} | Giọng kể: {_display_value(job.get('narrator_voice_override'))}"
@@ -489,7 +575,7 @@ def render_job_summary(job: dict) -> None:
     book = stats.get("book") or {}
     if stats:
         st.divider()
-        st.subheader("Thống kê quy trình")
+        st.subheader("Tổng quan" if not debug else "Thống kê quy trình")
         e1, e2, e3, e4 = st.columns(4)
         e1.metric("Tổng thời gian", _format_seconds(execution.get("total_wall_seconds")))
         e2.metric("Số chương", book.get("chapter_count") or job.get("total_chapters") or "-")
@@ -497,7 +583,7 @@ def render_job_summary(job: dict) -> None:
         e4.metric("Số từ", book.get("word_count") or "-")
 
         stage_seconds = execution.get("stage_wall_seconds") or {}
-        if stage_seconds:
+        if debug and stage_seconds:
             st.caption(
                 " | ".join(
                     f"{name}: {_format_seconds(seconds)}"
@@ -506,7 +592,7 @@ def render_job_summary(job: dict) -> None:
             )
 
         chapters = stats.get("chapters") or []
-        if chapters:
+        if debug and chapters:
             rows = [
                 {
                     "Chương": chapter.get("chapter_index"),
@@ -547,7 +633,6 @@ def render_downloads(job: dict) -> bytes | None:
     result = job.get("result") or {}
     has_partial_outputs = bool(_chapter_epubs(job) or _book_epub(job))
     if job.get("status") != "completed" and not has_partial_outputs:
-        st.info("Kết quả sẽ xuất hiện khi tác vụ hoàn tất từng phần.")
         return None
 
     if job.get("status") == "completed":
@@ -567,7 +652,7 @@ def render_downloads(job: dict) -> bytes | None:
         else:
             st.warning("Tác vụ đã hoàn tất nhưng chưa tìm thấy tệp âm thanh.")
     elif has_partial_outputs:
-        st.info("Âm thanh tổng sẽ xuất hiện khi bước hoàn thiện kết thúc.")
+        pass
 
     epub_bytes = None
     book_epub = _book_epub(job)
@@ -577,7 +662,7 @@ def render_downloads(job: dict) -> bytes | None:
             epub_bytes = epub_response.content
             epub_filename = Path(book_epub.get("path") or "audiobook.epub").name
             st.download_button(
-                "Tải EPUB3 tổng",
+                "Tải Audiobook",
                 data=epub_bytes,
                 file_name=epub_filename,
                 mime="application/epub+zip",
@@ -601,27 +686,8 @@ def render_downloads(job: dict) -> bytes | None:
                 key=f"book-epub-download-fallback-{job['job_id']}",
             )
     else:
-        st.info("EPUB3 tổng sẽ xuất hiện sau khi các chương đã sinh xong.")
+        pass
 
-    chapter_epubs = _sorted_chapter_epubs(job)
-    if chapter_epubs:
-        st.caption(f"Đã sẵn sàng {len(chapter_epubs)} EPUB chương.")
-        with st.expander("EPUB theo từng chương", expanded=True):
-            for artifact in chapter_epubs:
-                chapter_index = int(artifact.get("chapter_index") or 0)
-                title = artifact.get("title") or f"Chương {chapter_index}"
-                response = download_chapter_epub(job["job_id"], chapter_index)
-                if response.ok:
-                    st.download_button(
-                        f"Chương {chapter_index}: {title}",
-                        data=response.content,
-                        file_name=Path(artifact.get("path") or f"chapter_{chapter_index:04d}.epub").name,
-                        mime="application/epub+zip",
-                        width="stretch",
-                        key=f"chapter-epub-download-{job['job_id']}-{chapter_index}",
-                    )
-                else:
-                    st.caption(f"Chương {chapter_index}: chưa tải được tệp.")
     return epub_bytes
 
 
@@ -703,8 +769,9 @@ def _preview_html_from_epub(epub_bytes: bytes, chapter_path: str) -> tuple[str, 
         :root {{ color-scheme: light; }}
         body {{
           margin: 0;
-          padding: 0.25rem 0.5rem 2rem;
+          padding: 0.75rem 0.5rem 2rem;
           color: #172033;
+          background: transparent;
           font-family: "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
           font-size: 18px;
           line-height: 1.78;
@@ -712,13 +779,27 @@ def _preview_html_from_epub(epub_bytes: bytes, chapter_path: str) -> tuple[str, 
           text-rendering: optimizeLegibility;
           -webkit-font-smoothing: antialiased;
         }}
+        .reader-shell {{
+          max-width: 78ch;
+          margin: 0 auto;
+          padding: 1.45rem 1.55rem 2rem;
+          border: 1px solid #dfd4c2;
+          border-radius: 16px;
+          background: rgba(255, 253, 248, 0.96);
+          box-shadow: 0 18px 42px rgba(31, 41, 55, 0.09);
+        }}
         h1, h2, h3 {{
           margin: 0 0 1rem;
-          color: #101828;
+          color: #0f172a;
           font-family: "Segoe UI", Roboto, Arial, "Helvetica Neue", sans-serif;
-          font-weight: 750;
-          line-height: 1.22;
+          font-weight: 760;
+          line-height: 1.18;
           letter-spacing: 0;
+        }}
+        h1 {{
+          padding-bottom: 0.75rem;
+          border-bottom: 1px solid rgba(223, 212, 194, 0.95);
+          font-size: 2.35rem;
         }}
         p {{
           max-width: 72ch;
@@ -730,40 +811,99 @@ def _preview_html_from_epub(epub_bytes: bytes, chapter_path: str) -> tuple[str, 
         }}
       </style>
     </head>
-    <body>{body}</body>
+    <body><main class="reader-shell">{body}</main></body>
     </html>
     """
     return html_doc, audio
 
 
+def _chapter_artifact_by_index(job: dict, chapter_index: int) -> dict | None:
+    for artifact in _sorted_chapter_epubs(job):
+        if int(artifact.get("chapter_index") or 0) == chapter_index:
+            return artifact
+    return None
+
+
+def _render_selected_chapter_download(job_id: str, chapter_index: int, artifact: dict | None, data: bytes | None = None) -> None:
+    if not artifact and data is None:
+        st.button(
+            "Tải",
+            icon=":material/download:",
+            disabled=True,
+            width="stretch",
+            help="Chưa có tệp chương để tải",
+            key=f"chapter-download-disabled-{job_id}-{chapter_index}",
+        )
+        return
+
+    if data is None:
+        response = download_chapter_epub(job_id, chapter_index)
+        if not response.ok:
+            st.button(
+                "Tải",
+                icon=":material/download:",
+                disabled=True,
+                width="stretch",
+                help="Chưa tải được chương này",
+                key=f"chapter-download-unavailable-{job_id}-{chapter_index}",
+            )
+            return
+        data = response.content
+
+    filename = Path((artifact or {}).get("path") or f"chapter_{chapter_index:04d}.epub").name
+    st.download_button(
+        "Tải",
+        data=data,
+        file_name=filename,
+        mime="application/epub+zip",
+        icon=":material/download:",
+        width="stretch",
+        help="Tải audiobook của chương đang chọn",
+        on_click="ignore",
+        key=f"chapter-epub-download-{job_id}-{chapter_index}",
+    )
+
+
 def render_epub_preview(epub_bytes: bytes | None, job: dict) -> None:
     job_id = job["job_id"]
-    st.subheader("Xem trước EPUB3")
+    render_section_header("Xem trước EPUB3", "Xem trước", compact=True)
     preview_source = "book"
     chapter_options = _chapter_preview_options(job)
     if epub_bytes:
         if chapter_options and job.get("status") != "completed":
-            st.caption("Đang xem EPUB chương đã hoàn tất. EPUB tổng sẽ thay thế khi sách hoàn tất.")
+            # st.caption("Đang xem EPUB chương đã hoàn tất. EPUB tổng sẽ thay thế khi sách hoàn tất.")
             preview_source = "chapter"
         else:
-            st.caption("Đang xem EPUB3 tổng.")
+            pass
+            # st.caption("Đang xem EPUB3 tổng.")
     elif chapter_options:
         st.caption(f"Có thể xem trước {len(chapter_options)} chương đã sinh xong.")
         preview_source = "chapter"
     else:
-        st.info("Chưa có EPUB chương nào để xem trước.")
         return
 
     try:
+        selected_chapter_index = 0
+        selected_artifact = None
+        selected_chapter_data = None
+
         if preview_source == "chapter":
             labels = [option["label"] for option in chapter_options]
-            selected = st.selectbox("Chọn chương", labels, index=0, key=f"epub-preview-chapter-artifact-{job_id}")
-            chapter_index = chapter_options[labels.index(selected)]["chapter_index"]
-            response = download_chapter_epub(job_id, chapter_index)
+            selector_col, download_col = st.columns([0.88, 0.12], vertical_alignment="bottom")
+            with selector_col:
+                selected = st.selectbox("Chọn chương", labels, index=0, key=f"epub-preview-chapter-artifact-{job_id}")
+            selected_chapter_index = chapter_options[labels.index(selected)]["chapter_index"]
+            selected_artifact = _chapter_artifact_by_index(job, selected_chapter_index)
+            response = download_chapter_epub(job_id, selected_chapter_index)
             if not response.ok:
+                with download_col:
+                    _render_selected_chapter_download(job_id, selected_chapter_index, selected_artifact)
                 st.warning("Chương này chưa tải được để xem trước.")
                 return
-            epub_bytes = response.content
+            selected_chapter_data = response.content
+            with download_col:
+                _render_selected_chapter_download(job_id, selected_chapter_index, selected_artifact, selected_chapter_data)
+            epub_bytes = selected_chapter_data
 
         entries = _epub_chapter_entries(epub_bytes)
         if not entries:
@@ -771,8 +911,15 @@ def render_epub_preview(epub_bytes: bytes | None, job: dict) -> None:
             return
         labels = [title for title, _ in entries]
         if preview_source == "book":
-            selected = st.selectbox("Chọn chương", labels, index=0, key=f"epub-preview-book-chapter-{job_id}")
-            chapter_path = entries[labels.index(selected)][1]
+            selector_col, download_col = st.columns([0.88, 0.12], vertical_alignment="bottom")
+            with selector_col:
+                selected = st.selectbox("Chọn chương", labels, index=0, key=f"epub-preview-book-chapter-{job_id}")
+            selected_entry_index = labels.index(selected)
+            chapter_path = entries[selected_entry_index][1]
+            selected_chapter_index = selected_entry_index + 1
+            selected_artifact = _chapter_artifact_by_index(job, selected_chapter_index)
+            with download_col:
+                _render_selected_chapter_download(job_id, selected_chapter_index, selected_artifact)
         else:
             chapter_path = entries[0][1]
         html_doc, chapter_audio = _preview_html_from_epub(epub_bytes, chapter_path)
@@ -780,7 +927,7 @@ def render_epub_preview(epub_bytes: bytes | None, job: dict) -> None:
             data, mime = chapter_audio
             st.audio(data, format=mime)
         encoded_html = base64.b64encode(html_doc.encode("utf-8")).decode("ascii")
-        st.iframe(f"data:text/html;base64,{encoded_html}", width="stretch", height=620)
+        st.iframe(f"data:text/html;base64,{encoded_html}", width="stretch", height=720)
     except zipfile.BadZipFile:
         st.warning("Tệp EPUB3 không đọc được.")
     except Exception as exc:
@@ -819,6 +966,7 @@ def render_page_content(
     normalize_audio: bool,
     add_chapters: bool,
     selected_status: str,
+    debug: bool = False,
 ) -> None:
     try:
         queue_payload = list_jobs()
@@ -844,20 +992,28 @@ def render_page_content(
     if page == "Tạo sách nói":
         render_upload_tab(output_format, normalize_audio, add_chapters)
     elif page == "Theo dõi":
-        render_queue_tab(queue_payload, selected_status)
+        render_queue_tab(queue_payload, selected_status, debug=debug)
     elif page == "Kết quả":
         if not job:
             st.info("Chọn một tác vụ trong mục Theo dõi hoặc nhập mã tác vụ ở thanh bên.")
         else:
-            st.caption(f"Kết quả của tác vụ: {job['job_id']}")
-            render_job_summary(job)
-            st.divider()
-            left, right = st.columns([0.9, 1.4])
-            with left:
+            if debug:
+                st.caption(f"Kết quả của tác vụ: {job['job_id']}")
+            render_job_summary(job, debug=debug)
+            preview_available = bool(_chapter_preview_options(job) or _book_epub(job))
+            if preview_available:
+                st.divider()
+                left, right = st.columns([0.68, 1.82], gap="large")
+                with left:
+                    epub_bytes = render_downloads(job)
+                with right:
+                    render_epub_preview(epub_bytes, job)
+            else:
                 epub_bytes = render_downloads(job)
-            with right:
-                render_epub_preview(epub_bytes, job)
-    elif page == "Nhật ký":
+                if epub_bytes:
+                    st.divider()
+                    render_epub_preview(epub_bytes, job)
+    elif page == "Nhật ký" and debug:
         render_logs_tab(job)
 
 
@@ -885,7 +1041,7 @@ def apply_style() -> None:
           color: var(--ink);
         }
         .block-container {
-          padding-top: 2rem;
+          padding-top: 3.25rem;
           padding-bottom: 2.5rem;
           max-width: 1180px;
         }
@@ -939,6 +1095,29 @@ def apply_style() -> None:
           margin: 0;
           color: var(--muted);
         }
+        .section-heading {
+          width: 100%;
+          margin: 0 0 1rem;
+          padding: 0.9rem 1rem 0.95rem;
+          border-left: 5px solid var(--accent);
+          border-radius: 12px;
+          background: rgba(255, 253, 248, 0.78);
+          box-shadow: 0 12px 30px rgba(31, 41, 55, 0.055);
+        }
+        .section-heading h2 {
+          margin: 0.35rem 0 0;
+          color: #0f172a;
+          font-size: 1.58rem;
+          line-height: 1.16;
+          letter-spacing: 0;
+        }
+        .section-heading-compact {
+          margin-bottom: 0.85rem;
+          padding: 0.82rem 1rem 0.9rem;
+        }
+        .section-heading-compact h2 {
+          font-size: 2rem;
+        }
         .section-kicker {
           display: inline-block;
           padding: 0.28rem 0.58rem;
@@ -957,19 +1136,196 @@ def apply_style() -> None:
           border-radius: 14px;
           box-shadow: 0 10px 26px rgba(31, 41, 55, 0.04);
         }
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+          background: rgba(255, 253, 248, 0.97) !important;
+          border: 1px solid rgba(199, 181, 153, 0.98) !important;
+          border-radius: 14px !important;
+          box-shadow: 0 15px 36px rgba(31, 41, 55, 0.09) !important;
+          transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background-color 140ms ease;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+          transform: translateY(-1px);
+          background: rgba(255, 255, 255, 0.99) !important;
+          border-color: rgba(15, 118, 110, 0.32) !important;
+          box-shadow: 0 20px 46px rgba(31, 41, 55, 0.14) !important;
+        }
+        .queue-status-badge {
+          min-height: 3.35rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 10px;
+          padding: 0.45rem 0.7rem;
+          font-size: 1rem;
+          font-weight: 650;
+          text-align: center;
+          line-height: 1.2;
+        }
+        .queue-status-badge.status-failed {
+          background: #f8ded7;
+          color: #b91c1c;
+        }
+        .queue-status-badge.status-completed {
+          background: #dcebd4;
+          color: #047857;
+        }
+        .queue-status-badge.status-cancelled {
+          background: #f8e7b8;
+          color: #92400e;
+        }
+        .queue-status-badge.status-pending {
+          background: #f8e7b8;
+          color: #92400e;
+        }
+        .queue-status-badge.status-running {
+          background: #dbeafe;
+          color: #075985;
+        }
+        .queue-status-badge.status-muted {
+          background: #ebe6dd;
+          color: #6b7280;
+        }
+        div[data-testid="stFileUploader"] {
+          width: fit-content;
+          max-width: 100%;
+        }
+        div[data-testid="stFileUploader"] section,
+        div[data-testid="stFileUploaderDropzone"] {
+          width: fit-content !important;
+          min-width: 18.5rem !important;
+          max-width: 100%;
+          min-height: 4.25rem !important;
+          padding: 0.45rem 0.7rem !important;
+          align-items: center;
+        }
+        div[data-testid="stFileUploader"] section > div,
+        div[data-testid="stFileUploaderDropzone"] > div {
+          padding: 0 !important;
+        }
+        .upload-summary-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 1rem;
+          margin: 0.95rem 0 1.05rem;
+        }
+        .upload-summary-card {
+          min-height: 7.15rem;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          background: var(--surface);
+          box-shadow: 0 10px 26px rgba(31, 41, 55, 0.04);
+          padding: 1rem 1.1rem;
+          overflow: hidden;
+        }
+        .upload-summary-label {
+          color: #172033;
+          font-size: 1rem;
+          line-height: 1.25;
+          margin-bottom: 0.7rem;
+        }
+        .upload-summary-value {
+          color: #303240;
+          font-size: 2.35rem;
+          line-height: 1.05;
+          font-weight: 500;
+          letter-spacing: 0;
+        }
+        .upload-file-card {
+          align-items: flex-start;
+        }
+        .upload-file-name {
+          max-width: 100%;
+          color: #047857;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+          font-size: clamp(1.35rem, 2.4vw, 2.15rem);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          background: rgba(248, 250, 252, 0.72);
+          padding: 0.15rem 0.45rem;
+          border-radius: 4px;
+        }
+        @media (max-width: 760px) {
+          .upload-summary-grid {
+            grid-template-columns: 1fr;
+          }
+          .upload-summary-card {
+            min-height: 6.7rem;
+          }
+          .upload-summary-value {
+            font-size: 2rem;
+          }
+        }
         div[data-testid="stAlert"] {
           border-radius: 14px;
           border-width: 1px;
+        }
+        div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          background: rgba(255, 253, 248, 0.94);
+          box-shadow: 0 10px 24px rgba(31, 41, 55, 0.045);
+        }
+        audio {
+          width: 100%;
+          border: 1px solid rgba(223, 212, 194, 0.8);
+          border-radius: 999px;
+          box-shadow: 0 10px 24px rgba(31, 41, 55, 0.045);
         }
         div[data-testid="stVerticalBlock"] div[data-testid="stHorizontalBlock"] > div[data-testid="column"] div[data-testid="stButton"] > button,
         div[data-testid="stDownloadButton"] > button {
           border-radius: 12px;
         }
+        div[role="radiogroup"] {
+          gap: 0.55rem;
+        }
         div[role="radiogroup"] label {
+          min-height: 2.35rem;
+          padding: 0.32rem 0.78rem 0.32rem 0.42rem !important;
+          border: 1px solid rgba(223, 212, 194, 0.95) !important;
           border-radius: 999px !important;
+          background: rgba(255, 253, 248, 0.78) !important;
+          box-shadow: 0 8px 18px rgba(31, 41, 55, 0.055);
+          transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, border-color 140ms ease;
+        }
+        div[role="radiogroup"] label:hover {
+          transform: translateY(-1px);
+          border-color: rgba(15, 118, 110, 0.34) !important;
+          background: rgba(255, 255, 255, 0.94) !important;
+          box-shadow: 0 12px 26px rgba(31, 41, 55, 0.10);
+        }
+        div[role="radiogroup"] label:active {
+          transform: translateY(0) scale(0.985);
+          box-shadow: 0 5px 14px rgba(31, 41, 55, 0.09);
+        }
+        div[role="radiogroup"] label:has(input:checked) {
+          border-color: rgba(255, 82, 82, 0.36) !important;
+          background: rgba(255, 82, 82, 0.11) !important;
+          box-shadow: 0 12px 28px rgba(255, 82, 82, 0.16);
+          color: #111827 !important;
+          font-weight: 700;
+        }
+        div[role="radiogroup"] label:has(input:checked) [data-testid="stMarkdownContainer"] p {
+          color: #111827 !important;
+          font-weight: 700;
         }
         .stTabs [data-baseweb="tab-list"] {
           gap: 0.5rem;
+        }
+        .stTabs [data-baseweb="tab"] {
+          border-radius: 999px;
+          background: rgba(255, 253, 248, 0.62);
+          border: 1px solid rgba(223, 212, 194, 0.9);
+          padding: 0.35rem 0.8rem;
+          font-weight: 650;
+        }
+        .stTabs [aria-selected="true"] {
+          background: var(--accent-soft);
+          color: #115e59;
+          border-color: rgba(15, 118, 110, 0.24);
         }
         .stCodeBlock, .stDataFrame, div[data-testid="stExpander"] {
           border-radius: 14px;
@@ -981,14 +1337,13 @@ def apply_style() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="AI Sách nói", page_icon="🎧", layout="wide")
+    debug = is_debug_mode()
+    st.set_page_config(page_title="LAMAudiobook", page_icon="🎧", layout="wide")
     apply_style()
     st.markdown(
         f"""
         <div class="app-hero">
-          <h1>Audiobook Generation System </h1>
-          <p>Giao diện điều phối quy trình chuyển sách thành sách nói, theo dõi tiến độ xử lý và xem trước EPUB3 có âm thanh ngay trong một màn hình.</p>
-          <div class="hero-meta">Máy chủ đang kết nối: {API_BASE_URL}</div>
+          <h1>LAMAudiobook - Hệ thống tạo sách nói tự động</h1>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1009,9 +1364,10 @@ def main() -> None:
         st.session_state["_job_id_input_synced"] = selected_job_id
 
     with st.sidebar:
-        st.header("Thiết lập xử lý")
-        render_tts_runtime((health_payload or {}).get("tts"))
-        st.divider()
+        st.header("Tùy chọn")
+        if debug:
+            render_tts_runtime((health_payload or {}).get("tts"), debug=True)
+            st.divider()
         output_format = st.selectbox("Định dạng âm thanh đầu ra", ["mp3", "wav"], index=0)
         normalize_audio = st.checkbox("Chuẩn hóa âm lượng", value=True)
         add_chapters = st.checkbox("Thêm mốc chương", value=True)
@@ -1020,16 +1376,21 @@ def main() -> None:
         status_label = st.selectbox("Lọc trạng thái", [_label(value) for value in STATUS_FILTERS], index=0)
         selected_status = _selected_status_value(status_label)
         auto_refresh = st.checkbox("Tự làm mới", value=True)
-        refresh_seconds = st.number_input("Chu kỳ làm mới (giây)", min_value=1, max_value=30, value=2)
+        if debug:
+            refresh_seconds = st.number_input("Chu kỳ làm mới (giây)", min_value=1, max_value=30, value=2)
+        else:
+            refresh_seconds = 2
         st.divider()
-        remembered = st.text_input("Mã tác vụ đang theo dõi", key="job_id_input")
+        remembered = st.text_input("Tra cứu phiên làm việc", key="job_id_input")
         remembered_job_id = remembered.strip()
         if remembered_job_id != selected_job_id:
             _select_job(remembered_job_id)
             st.session_state["_job_id_input_synced"] = remembered_job_id
             st.rerun()
 
-    page_options = ["Tạo sách nói", "Theo dõi", "Kết quả", "Nhật ký"]
+    page_options = ["Tạo sách nói", "Theo dõi", "Kết quả"]
+    if debug:
+        page_options.append("Nhật ký")
     if "page_target" not in st.session_state:
         st.session_state["page_target"] = page_options[0]
     if st.session_state["page_target"] not in page_options:
@@ -1063,7 +1424,7 @@ def main() -> None:
 
     @st.fragment(**fragment_options)
     def page_fragment() -> None:
-        render_page_content(page, output_format, normalize_audio, add_chapters, selected_status)
+        render_page_content(page, output_format, normalize_audio, add_chapters, selected_status, debug=debug)
 
     with page_host.container():
         page_fragment()

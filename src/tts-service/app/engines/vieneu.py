@@ -52,7 +52,7 @@ class VieNeuEngine(BaseTTSEngine):
             or os.getenv("VIENEU_CODEC_REPO")
             or ("neuphonic/neucodec" if self.enable_voice_cloning else "neuphonic/neucodec-onnx-decoder-int8")
         )
-        self.codec_device = self._normalize_device(codec_device or os.getenv("VIENEU_CODEC_DEVICE") or self.device)
+        self.codec_device = self._resolve_device(codec_device or os.getenv("VIENEU_CODEC_DEVICE") or self.device)
         self.reference_text = os.getenv(
             "VIENEU_REFERENCE_TEXT",
             "Tác phẩm dự thi bảo đảm tính khoa học, tính đảng, tính chiến đấu, tính định hướng.",
@@ -261,11 +261,11 @@ class VieNeuEngine(BaseTTSEngine):
         sample_path = self.voice_dir / f"{Path(voice_id).stem}.wav"
         return sample_path if sample_path.is_file() else None
 
-    def _should_clone_voice(self, voice_id: str) -> bool:
+    def _should_clone_voice(self, voice_id: str, ref_audio: Optional[Path] = None) -> bool:
         if not self.enable_voice_cloning:
             return False
         voice_name = Path(voice_id).stem
-        return os.path.isfile(voice_id) or voice_name.startswith("custom_")
+        return os.path.isfile(voice_id) or voice_name.startswith("custom_") or ref_audio is not None
 
     def _can_encode_reference_audio(self) -> bool:
         codec = getattr(self.tts, "codec", None)
@@ -287,7 +287,7 @@ class VieNeuEngine(BaseTTSEngine):
         
         try:
             ref_audio = self._get_reference_audio(voice_id)
-            should_clone = self._should_clone_voice(voice_id)
+            should_clone = self._should_clone_voice(voice_id, ref_audio)
             if should_clone:
                 if not ref_audio:
                     raise RuntimeError(
@@ -296,7 +296,7 @@ class VieNeuEngine(BaseTTSEngine):
                     )
                 if not self._can_encode_reference_audio():
                     raise RuntimeError(
-                        "Voice cloning was requested for an uploaded/custom voice, but the loaded codec "
+                        "Voice cloning was requested for a local reference voice, but the loaded codec "
                         f"'{self.codec_repo}' cannot encode reference audio. Set VIENEU_CODEC_REPO to "
                         "'neuphonic/neucodec' or 'neuphonic/distill-neucodec'."
                     )
