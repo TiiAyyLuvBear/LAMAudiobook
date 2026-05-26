@@ -1,5 +1,0 @@
-outs:
-- md5: ac10bc5e02f825e8b3f09f857eeef196
-  size: 5675642481
-  hash: md5
-  path: XTTSv2-Finetuning-for-New-Languages/model/model.pth

@@ -30,16 +30,6 @@ Tạo audiobook
 Nghe hoặc tải xuống
 ```
 
-### Screenshots
-
-TODO: thêm ảnh upload UI
-
-TODO: thêm ảnh theo dõi tiến trình
-
-TODO: thêm ảnh trang kết quả
-
-TODO: thêm GIF/video demo
-
 ---
 
 ## Tính năng
@@ -287,8 +277,6 @@ VIENEU_MODE=standard
 VIENEU_EMOTION=storytelling
 ```
 
-TODO: thêm toàn bộ danh sách environment variables
-
 ---
 
 ## Deployment
@@ -311,19 +299,11 @@ Possible deployment:
 - AWS
 - GCP
 
-TODO: thêm hướng dẫn deployment
-
-TODO: thêm Docker image
-
-TODO: thêm docker-compose
-
-TODO: thêm Kubernetes deployment
 
 ---
 
 ## API Documentation
 
-TODO: thêm API endpoints
 
 Ví dụ:
 
@@ -347,23 +327,10 @@ GET /jobs/{job_id}/download
 
 ---
 
-## Performance
 
-TODO: benchmark
+## Cải tiến trong tương lai
 
-Ví dụ:
-
-| Input | Duration | Device |
-|---------|----------|---------|
-| 10 pages | TODO | CPU |
-| 50 pages | TODO | T4 |
-| 200 pages | TODO | RTX 4080 |
-
----
-
-## Roadmap
-
-### Current
+### Hiện tại
 
 - [x] EPUB parsing
 - [x] TXT parsing
@@ -372,7 +339,7 @@ Ví dụ:
 - [x] Queue system
 - [x] EPUB3 output
 
-### Future
+### Tương lai
 
 - [ ] PDF production support
 - [ ] Multi-language support
@@ -385,64 +352,11 @@ Ví dụ:
 
 ---
 
-## Known Limitations
+## Hạn chế
 
 - PDF production workflow chưa hoàn thiện
-- XTTS cần GPU CUDA
+- XTTS cần GPU CUDA và Python 3.10
 - ffmpeg phải cài hệ thống
 - Một số TTS model có conflict dependency
 
 ---
-
-## Troubleshooting
-
-### ffmpeg not found
-
-Linux:
-
-```bash
-apt-get install -y ffmpeg
-```
-
-Windows:
-
-TODO: thêm hướng dẫn
-
----
-
-### espeak-ng missing
-
-Linux:
-
-```bash
-apt-get install -y espeak-ng
-```
-
----
-
-## Documentation
-
-Xem thêm:
-
-```text
-docs/COMPONENTS.md
-```
-
-TODO: thêm:
-
-- architecture.md
-- deployment.md
-- api.md
-- training.md
-
----
-
-## Contributors
-
-TODO
-
----
-
-## License
-
-TODO
