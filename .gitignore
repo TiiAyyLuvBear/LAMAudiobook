@@ -81,5 +81,4 @@ data/audio_cache/
 
 # Ignore models
 model/
-models/
 scripts/model/
