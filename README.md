@@ -270,11 +270,11 @@ TTS_ENGINE=vieneu
 
 TTS_DEVICE=cpu
 
-VIENEU_MODEL_NAME=pnnbao-ump/VieNeu-TTS-v2
+VIENEU_MODEL_NAME=pnnbao-ump/VieNeu-TTS-0.3B
 
 VIENEU_MODE=standard
 
-VIENEU_EMOTION=storytelling
+VIENEU_EMOTION=storytellin
 ```
 
 ---
